@@ -1,21 +1,24 @@
 #pragma once
 
-#include "IState.h"
-#include "../entities/actor/player/Player.h"
 #include "../entities/Entity.h"
-#include <SFML/Graphics/VertexArray.hpp>
-#include <SFML/Graphics/Text.hpp>
-#include <SFML/Graphics/RectangleShape.hpp>
+#include "../entities/actor/player/Player.h"
+#include "IState.h"
 
-class StatePlaying : public IState
-{
-public:
+#include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/Text.hpp>
+#include <SFML/Graphics/VertexArray.hpp>
+
+class StatePlaying : public IState {
+  public:
     StatePlaying(StateStack& stateStack);
     ~StatePlaying() = default;
 
     bool init() override;
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
+
+    // World queries
+    float getGroundTopY() const { return m_ground.getPosition().y; }
 
     // Create a new entity of type T and add it to the world
     template <typename T, typename... Args> T* createEntity(Args&&... args) {
@@ -26,10 +29,10 @@ public:
         return entityPtr;
     }
 
-private:
+  private:
     // Game state
     StateStack& m_stateStack;
-    bool m_hasPauseKeyBeenReleased = true;
+    bool        m_hasPauseKeyBeenReleased = true;
 
     // Player reference
     Player* m_pPlayer = nullptr;
