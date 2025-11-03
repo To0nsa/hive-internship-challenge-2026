@@ -30,6 +30,7 @@ class StatePlaying : public IState {
     void requestExitToMenu();
 
     // World queries
+    Player* getPlayer() const { return m_pPlayer; }
     float getGroundTopY() const {
         if (m_ground)
             return m_ground->getTopYForView(m_view);
@@ -94,10 +95,17 @@ class StatePlaying : public IState {
     float    m_cameraX           = 0.f;
     float    m_cameraTargetX     = 0.f; // smoothed target center X
     float    m_cameraSpeed       = 0.f;
-    float    m_cameraTargetSpeed = 10.f;
+    float    m_cameraTargetSpeed = 500.f;
 
     // HUD
     GameHUD m_hud;
+
+    // Timed spawns
+    float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
+
+    // Scoring
+    int   m_scorePoints         = 0;
+    float m_scoreSecondAccum    = 0.f; // adds +10 per whole second elapsed
 
     // Camera tuning
     static inline constexpr float kCameraAccel          = 1200.f;

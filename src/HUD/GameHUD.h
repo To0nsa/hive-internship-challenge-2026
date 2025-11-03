@@ -19,6 +19,8 @@ class GameHUD final : public sf::Drawable {
 
     // Timer text API
     void setElapsedSeconds(float seconds);
+    // Score text API
+    void setScore(int score);
 
   private:
     void layout();
@@ -42,4 +44,5 @@ class GameHUD final : public sf::Drawable {
 
     // Text
     std::unique_ptr<sf::Text> m_pTimerText;
+    std::unique_ptr<sf::Text> m_pScoreText;
 };

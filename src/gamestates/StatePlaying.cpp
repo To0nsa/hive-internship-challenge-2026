@@ -8,6 +8,10 @@
 #include "../obstacle/Obstacle.h"
 #include "../obstacle/ObstacleFactory.h"
 #include "../obstacle/ObstacleTypes.h"
+#include "../entities/actor/enemy/Enemy.h"
+#include "../entities/actor/enemy/Demon.h"
+#include "../spell/projectile/Projectile.h"
+#include "../faction/Faction.h"
 #include "../platform/Platform.h"
 #include "../platform/PlatformFactory.h"
 #include "../utils/Math.h"
@@ -102,6 +106,14 @@ void StatePlaying::update(float dt) {
     m_hud.update(dt);
     m_hud.setElapsedSeconds(m_gameClock.getElapsed());
 
+    // Score: +10 per second
+    m_scoreSecondAccum += dt;
+    while (m_scoreSecondAccum >= 1.f) {
+        m_scorePoints += 10;
+        m_scoreSecondAccum -= 1.f;
+    }
+    m_hud.setScore(m_scorePoints);
+
     // CAMERA UPDATE
     // Camera auto-scroll baseline (advance target; center eases toward it)
     if (m_cameraSpeed < m_cameraTargetSpeed) {
@@ -130,8 +142,21 @@ void StatePlaying::update(float dt) {
     if (m_ground)
         m_ground->updateForView(m_view);
 
-    // Resolve horizontal collisions first (player vs obstacles) to prevent side hits
-    // from being treated as vertical landings in the physics step.
+    // Timed Demon spawns: every 10 seconds at y=400, just off the right edge of the view
+    m_demonSpawnTimer -= dt;
+    if (m_demonSpawnTimer <= 0.f) {
+        m_demonSpawnTimer += 10.f;
+        const float rightX = getCameraLeft() + m_view.getSize().x + 60.f;
+        const float y      = 400.f;
+        if (auto* demon = createEntity<Demon>()) {
+            if (demon->init()) {
+                demon->setPosition({rightX, y});
+                demon->update(0.f);
+            }
+        }
+    }
+
+    // Resolve horizontal collisions between player and obstacles
     if (m_pPlayer && m_pPlayer->isAlive()) {
         sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
         for (auto& entity : m_entities) {
@@ -177,6 +202,45 @@ void StatePlaying::update(float dt) {
             const Collider* col = m_ground ? static_cast<const Collider*>(&combined)
                                            : static_cast<const Collider*>(nullptr);
             actor->applyPhysics(dt, col);
+        }
+    }
+
+    // Spell collisions: projectiles vs actors by faction
+    {
+        for (const auto& eProj : m_entities) {
+            auto* proj = dynamic_cast<Projectile*>(eProj.get());
+            if (!proj || !proj->isAlive() || !proj->isDamageActive())
+                continue;
+
+            const sf::FloatRect pr = proj->getCollider().worldAabb();
+            if (proj->getFaction() == Faction::Enemy) {
+                // Enemy projectile hits the player
+                if (m_pPlayer && m_pPlayer->isAlive()) {
+                    const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+                    if (geom::aabbIntersects(pr, pb)) {
+                        m_pPlayer->applyDamage(proj->getStats().damage);
+                        proj->requestImpact();
+                        continue;
+                    }
+                }
+            } else if (proj->getFaction() == Faction::Player) {
+                // Player projectile hits enemies
+                for (const auto& eOther : m_entities) {
+                    auto* enemy = dynamic_cast<Enemy*>(eOther.get());
+                    if (!enemy || !enemy->isAlive())
+                        continue;
+                    const sf::FloatRect eb = enemy->getCollider().worldAabb();
+                    if (geom::aabbIntersects(pr, eb)) {
+                        // Award kill if this hit is lethal
+                        const float hpBefore = enemy->getHp();
+                        enemy->applyDamage(proj->getStats().damage);
+                        if (hpBefore > 0.f && enemy->getHp() <= 0.f)
+                            m_scorePoints += 100; // enemy killed
+                        proj->requestImpact();
+                        break;
+                    }
+                }
+            }
         }
     }
 
