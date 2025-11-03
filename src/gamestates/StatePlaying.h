@@ -23,6 +23,9 @@ class StatePlaying : public IState {
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
 
+    // Lifecycle
+    void requestExitToMenu();
+
     // World queries
     float getGroundTopY() const {
         if (m_ground)

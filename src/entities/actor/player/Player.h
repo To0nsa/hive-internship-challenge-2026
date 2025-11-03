@@ -58,6 +58,8 @@ class Player final : public Actor {
     static inline constexpr float kPlayerManaRegenRate    = 1.f;
     static inline constexpr float kPlayerStaminaMax       = 100.f;
     static inline constexpr float kPlayerStaminaRegenRate = 1.f;
+    static inline constexpr float kJumpStaminaCost        = 2.f;
+    static inline constexpr float kDashStaminaCost        = 2.f;
 
     // Jumping
     static inline constexpr float kJumpSpeed       = 1200.f;

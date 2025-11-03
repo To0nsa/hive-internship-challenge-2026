@@ -24,6 +24,11 @@
 
 StatePlaying::StatePlaying(StateStack& stateStack) : m_stateStack(stateStack) {}
 
+void StatePlaying::requestExitToMenu() {
+    // Pop this state; the menu remains underneath.
+    m_stateStack.popDeferred();
+}
+
 bool StatePlaying::init() {
     // View set to window size
     m_view.setSize(
@@ -182,6 +187,14 @@ void StatePlaying::update(float dt) {
                     m_pPlayer->applyDamage(o->getDps() * dt);
                 }
             }
+        }
+    }
+
+    // Kill if player falls into a lava gap
+    if (m_pPlayer && m_pPlayer->isAlive() && m_ground) {
+        const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+        if (m_ground->intersectsLavaGap(pb, m_view)) {
+            m_pPlayer->applyDamage(10000.f);
         }
     }
 

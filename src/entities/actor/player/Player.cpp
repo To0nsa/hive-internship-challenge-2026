@@ -97,7 +97,21 @@ void Player::applyMovement(const sf::Vector2f& direction, float dt) {
 }
 
 void Player::update(float dt) {
-    // Base actor update (regen, etc.)
+    // Death state: if HP or Stamina is zero or below, enter death and only update animation.
+    if ((m_hp <= 0.f || m_stamina <= 0.f) && m_state != State::Death) {
+        enterDeath();
+    }
+    if (m_state == State::Death) {
+        if (m_pAnimator) {
+            m_pAnimator->ensureClip(kDeath);
+            m_pAnimator->update(dt);
+        }
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+        return;
+    }
+
+    
     updateActorBase(dt);
 
     // Edge-triggered input for jump/dash
@@ -197,8 +211,11 @@ void Player::update(float dt) {
 }
 
 void Player::tryApplyJump() {
-    if ((m_jumpRequested || m_jumpBufferLeft > 0.f) && (isGrounded() || m_coyoteTimer > 0.f)) {
+    if ((m_jumpRequested || m_jumpBufferLeft > 0.f) && (isGrounded() || m_coyoteTimer > 0.f) &&
+        (m_stamina >= kJumpStaminaCost)) {
         m_velocity.y     = -kJumpSpeed;
+        // Spend stamina
+        m_stamina -= kJumpStaminaCost;
         m_jumpRequested  = false;
         m_jumpBufferLeft = 0.f;
         if (m_pAnimator)
@@ -211,6 +228,8 @@ void Player::tryApplyDash() {
         return;
     m_dashRequested = false;
     if (m_dashCooldownLeft > 0.f)
+        return;
+    if (m_stamina < kDashStaminaCost)
         return;
 
     float dirX = 0.f;
@@ -252,6 +271,9 @@ void Player::enterDash(float dirX) {
     m_dashTimer        = kDashDuration;
     m_dashCooldownLeft = kDashCooldown;
     m_dashDirX         = (dirX >= 0.f) ? +1.f : -1.f;
+    // Spend stamina
+    if (m_stamina >= kDashStaminaCost)
+        m_stamina -= kDashStaminaCost;
     setFacing(m_dashDirX > 0 ? Facing::Right : Facing::Left);
     if (m_pAnimator)
         m_pAnimator->playClip(kDash);
@@ -259,9 +281,14 @@ void Player::enterDash(float dirX) {
 
 void Player::enterDeath() {
     m_state = State::Death;
-    if (m_pAnimator)
-        m_pAnimator->playClip(kDeath);
-    setAlive(false);
+    if (m_pAnimator) {
+        // When the non-looping death animation finishes, return to the menu.
+        StatePlaying* world = m_world;
+        m_pAnimator->playClip(kDeath, [world]() {
+            if (world)
+                world->requestExitToMenu();
+        });
+    }
 }
 
 bool Player::isGrounded() const { return m_grounded; }
