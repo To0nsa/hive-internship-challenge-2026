@@ -7,8 +7,7 @@
 namespace Debug {
     // Draw a rectangle outline matching the sprite's global bounds
     inline void drawSpriteBounds(sf::RenderTarget& target, const sf::Sprite& sprite,
-                                 const sf::Color& color, float thickness = 1.f)
-    {
+                                 const sf::Color& color, float thickness = 1.f) {
         const sf::FloatRect bounds = sprite.getGlobalBounds();
 
         sf::RectangleShape outline;
@@ -21,8 +20,7 @@ namespace Debug {
     }
 
     inline void drawSpriteOrigin(sf::RenderTarget& target, const sf::Sprite& sprite,
-                                  const sf::Color& color, float size = 10.f, float thickness = 2.f)
-    {
+                                 const sf::Color& color, float size = 10.f, float thickness = 2.f) {
         const sf::Vector2f originPos = sprite.getTransform().transformPoint(sprite.getOrigin());
 
         sf::RectangleShape crosshairH;

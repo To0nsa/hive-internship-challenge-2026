@@ -1,18 +1,15 @@
 #include "StatePaused.h"
-#include "StateStack.h"
+
 #include "../ResourceManager.h"
-#include <SFML/Graphics/RenderTarget.hpp>
+#include "StateStack.h"
+
 #include <SFML/Graphics/Font.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Text.hpp>
 
-StatePaused::StatePaused(StateStack& stateStack)
-    : m_stateStack(stateStack)
-{
-    
-}
+StatePaused::StatePaused(StateStack& stateStack) : m_stateStack(stateStack) {}
 
-bool StatePaused::init()
-{
+bool StatePaused::init() {
     m_pPrevState = m_stateStack.getCurrentState();
 
     const sf::Font* pFont = ResourceManager::getOrLoadFont("Lavigne.ttf");
@@ -31,8 +28,7 @@ bool StatePaused::init()
     return true;
 }
 
-void StatePaused::update(float dt)
-{
+void StatePaused::update(float dt) {
     (void)dt;
     bool isPauseKeyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape);
     m_hasPauseKeyBeenReleased |= !isPauseKeyPressed;
@@ -40,8 +36,7 @@ void StatePaused::update(float dt)
         m_stateStack.popDeferred();
 }
 
-void StatePaused::render(sf::RenderTarget& target) const
-{
+void StatePaused::render(sf::RenderTarget& target) const {
     if (m_pPrevState != nullptr)
         m_pPrevState->render(target);
 

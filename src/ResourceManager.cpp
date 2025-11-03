@@ -1,9 +1,9 @@
 #include "ResourceManager.h"
+
 #include <algorithm>
 #include <iostream>
 
-void ResourceManager::init(std::string executablePath)
-{
+void ResourceManager::init(std::string executablePath) {
     std::replace(executablePath.begin(), executablePath.end(), '\\', '/');
     size_t lastSlashIndex = executablePath.find_last_of('/');
     if (lastSlashIndex != std::string::npos)
@@ -11,8 +11,7 @@ void ResourceManager::init(std::string executablePath)
     m_assetPath += "assets/";
 }
 
-const sf::Font* ResourceManager::getOrLoadFont(const std::string& filename)
-{
+const sf::Font* ResourceManager::getOrLoadFont(const std::string& filename) {
     auto it = m_loadedFonts.find(filename);
     if (it != m_loadedFonts.end())
         return &it->second;
@@ -20,15 +19,14 @@ const sf::Font* ResourceManager::getOrLoadFont(const std::string& filename)
     auto res = m_loadedFonts.emplace(filename, sf::Font());
     if (!res.second)
         return nullptr;
-    
+
     sf::Font* pFont = &res.first->second;
     if (!pFont->openFromFile(getAssetPath(filename)))
         return nullptr;
-    return pFont; 
+    return pFont;
 }
 
-const sf::Texture* ResourceManager::getOrLoadTexture(const std::string& filename)
-{
+const sf::Texture* ResourceManager::getOrLoadTexture(const std::string& filename) {
     auto it = m_loadedTextures.find(filename);
     if (it != m_loadedTextures.end())
         return &it->second;
@@ -43,8 +41,7 @@ const sf::Texture* ResourceManager::getOrLoadTexture(const std::string& filename
     return pTexture;
 }
 
-const sf::SoundBuffer* ResourceManager::getOrLoadSoundBuffer(const std::string& filename)
-{
+const sf::SoundBuffer* ResourceManager::getOrLoadSoundBuffer(const std::string& filename) {
     auto it = m_loadedSoundBuffers.find(filename);
     if (it != m_loadedSoundBuffers.end())
         return &it->second;
@@ -59,11 +56,8 @@ const sf::SoundBuffer* ResourceManager::getOrLoadSoundBuffer(const std::string& 
     return pSoundBuffer;
 }
 
-std::filesystem::path ResourceManager::getAssetPath(const std::string& filename)
-{
+std::filesystem::path ResourceManager::getAssetPath(const std::string& filename) {
     std::filesystem::path path = "assets/" + filename;
 
     return path;
 }
-
-

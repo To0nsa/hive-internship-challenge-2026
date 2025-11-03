@@ -1,23 +1,24 @@
+#include "Config.h"
 #include "ResourceManager.h"
-#include "gamestates/StateStack.h"
 #include "gamestates/IState.h"
 #include "gamestates/StateMenu.h"
-#include "Config.h"
-#include <memory>
-#include <stack>
-#include <optional>
+#include "gamestates/StateStack.h"
+
 #include <SFML/Graphics.hpp>
 #include <SFML/System/Clock.hpp>
 #include <SFML/System/Time.hpp>
+#include <memory>
+#include <optional>
+#include <stack>
 
-int main(int argc, char* argv[])
-{
+int main(int argc, char* argv[]) {
     (void)argc;
 
     // ResourceManager must be instantiated here -- DO NOT CHANGE
     ResourceManager::init(argv[0]);
 
-    sf::RenderWindow window(sf::VideoMode({Config::windowWidth, Config::windowHeight}), Config::windowTitle);
+    sf::RenderWindow window(sf::VideoMode({Config::windowWidth, Config::windowHeight}),
+                            Config::windowTitle);
     window.setKeyRepeatEnabled(false);
     window.setVerticalSyncEnabled(true);
 
@@ -26,17 +27,15 @@ int main(int argc, char* argv[])
         return -1;
 
     sf::Clock clock;
-    while (window.isOpen())
-    {
+    while (window.isOpen()) {
         sf::Time elapsedTime = clock.restart();
 
         IState* pState = gamestates.getCurrentState();
-        if (!pState) return -1;
+        if (!pState)
+            return -1;
 
-        while (const std::optional<sf::Event> event = window.pollEvent())
-        {
-            if (event->is<sf::Event::Closed>())
-            {
+        while (const std::optional<sf::Event> event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
                 window.close();
             }
         }
@@ -48,6 +47,6 @@ int main(int argc, char* argv[])
 
         gamestates.performDeferredPops();
     }
-    
+
     return 0;
 }

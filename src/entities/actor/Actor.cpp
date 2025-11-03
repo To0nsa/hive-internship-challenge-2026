@@ -2,8 +2,8 @@
 #include "Actor.h"
 
 #include "../../Config.h"
-#include "../../ResourceManager.h"
 #include "../../Debug.h"
+#include "../../ResourceManager.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <algorithm>

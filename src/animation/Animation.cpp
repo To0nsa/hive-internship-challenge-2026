@@ -91,7 +91,8 @@ namespace Animation {
 
         clip.frameRects.reserve(frameCount);
         for (int i = 0; i < frameCount; ++i) {
-            clip.frameRects.emplace_back(sf::IntRect{{i * frameSize.x, 0}, {frameSize.x, frameSize.y}});
+            clip.frameRects.emplace_back(
+                sf::IntRect{{i * frameSize.x, 0}, {frameSize.x, frameSize.y}});
         }
         return clip;
     }
@@ -129,7 +130,8 @@ namespace Animation {
         for (int i = start; i <= end; ++i) {
             const int c = i % cols;
             const int r = i / cols;
-            clip.frameRects.emplace_back(sf::IntRect{{c * frameSize.x, r * frameSize.y}, {frameSize.x, frameSize.y}});
+            clip.frameRects.emplace_back(
+                sf::IntRect{{c * frameSize.x, r * frameSize.y}, {frameSize.x, frameSize.y}});
         }
         return clip;
     }

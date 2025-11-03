@@ -1,19 +1,17 @@
 #include "StatePlaying.h"
+
+#include "../ResourceManager.h"
 #include "StatePaused.h"
 #include "StateStack.h"
-#include "../ResourceManager.h"
-#include <memory>
-#include <iostream>
+
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <cmath>
+#include <iostream>
+#include <memory>
 
-StatePlaying::StatePlaying(StateStack& stateStack)
-    : m_stateStack(stateStack)
-{
-}
+StatePlaying::StatePlaying(StateStack& stateStack) : m_stateStack(stateStack) {}
 
-bool StatePlaying::init()
-{
+bool StatePlaying::init() {
     m_ground.setSize({1024.0f, 256.0f});
     m_ground.setPosition({0.0f, 800.0f});
     m_ground.setFillColor(sf::Color::Green);
@@ -26,12 +24,10 @@ bool StatePlaying::init()
     return true;
 }
 
-void StatePlaying::update(float dt)
-{
+void StatePlaying::update(float dt) {
     bool isPauseKeyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape);
     m_hasPauseKeyBeenReleased |= !isPauseKeyPressed;
-    if (m_hasPauseKeyBeenReleased && isPauseKeyPressed)
-    {
+    if (m_hasPauseKeyBeenReleased && isPauseKeyPressed) {
         m_hasPauseKeyBeenReleased = false;
         m_stateStack.push<StatePaused>();
     }
@@ -41,11 +37,9 @@ void StatePlaying::update(float dt)
         pEntity->update(dt);
 }
 
-void StatePlaying::render(sf::RenderTarget& target) const
-{
+void StatePlaying::render(sf::RenderTarget& target) const {
     target.draw(m_ground);
-    for (const std::unique_ptr<Entity>& pEntity : m_entities)
-    {
+    for (const std::unique_ptr<Entity>& pEntity : m_entities) {
         pEntity->render(target);
     }
 }

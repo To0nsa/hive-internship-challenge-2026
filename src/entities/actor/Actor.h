@@ -6,7 +6,7 @@ class Collider;
 
 class Actor : public Entity {
   public:
-    Actor() = default;
+    Actor()          = default;
     virtual ~Actor() = default;
 
     // Stats

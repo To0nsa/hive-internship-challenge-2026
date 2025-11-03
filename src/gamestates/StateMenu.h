@@ -1,13 +1,15 @@
 #pragma once
 
 #include "IState.h"
+
 #include <memory>
 
-namespace sf { class Text; };
+namespace sf {
+    class Text;
+};
 
-class StateMenu : public IState
-{
-public:
+class StateMenu : public IState {
+  public:
     StateMenu(StateStack& stateStack);
     ~StateMenu() = default;
 
@@ -15,9 +17,9 @@ public:
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
 
-public:
-    StateStack& m_stateStack;
+  public:
+    StateStack&               m_stateStack;
     std::unique_ptr<sf::Text> m_pText;
-    bool m_hasStartKeyBeenPressed = false;
-    bool m_hasStartKeyBeenReleased = false;
+    bool                      m_hasStartKeyBeenPressed  = false;
+    bool                      m_hasStartKeyBeenReleased = false;
 };
