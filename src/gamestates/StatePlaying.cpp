@@ -1,6 +1,7 @@
 #include "StatePlaying.h"
 
 #include "../Config.h"
+#include "../Debug.h"
 #include "../ResourceManager.h"
 #include "../utils/Math.h"
 #include "StatePaused.h"
@@ -24,9 +25,24 @@ bool StatePlaying::init() {
     m_cameraTargetX = m_cameraX;
     m_cameraSpeed   = 0.f; // ease-in
 
+    // Backgrounds
+    m_bg = std::make_unique<ParallaxBackground>(std::initializer_list<strip::ParallaxLayerDesc>{
+        {"bg_01", 0.16f},
+        {"bg_02", 0.22f},
+        {"bg_03", 0.28f},
+        {"bg_04", 0.34f},
+        {"bg_05", 0.50f},
+        {"bg_06", 0.62f},
+        {"bg_08", 0.76f},
+    });
+    // Animated background strip
+    m_bgAnim = std::make_unique<AnimatedParallaxStrip>(
+        std::vector<std::string>{"bg_anim_01", "bg_anim_02", "bg_anim_03"}, 0.15f, 6.f);
+
+    // Ground
     m_ground.setSize({1024.0f, 256.0f});
     m_ground.setPosition({0.0f, 800.0f});
-    m_ground.setFillColor(sf::Color::Green);
+    m_ground.setFillColor(sf::Color(64, 160, 64));
 
     m_pPlayer = createEntity<Player>();
     if (!m_pPlayer || !m_pPlayer->init())
@@ -43,6 +59,10 @@ void StatePlaying::update(float dt) {
         m_hasPauseKeyBeenReleased = false;
         m_stateStack.push<StatePaused>();
     }
+
+    // Update background anim
+    if (m_bgAnim)
+        m_bgAnim->update(dt);
 
     // Update all entities
     for (const std::unique_ptr<Entity>& pEntity : m_entities)
@@ -74,16 +94,36 @@ void StatePlaying::update(float dt) {
 }
 
 void StatePlaying::render(sf::RenderTarget& target) const {
-    const sf::View prev = target.getView();
+    const sf::View oldView = target.getView();
     target.setView(m_view);
 
-    target.draw(m_ground);
-    for (const std::unique_ptr<Entity>& pEntity : m_entities) {
-        pEntity->render(target);
+    if (m_bgAnim)
+        m_bgAnim->drawForView(target, m_view);
+
+    if (m_bg) {
+        const std::size_t i06  = m_bg->findIndexByKey("bg_06");
+        const std::size_t upto = (i06 < m_bg->size()) ? i06 : (m_bg->size() ? m_bg->size() - 1 : 0);
+        m_bg->drawRangeForView(target, m_view, 0, upto);
     }
 
-    // Restore previous view (for UI, overlays, etc.)
-    target.setView(prev);
+    target.draw(m_ground);
+
+    for (const std::unique_ptr<Entity>& pEntity : m_entities)
+        pEntity->render(target);
+
+    // Foreground layer 08 after entities
+    if (m_bg) {
+        const std::size_t i08 = m_bg->findIndexByKey("bg_08");
+        if (i08 < m_bg->size())
+            m_bg->drawRangeForView(target, m_view, i08, i08);
+    }
+
+    // Debug helpers
+    if constexpr (Config::kDebugDraw) {
+        Debug::drawCameraGuides(target, m_view, getCameraCatchupX(), getFollowThresholdX());
+    }
+
+    target.setView(oldView);
 }
 
 float StatePlaying::getCameraLeft() const {

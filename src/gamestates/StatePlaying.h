@@ -3,6 +3,9 @@
 #include "../entities/Entity.h"
 #include "../entities/actor/player/Player.h"
 #include "IState.h"
+// Level visuals
+#include "../level/AnimatedParallaxStrip.h"
+#include "../level/ParallaxBackground.h"
 
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/Text.hpp>
@@ -46,6 +49,9 @@ class StatePlaying : public IState {
     // Entities
     std::vector<std::unique_ptr<Entity>> m_entities;
 
+    // Backgrounds / ground
+    std::unique_ptr<ParallaxBackground>    m_bg;
+    std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
     // Ground
     sf::RectangleShape m_ground;
 

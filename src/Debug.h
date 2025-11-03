@@ -48,4 +48,20 @@ namespace Debug {
         outline.setOutlineThickness(thickness);
         target.draw(outline);
     }
+
+    inline void drawVerticalGuide(sf::RenderTarget& target, const sf::View& view, float x,
+                                  const sf::Color& color, float thickness = 3.f) {
+        const float        bottomY   = 0.f;
+        const float        height = view.getSize().y;
+        sf::RectangleShape line({thickness, height});
+        line.setPosition({x - thickness * 0.5f, bottomY});
+        line.setFillColor(color);
+        target.draw(line);
+    }
+
+    inline void drawCameraGuides(sf::RenderTarget& target, const sf::View& view, float catchupX,
+                                 float followX) {
+        drawVerticalGuide(target, view, catchupX, sf::Color::Cyan);
+        drawVerticalGuide(target, view, followX, sf::Color::Yellow);
+    }
 } // namespace Debug
