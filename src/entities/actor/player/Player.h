@@ -12,7 +12,6 @@ class Player final : public Actor {
 
     bool init() override;
     void update(float dt) override;
-    
 
   private:
     // State machine

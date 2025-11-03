@@ -7,6 +7,7 @@
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
+#include <SFML/Graphics/View.hpp>
 
 class StatePlaying : public IState {
   public:
@@ -19,6 +20,11 @@ class StatePlaying : public IState {
 
     // World queries
     float getGroundTopY() const { return m_ground.getPosition().y; }
+
+    // Camera helpers
+    float getCameraLeft() const;
+    float getCameraCatchupX() const;   // left edge + margin
+    float getFollowThresholdX() const; // left + ratio * width
 
     // Create a new entity of type T and add it to the world
     template <typename T, typename... Args> T* createEntity(Args&&... args) {
@@ -42,4 +48,18 @@ class StatePlaying : public IState {
 
     // Ground
     sf::RectangleShape m_ground;
+
+    // Camera
+    sf::View m_view;
+    float    m_cameraX           = 0.f;
+    float    m_cameraTargetX     = 0.f; // smoothed target center X
+    float    m_cameraSpeed       = 0.f;
+    float    m_cameraTargetSpeed = 500.f;
+
+    // Camera tuning
+    static inline constexpr float kCameraAccel          = 1200.f;
+    static inline constexpr float kCatchupMarginLeft    = 60.f;
+    static inline constexpr float kFollowThresholdRatio = 0.80f; // 80% from left
+    static inline constexpr float kCatchupLerp          = 8.f;   // view center smoothing
+    static inline constexpr float kTargetCatchupLerp    = 2.5f;  // target center smoothing
 };
