@@ -3,7 +3,11 @@
 #include "../Config.h"
 #include "../Debug.h"
 #include "../ResourceManager.h"
+#include "../obstacle/ObstacleFactory.h"
+#include "../obstacle/ObstacleTypes.h"
 #include "../utils/Math.h"
+#include "../utils/Random.h"
+#include "../entities/actor/Actor.h"
 #include "StatePaused.h"
 #include "StateStack.h"
 
@@ -43,10 +47,16 @@ bool StatePlaying::init() {
     m_ground = std::make_unique<GroundStream>(strip::ParallaxLayerDesc{"bg_07", 1.f});
     m_ground->updateForView(m_view);
 
+    // Create player entity
     m_pPlayer = createEntity<Player>();
     if (!m_pPlayer || !m_pPlayer->init())
         return false;
     m_pPlayer->setPosition(sf::Vector2f(200, 800));
+
+    // Seed RNG and schedule first obstacle spawn a bit ahead of view
+    Random::seed(Random::timeSeed());
+    const float viewRight = getCameraLeft() + m_view.getSize().x * 2.f;
+    m_nextObstacleX       = viewRight + Random::rangef(680.f, 1280.f);
 
     return true;
 }
@@ -90,6 +100,72 @@ void StatePlaying::update(float dt) {
     const float alpha = math::expSmoothingFactor(kCatchupLerp, dt);
     m_cameraX += (m_cameraTargetX - m_cameraX) * alpha;
     m_view.setCenter({m_cameraX, m_view.getSize().y * 0.5f});
+
+    // Update ground colliders for current view
+    if (m_ground)
+        m_ground->updateForView(m_view);
+
+    // Horizontal collide player vs obstacles
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                const sf::FloatRect ob = o->getCollider().worldAabb();
+                sf::FloatRect       inter;
+                if (geom::aabbIntersects(pb, ob, inter)) {
+                    const float pcx   = pb.position.x + pb.size.x * 0.5f;
+                    const float ocx   = ob.position.x + ob.size.x * 0.5f;
+                    const float pushX = (pcx < ocx ? -inter.size.x : +inter.size.x);
+                    const auto  p     = m_pPlayer->getPosition();
+                    m_pPlayer->setPosition({p.x + pushX, p.y});
+                    pb = m_pPlayer->getCollider().worldAabb();
+                }
+            }
+        }
+    }
+
+    // Stream simple random obstacles ahead of camera
+    {
+        const float viewLeft  = getCameraLeft();
+        const float viewRight = viewLeft + m_view.getSize().x * 2.f;
+        if (m_ground) {
+            const float groundTop = m_ground->getTopYForView(m_view);
+            while (viewRight + 50.f >= m_nextObstacleX) {
+                const int   kindIdx = Random::rangei(0, static_cast<int>(ObstacleKind::Count) - 1);
+                const auto  kind    = static_cast<ObstacleKind>(kindIdx);
+                const auto& desc    = getObstacleDesc(kind);
+                const float y       = groundTop - desc.colliderSize.y;
+                const float x       = m_nextObstacleX;
+                spawnObstacle(*this, kind, {x, y});
+                m_nextObstacleX += Random::rangef(680.f, 1280.f);
+            }
+        }
+    }
+
+    // Lifetime culling: remove obstacles behind the camera
+    {
+        const float viewLeft   = getCameraLeft();
+        const float cullBefore = viewLeft - m_view.getSize().x;
+
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                const sf::FloatRect aabb = o->getCollider().worldAabb();
+                const float         right = aabb.position.x + aabb.size.x;
+                if (right < cullBefore)
+                    o->setAlive(false);
+            }
+        }
+
+        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(), [](auto& e) {
+                                 return !e->isAlive();
+                             }),
+                         m_entities.end());
+    }
+    
     if (m_ground)
         m_ground->updateForView(m_view);
 }
@@ -107,11 +183,18 @@ void StatePlaying::render(sf::RenderTarget& target) const {
         m_bg->drawRangeForView(target, m_view, 0, upto);
     }
 
+    for (const std::unique_ptr<Entity>& pEntity : m_entities) {
+        if (dynamic_cast<Actor*>(pEntity.get()))
+            pEntity->render(target);
+    }
+
     if (m_ground)
         m_ground->drawForView(target, m_view);
 
-    for (const std::unique_ptr<Entity>& pEntity : m_entities)
-        pEntity->render(target);
+    for (const std::unique_ptr<Entity>& pEntity : m_entities) {
+        if (!dynamic_cast<Actor*>(pEntity.get()))
+            pEntity->render(target);
+    }
 
     // Foreground layer 08 after entities
     if (m_bg) {

@@ -3,7 +3,6 @@
 #include "../entities/Entity.h"
 #include "../entities/actor/player/Player.h"
 #include "IState.h"
-// Level visuals
 #include "../level/AnimatedParallaxStrip.h"
 #include "../level/GroundStream.h"
 #include "../level/ParallaxBackground.h"
@@ -70,12 +69,15 @@ class StatePlaying : public IState {
     std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
     std::unique_ptr<GroundStream>          m_ground;
 
+    // Obstacle spawning
+    float m_nextObstacleX = 0.f;
+
     // Camera
     sf::View m_view;
     float    m_cameraX           = 0.f;
     float    m_cameraTargetX     = 0.f; // smoothed target center X
     float    m_cameraSpeed       = 0.f;
-    float    m_cameraTargetSpeed = 500.f;
+    float    m_cameraTargetSpeed = 10.f;
 
     // Camera tuning
     static inline constexpr float kCameraAccel          = 1200.f;
