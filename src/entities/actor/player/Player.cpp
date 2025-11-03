@@ -261,6 +261,7 @@ void Player::enterDeath() {
     m_state = State::Death;
     if (m_pAnimator)
         m_pAnimator->playClip(kDeath);
+    setAlive(false);
 }
 
 bool Player::isGrounded() const { return m_grounded; }

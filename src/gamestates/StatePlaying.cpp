@@ -57,6 +57,9 @@ bool StatePlaying::init() {
         return false;
     m_pPlayer->setPosition(sf::Vector2f(200, 800));
 
+    // HUD wiring
+    m_hud.setPlayer(m_pPlayer);
+
     // Seed RNG and schedule first obstacle spawn a bit ahead of view
     Random::seed(Random::timeSeed());
     const float viewRight = getCameraLeft() + m_view.getSize().x * 2.f;
@@ -81,6 +84,9 @@ void StatePlaying::update(float dt) {
     // Update all entities
     for (const std::unique_ptr<Entity>& pEntity : m_entities)
         pEntity->update(dt);
+
+    // Update HUD stats from player
+    m_hud.update(dt);
 
     // CAMERA UPDATE
     // Camera auto-scroll baseline (advance target; center eases toward it)
@@ -326,6 +332,9 @@ void StatePlaying::render(sf::RenderTarget& target) const {
     }
 
     target.setView(oldView);
+
+    // Draw HUD in screen space (default view)
+    target.draw(m_hud);
 }
 
 float StatePlaying::getCameraLeft() const {

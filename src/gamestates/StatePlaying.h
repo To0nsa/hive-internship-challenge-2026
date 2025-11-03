@@ -5,6 +5,7 @@
 #include "../level/AnimatedParallaxStrip.h"
 #include "../level/GroundStream.h"
 #include "../level/ParallaxBackground.h"
+#include "../HUD/GameHUD.h"
 #include "IState.h"
 
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -87,6 +88,9 @@ class StatePlaying : public IState {
     float    m_cameraTargetX     = 0.f; // smoothed target center X
     float    m_cameraSpeed       = 0.f;
     float    m_cameraTargetSpeed = 10.f;
+
+    // HUD
+    GameHUD m_hud;
 
     // Camera tuning
     static inline constexpr float kCameraAccel          = 1200.f;
