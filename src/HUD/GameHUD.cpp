@@ -2,6 +2,9 @@
 #include "GameHUD.h"
 
 #include "../utils/Palette.h"
+#include "../Config.h"
+#include "../ResourceManager.h"
+#include "../utils/utils.h"
 #include "../entities/actor/player/Player.h"
 
 GameHUD::GameHUD() {
@@ -18,6 +21,19 @@ GameHUD::GameHUD() {
     m_staminaBar.setColors(Palette::kStaminaFill, Palette::kUiBack, Palette::kUiOutline);
     m_staminaBar.setSize(kBarSize);
     m_staminaBar.setOutlineThickness(kOutlinePx);
+
+    // Timer text
+    if (const sf::Font* font = ResourceManager::getOrLoadFont("Lavigne.ttf")) {
+        m_pTimerText = std::make_unique<sf::Text>(*font, "00:00", 28);
+        m_pTimerText->setFillColor(Palette::kUiOutline);
+        m_pTimerText->setOutlineColor(Palette::kUiBack);
+        m_pTimerText->setOutlineThickness(2.f);
+        // Center origin for top-center anchor
+        const auto bounds = m_pTimerText->getLocalBounds();
+        m_pTimerText->setOrigin({bounds.size.x * 0.5f + bounds.position.x,
+                                 bounds.size.y * 0.5f + bounds.position.y});
+        m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
+    }
 
     layout();
 }
@@ -52,9 +68,23 @@ void GameHUD::layout() {
     m_staminaBar.setPosition({x, y});
 }
 
+void GameHUD::setElapsedSeconds(float seconds) {
+    if (!m_pTimerText)
+        return;
+    const std::string text = formatMMSS(seconds);
+    if (m_pTimerText->getString() == text)
+        return;
+    m_pTimerText->setString(text);
+    const auto bounds = m_pTimerText->getLocalBounds();
+    m_pTimerText->setOrigin({bounds.size.x * 0.5f + bounds.position.x,
+                             bounds.size.y * 0.5f + bounds.position.y});
+    m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
+}
+
 void GameHUD::draw(sf::RenderTarget& target, sf::RenderStates states) const {
     target.draw(m_hpBar, states);
     target.draw(m_manaBar, states);
     target.draw(m_staminaBar, states);
+    if (m_pTimerText)
+        target.draw(*m_pTimerText, states);
 }
-

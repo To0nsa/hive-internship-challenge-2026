@@ -11,6 +11,7 @@
 #include "../platform/Platform.h"
 #include "../platform/PlatformFactory.h"
 #include "../utils/Math.h"
+#include "../utils/Geom.h"
 #include "../utils/Random.h"
 #include "StatePaused.h"
 #include "StateStack.h"
@@ -57,8 +58,9 @@ bool StatePlaying::init() {
         return false;
     m_pPlayer->setPosition(sf::Vector2f(200, 800));
 
-    // HUD wiring
+    // HUD and game clock
     m_hud.setPlayer(m_pPlayer);
+    m_gameClock.reset();
 
     // Seed RNG and schedule first obstacle spawn a bit ahead of view
     Random::seed(Random::timeSeed());
@@ -85,8 +87,10 @@ void StatePlaying::update(float dt) {
     for (const std::unique_ptr<Entity>& pEntity : m_entities)
         pEntity->update(dt);
 
-    // Update HUD stats from player
+    // Tick game clock and update HUD
+    m_gameClock.tick(dt);
     m_hud.update(dt);
+    m_hud.setElapsedSeconds(m_gameClock.getElapsed());
 
     // CAMERA UPDATE
     // Camera auto-scroll baseline (advance target; center eases toward it)
@@ -127,6 +131,8 @@ void StatePlaying::update(float dt) {
                 const sf::FloatRect ob = o->getCollider().worldAabb();
                 sf::FloatRect       inter;
                 if (geom::aabbIntersects(pb, ob, inter)) {
+                    if (m_pPlayer)
+                        m_pPlayer->applyDamage(o->getDps() * dt);
                     const float pcx   = pb.position.x + pb.size.x * 0.5f;
                     const float ocx   = ob.position.x + ob.size.x * 0.5f;
                     const float pushX = (pcx < ocx ? -inter.size.x : +inter.size.x);
@@ -161,6 +167,21 @@ void StatePlaying::update(float dt) {
             const Collider* col = m_ground ? static_cast<const Collider*>(&combined)
                                            : static_cast<const Collider*>(nullptr);
             actor->applyPhysics(dt, col);
+        }
+    }
+
+    // Apply DPS when standing on top of an obstacle
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                const sf::FloatRect ob = o->getCollider().worldAabb();
+                if (geom::touchTop(pb, ob, 0.75f)) {
+                    m_pPlayer->applyDamage(o->getDps() * dt);
+                }
+            }
         }
     }
 

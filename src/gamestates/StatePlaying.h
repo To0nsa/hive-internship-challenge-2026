@@ -6,6 +6,7 @@
 #include "../level/GroundStream.h"
 #include "../level/ParallaxBackground.h"
 #include "../HUD/GameHUD.h"
+#include "../utils/Stopwatch.h"
 #include "IState.h"
 
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -103,4 +104,7 @@ class StatePlaying : public IState {
     mutable std::vector<sf::FloatRect> m_cachedObstacleRects;
     mutable std::vector<sf::FloatRect> m_cachedPlatformRects;
     mutable std::vector<sf::FloatRect> m_cachedSolidTopRects;
+
+    // Game clock
+    Stopwatch m_gameClock;
 };
