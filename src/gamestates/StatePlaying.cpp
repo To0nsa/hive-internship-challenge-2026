@@ -1,10 +1,11 @@
 #include "StatePlaying.h"
 #include "StatePaused.h"
 #include "StateStack.h"
-#include "ResourceManager.h"
+#include "../ResourceManager.h"
 #include <memory>
 #include <iostream>
 #include <SFML/Graphics/RenderTarget.hpp>
+#include <cmath>
 
 StatePlaying::StatePlaying(StateStack& stateStack)
     : m_stateStack(stateStack)
@@ -61,6 +62,7 @@ void StatePlaying::update(float dt)
         float distance = (m_pPlayer->getPosition() - pEnemy->getPosition()).lengthSquared();
         float minDistance = std::pow(Player::collisionRadius + pEnemy->getCollisionRadius(), 2.0f);
         const sf::Vector2f playerPosition = m_pPlayer->getPosition();
+        (void)playerPosition;
 
         if (distance <= minDistance)
         {

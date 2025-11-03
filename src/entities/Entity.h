@@ -11,6 +11,7 @@ class Entity
 public:
     Entity() = default;
     Entity(const sf::Vector2f& position, const sf::Angle& rotation);
+    virtual ~Entity() = default;
 
     virtual bool init() = 0;
     virtual void update(float dt) = 0;
@@ -22,12 +23,16 @@ public:
     const sf::Angle& getRotation() const { return m_rotation; }
     void setRotation(const sf::Angle& rotation) { m_rotation = rotation; };
 
-    const float getCollisionRadius() { return m_collisionRadius; }
+    float getCollisionRadius() const { return m_collisionRadius; }
 
-    const int getHealth() const { return m_health; }
+    int getHealth() const { return m_health; }
     void setHealth(int health) { m_health = health; }
 
 protected:
+    // State
+    bool m_alive = true;
+
+    // Rendering transform
     sf::Vector2f m_position;
     sf::Vector2f m_velocity;
     sf::Angle m_rotation;

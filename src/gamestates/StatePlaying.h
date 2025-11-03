@@ -1,8 +1,8 @@
 #pragma once
 
 #include "IState.h"
-#include "entities/Player.h"
-#include "entities/Enemy.h"
+#include "../entities/Player.h"
+#include "../entities/Enemy.h"
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/Graphics/VertexArray.hpp>
 #include <SFML/Graphics/Text.hpp>

@@ -1,5 +1,5 @@
 #include "Enemy.h"
-#include "ResourceManager.h"
+#include "../ResourceManager.h"
 #include <cmath>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Sprite.hpp>
