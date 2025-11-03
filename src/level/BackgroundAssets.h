@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace bg_assets {
+namespace bgassets {
 
     inline std::string keyToFilename(const std::string& key) {
         if (key == "bg_01")
@@ -32,4 +32,4 @@ namespace bg_assets {
         return key;
     }
 
-} // namespace bg_assets
+} // namespace bgassets

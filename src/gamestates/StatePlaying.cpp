@@ -39,10 +39,9 @@ bool StatePlaying::init() {
     m_bgAnim = std::make_unique<AnimatedParallaxStrip>(
         std::vector<std::string>{"bg_anim_01", "bg_anim_02", "bg_anim_03"}, 0.15f, 6.f);
 
-    // Ground
-    m_ground.setSize({1024.0f, 256.0f});
-    m_ground.setPosition({0.0f, 800.0f});
-    m_ground.setFillColor(sf::Color(64, 160, 64));
+    // Ground stream with colliders
+    m_ground = std::make_unique<GroundStream>(strip::ParallaxLayerDesc{"bg_07", 1.f});
+    m_ground->updateForView(m_view);
 
     m_pPlayer = createEntity<Player>();
     if (!m_pPlayer || !m_pPlayer->init())
@@ -91,6 +90,8 @@ void StatePlaying::update(float dt) {
     const float alpha = math::expSmoothingFactor(kCatchupLerp, dt);
     m_cameraX += (m_cameraTargetX - m_cameraX) * alpha;
     m_view.setCenter({m_cameraX, m_view.getSize().y * 0.5f});
+    if (m_ground)
+        m_ground->updateForView(m_view);
 }
 
 void StatePlaying::render(sf::RenderTarget& target) const {
@@ -106,7 +107,8 @@ void StatePlaying::render(sf::RenderTarget& target) const {
         m_bg->drawRangeForView(target, m_view, 0, upto);
     }
 
-    target.draw(m_ground);
+    if (m_ground)
+        m_ground->drawForView(target, m_view);
 
     for (const std::unique_ptr<Entity>& pEntity : m_entities)
         pEntity->render(target);

@@ -5,7 +5,6 @@
 #include <SFML/Graphics/Sprite.hpp>
 
 namespace Debug {
-    // Draw a rectangle outline matching the sprite's global bounds
     inline void drawSpriteBounds(sf::RenderTarget& target, const sf::Sprite& sprite,
                                  const sf::Color& color, float thickness = 1.f) {
         const sf::FloatRect bounds = sprite.getGlobalBounds();
@@ -51,8 +50,8 @@ namespace Debug {
 
     inline void drawVerticalGuide(sf::RenderTarget& target, const sf::View& view, float x,
                                   const sf::Color& color, float thickness = 3.f) {
-        const float        bottomY   = 0.f;
-        const float        height = view.getSize().y;
+        const float        bottomY = 0.f;
+        const float        height  = view.getSize().y;
         sf::RectangleShape line({thickness, height});
         line.setPosition({x - thickness * 0.5f, bottomY});
         line.setFillColor(color);

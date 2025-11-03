@@ -5,6 +5,7 @@
 #include "IState.h"
 // Level visuals
 #include "../level/AnimatedParallaxStrip.h"
+#include "../level/GroundStream.h"
 #include "../level/ParallaxBackground.h"
 
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -22,12 +23,27 @@ class StatePlaying : public IState {
     void render(sf::RenderTarget& target) const override;
 
     // World queries
-    float getGroundTopY() const { return m_ground.getPosition().y; }
+    float getGroundTopY() const {
+        if (m_ground)
+            return m_ground->getTopYForView(m_view);
+        // Fallback if ground not ready yet: bottom band at 5% height
+        return m_view.getCenter().y - 0.5f * m_view.getSize().y +
+               (m_view.getSize().y * (1.f - 0.05f));
+    }
+
+    // Expose ground solids for simple collision in Player
+    const std::vector<sf::FloatRect>& getGroundRects() const {
+        if (m_ground)
+            return m_ground->getCollider().getRectColliders();
+        static const std::vector<sf::FloatRect> kEmpty;
+        return kEmpty;
+    }
 
     // Camera helpers
     float getCameraLeft() const;
     float getCameraCatchupX() const;   // left edge + margin
     float getFollowThresholdX() const; // left + ratio * width
+    float getViewBottomY() const { return m_view.getCenter().y + 0.5f * m_view.getSize().y; }
 
     // Create a new entity of type T and add it to the world
     template <typename T, typename... Args> T* createEntity(Args&&... args) {
@@ -52,8 +68,7 @@ class StatePlaying : public IState {
     // Backgrounds / ground
     std::unique_ptr<ParallaxBackground>    m_bg;
     std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
-    // Ground
-    sf::RectangleShape m_ground;
+    std::unique_ptr<GroundStream>          m_ground;
 
     // Camera
     sf::View m_view;
