@@ -72,7 +72,7 @@ class Player final : public Actor {
     float                         m_jumpBufferLeft = 0.f;
 
     // Dash
-    static inline constexpr float kDashSpeed         = 1400.f;
+    static inline constexpr float kDashSpeed         = 1100.f;
     static inline constexpr float kDashDuration      = 0.20f;
     static inline constexpr float kDashCooldown      = 3.f;
     bool                          m_dashRequested    = false;
