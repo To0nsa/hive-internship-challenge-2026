@@ -19,6 +19,7 @@ int main(int argc, char* argv[]) {
 
     sf::RenderWindow window(sf::VideoMode({Config::windowWidth, Config::windowHeight}),
                             Config::windowTitle);
+    Config::gWindow = &window;
     window.setKeyRepeatEnabled(false);
     window.setVerticalSyncEnabled(true);
 

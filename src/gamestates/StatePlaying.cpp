@@ -15,6 +15,8 @@
 #include "../utils/Random.h"
 #include "StatePaused.h"
 #include "StateStack.h"
+#include "../Config.h"
+#include <SFML/Graphics/RenderWindow.hpp>
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <algorithm>
@@ -89,8 +91,11 @@ void StatePlaying::update(float dt) {
         m_bgAnim->update(dt);
 
     // Update all entities
-    for (const std::unique_ptr<Entity>& pEntity : m_entities)
-        pEntity->update(dt);
+    for (std::size_t i = 0; i < m_entities.size(); ++i) {
+        Entity* e = m_entities[i].get();
+        if (e && e->isAlive())
+            e->update(dt);
+    }
 
     // Tick game clock and update HUD
     m_gameClock.tick(dt);
@@ -379,4 +384,13 @@ float StatePlaying::getCameraCatchupX() const { return getCameraLeft() + kCatchu
 
 float StatePlaying::getFollowThresholdX() const {
     return getCameraLeft() + kFollowThresholdRatio * m_view.getSize().x;
+}
+
+sf::Vector2f StatePlaying::getMouseWorld() const {
+    if (Config::gWindow) {
+        const sf::Vector2i pixel = sf::Mouse::getPosition(*Config::gWindow);
+        return Config::gWindow->mapPixelToCoords(pixel, m_view);
+    }
+    // Fallback: center of view
+    return {m_view.getCenter().x, m_view.getCenter().y};
 }

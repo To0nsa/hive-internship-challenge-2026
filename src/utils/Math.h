@@ -46,4 +46,17 @@ namespace math {
         x ^= x >> 16;
         return x;
     }
+
+    inline float length(const sf::Vector2f& vec) {
+        return std::sqrt(vec.x * vec.x + vec.y * vec.y);
+    }
+
+    inline sf::Vector2f normalizeVec(const sf::Vector2f& vec) {
+        float len = length(vec);
+        if (len > 0) {
+            return vec / len;
+        } else {
+            return sf::Vector2f(0, 0);
+        }
+    }
 } // namespace math

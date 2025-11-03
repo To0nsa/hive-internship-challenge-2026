@@ -23,6 +23,9 @@ class StatePlaying : public IState {
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
 
+    // Input helpers
+    sf::Vector2f getMouseWorld() const;
+
     // Lifecycle
     void requestExitToMenu();
 

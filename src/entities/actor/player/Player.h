@@ -15,7 +15,7 @@ class Player final : public Actor {
 
   private:
     // State machine
-    enum class State { Move, Dash, Death };
+    enum class State { Move, Dash, Death, Cast };
     State m_state = State::Move;
 
     bool isGrounded() const;
@@ -23,10 +23,12 @@ class Player final : public Actor {
     void enterMove();
     void enterDash(float dirX);
     void enterDeath();
+    void enterCast();
 
     void applyMovement(const sf::Vector2f& direction, float dt);
     void tryApplyJump();
     void tryApplyDash();
+    void tryApplyCast();
 
     void updateJumpAnimation();
     void updateMoveAnimation();
@@ -38,6 +40,7 @@ class Player final : public Actor {
     } m_input;
     bool m_prevJumpDown  = false;
     bool m_prevDashDown  = false;
+    bool m_prevCastDown  = false;
     bool m_jumpRequested = false;
 
     // Rendering

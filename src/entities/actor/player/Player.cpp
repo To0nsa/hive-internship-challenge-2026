@@ -5,6 +5,10 @@
 #include "../../../collision/RectCollider.h"
 #include "../../../gamestates/StatePlaying.h"
 #include "../../../utils/Geom.h"
+#include "../../../spell/SpellCatalog.h"
+#include "../../../spell/CastRequest.h"
+#include "../../../spell/projectile/Projectile.h"
+#include "../../../faction/Faction.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Sprite.hpp>
@@ -19,6 +23,7 @@ namespace {
     constexpr const char* kFall = "player_fall";
     constexpr const char* kDash = "player_dash";
     constexpr const char* kDeath = "player_death";
+    constexpr const char* kCast = "player_cast";
 } // namespace
 
 bool Player::init() {
@@ -29,6 +34,7 @@ bool Player::init() {
     const sf::Texture* fallTex = ResourceManager::getOrLoadTexture("PlayerFallAnimation.png");
     const sf::Texture* dashTex = ResourceManager::getOrLoadTexture("PlayerDashAnimation.png");
     const sf::Texture* deathTex = ResourceManager::getOrLoadTexture("PlayerDeathAnimation.png");
+    const sf::Texture* castTex = ResourceManager::getOrLoadTexture("PlayerCastAnimation.png");
 
     // Setup sprite
     m_pSprite = std::make_unique<sf::Sprite>(*idleTex);
@@ -53,6 +59,8 @@ bool Player::init() {
     m_pAnimator->addClip(std::move(dashClip));
     auto deathClip = Animation::makeClipFromRow(kDeath, *deathTex, kFrameSize, 6, 8.f, false);
     m_pAnimator->addClip(std::move(deathClip));
+    auto castClip = Animation::makeClipFromRow(kCast, *castTex, kFrameSize, 5, 20.f, false);
+    m_pAnimator->addClip(std::move(castClip));
 
     // Setup collider
     setColliderSize(
@@ -121,11 +129,14 @@ void Player::update(float dt) {
                            sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
     const bool jumpDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
     const bool dashDown = sf::Mouse::isButtonPressed(sf::Mouse::Button::Middle);
+    const bool castDown = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
 
     const bool jumpPressed = jumpDown && !m_prevJumpDown;
     const bool dashPressed = dashDown && !m_prevDashDown;
+    const bool castPressed = castDown && !m_prevCastDown;
     m_prevJumpDown         = jumpDown;
     m_prevDashDown         = dashDown;
+    m_prevCastDown         = castDown;
 
     // Snapshot input
     m_input.m_movingLeft  = leftDown;
@@ -176,8 +187,12 @@ void Player::update(float dt) {
     }
 
     // Try dash when not already dashing
-    if (m_state != State::Dash)
+    if (m_state != State::Dash && m_state != State::Cast)
         tryApplyDash();
+
+    // Try cast
+    if (castPressed && m_state != State::Dash && m_state != State::Death)
+        enterCast();
 
     // Apply horizontal movement
     if (m_state == State::Move) {
@@ -185,6 +200,9 @@ void Player::update(float dt) {
     } else if (m_state == State::Dash) {
         m_velocity.x = m_dashDirX * kDashSpeed;
         m_position.x += m_velocity.x * dt;
+    } else if (m_state == State::Cast) {
+        // Allow light movement during cast
+        applyMovement(dir, dt);
     }
 
     // Jumping (disabled while dashing)
@@ -197,6 +215,8 @@ void Player::update(float dt) {
     if (m_pAnimator) {
         if (m_state == State::Dash) {
             m_pAnimator->ensureClip(kDash);
+        } else if (m_state == State::Cast) {
+            m_pAnimator->ensureClip(kCast);
         } else if (!isGrounded()) {
             updateJumpAnimation();
         } else {
@@ -289,6 +309,42 @@ void Player::enterDeath() {
                 world->requestExitToMenu();
         });
     }
+}
+
+void Player::enterCast() {
+    // Spend mana and spawn a projectile if possible
+    const SpellDef& def = getSpellDef(SpellId::IceBolt);
+    if (m_mana < def.stats.manaCost)
+        return;
+    m_mana -= def.stats.manaCost;
+
+    // Aim: from player position to mouse world position
+    sf::Vector2f aimDir{(m_facing == Facing::Right) ? +1.f : -1.f, 0.f};
+    if (m_world) {
+        const sf::Vector2f mouseWorld = m_world->getMouseWorld();
+        sf::Vector2f       v          = mouseWorld - m_position;
+        const float        len        = std::sqrt(v.x * v.x + v.y * v.y);
+        if (len > 0.001f)
+            aimDir = {v.x / len, v.y / len};
+    }
+
+    // Origin slightly in front along aim
+    sf::Vector2f orig = m_position + aimDir * (kFrameSize.x * 0.4f);
+
+    if (m_world) {
+        auto* proj = m_world->createEntity<Projectile>(SpellId::IceBolt, Faction::Player, orig, aimDir);
+        if (proj) {
+            (void)proj->init();
+        }
+    }
+
+    // Play cast animation and return to move on completion
+    m_state = State::Cast;
+    if (m_pAnimator)
+        m_pAnimator->playClip(kCast, [this]() {
+            if (m_state == State::Cast)
+                enterMove();
+        });
 }
 
 bool Player::isGrounded() const { return m_grounded; }
