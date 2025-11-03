@@ -15,6 +15,7 @@ void Actor::render(sf::RenderTarget& target) const {
     if (m_pSprite && Config::kDebugDraw) {
         Debug::drawSpriteBounds(target, *m_pSprite, sf::Color::Red, 1.f);
         Debug::drawSpriteOrigin(target, *m_pSprite, sf::Color::Yellow, 10.f, 2.f);
+        Debug::drawColliderBounds(target, getCollider(), sf::Color::Green, 1.f);
     }
 }
 

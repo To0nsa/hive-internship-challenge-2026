@@ -48,6 +48,14 @@ bool Player::init() {
     auto dashClip = Animation::makeClipFromRow(kDash, *dashTex, kFrameSize, 4, 20.f, false);
     m_pAnimator->addClip(std::move(dashClip));
 
+    // Setup collider
+    setColliderSize(
+        {static_cast<float>(kFrameSize.x) * 0.2f, static_cast<float>(kFrameSize.y) * 0.88f});
+
+    // Setup stats
+    setInitialStats(kPlayerHpMax, kPlayerManaMax, kPlayerManaRegenRate, kPlayerHpRegenRate,
+                    kPlayerStaminaMax, kPlayerStaminaRegenRate);
+
     // Enter initial state
     enterMove();
     return true;

@@ -35,4 +35,17 @@ namespace Debug {
         crosshairV.setFillColor(color);
         target.draw(crosshairV);
     }
+
+    inline void drawColliderBounds(sf::RenderTarget& target, const Collider& collider,
+                                   const sf::Color& color, float thickness = 1.f) {
+        const sf::FloatRect bounds = collider.worldAabb();
+
+        sf::RectangleShape outline;
+        outline.setPosition(bounds.position);
+        outline.setSize(bounds.size);
+        outline.setFillColor(sf::Color(0, 0, 0, 0));
+        outline.setOutlineColor(color);
+        outline.setOutlineThickness(thickness);
+        target.draw(outline);
+    }
 } // namespace Debug
