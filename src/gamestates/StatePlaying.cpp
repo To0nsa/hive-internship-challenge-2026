@@ -18,10 +18,9 @@ bool StatePlaying::init()
     m_ground.setPosition({0.0f, 800.0f});
     m_ground.setFillColor(sf::Color::Green);
 
-    m_pPlayer = std::make_unique<Player>();
+    m_pPlayer = createEntity<Player>();
     if (!m_pPlayer || !m_pPlayer->init())
         return false;
-
     m_pPlayer->setPosition(sf::Vector2f(200, 800));
 
     return true;
@@ -29,17 +28,6 @@ bool StatePlaying::init()
 
 void StatePlaying::update(float dt)
 {
-    m_timeUntilEnemySpawn -= dt;
-
-    if (m_timeUntilEnemySpawn < 0.0f)
-    {
-        m_timeUntilEnemySpawn = enemySpawnInterval;
-        std::unique_ptr<Enemy> pEnemy = std::make_unique<Enemy>();
-        pEnemy->setPosition(sf::Vector2f(1000, 800));
-        if (pEnemy->init())
-            m_enemies.push_back(std::move(pEnemy));
-    }
-
     bool isPauseKeyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape);
     m_hasPauseKeyBeenReleased |= !isPauseKeyPressed;
     if (m_hasPauseKeyBeenReleased && isPauseKeyPressed)
@@ -48,38 +36,16 @@ void StatePlaying::update(float dt)
         m_stateStack.push<StatePaused>();
     }
 
-    m_pPlayer->update(dt);
-
-    for (const std::unique_ptr<Enemy>& pEnemy : m_enemies)
-    {
-        pEnemy->update(dt);
-    }
-
-    // Detect collisions
-    bool playerDied = false;
-    for (const std::unique_ptr<Enemy>& pEnemy : m_enemies)
-    {
-        float distance = (m_pPlayer->getPosition() - pEnemy->getPosition()).lengthSquared();
-        float minDistance = std::pow(Player::collisionRadius + pEnemy->getCollisionRadius(), 2.0f);
-        const sf::Vector2f playerPosition = m_pPlayer->getPosition();
-        (void)playerPosition;
-
-        if (distance <= minDistance)
-        {
-            playerDied = true;
-            break;
-        }
-    }
-
-    // End Playing State on player death
-    if (playerDied)
-        m_stateStack.popDeferred();
+    // Update all entities
+    for (const std::unique_ptr<Entity>& pEntity : m_entities)
+        pEntity->update(dt);
 }
 
 void StatePlaying::render(sf::RenderTarget& target) const
 {
     target.draw(m_ground);
-    for (const std::unique_ptr<Enemy>& pEnemy : m_enemies)
-        pEnemy->render(target);
-    m_pPlayer->render(target);
+    for (const std::unique_ptr<Entity>& pEntity : m_entities)
+    {
+        pEntity->render(target);
+    }
 }

@@ -1,9 +1,8 @@
 #pragma once
 
 #include "IState.h"
-#include "../entities/Player.h"
-#include "../entities/Enemy.h"
-#include <SFML/Graphics/Texture.hpp>
+#include "../entities/actor/player/Player.h"
+#include "../entities/Entity.h"
 #include <SFML/Graphics/VertexArray.hpp>
 #include <SFML/Graphics/Text.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -18,15 +17,26 @@ public:
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
 
-private:
-    static constexpr const float enemySpawnInterval = 2.0f;
-    float m_timeUntilEnemySpawn = enemySpawnInterval;
+    // Create a new entity of type T and add it to the world
+    template <typename T, typename... Args> T* createEntity(Args&&... args) {
+        auto entity    = std::make_unique<T>(std::forward<Args>(args)...);
+        T*   entityPtr = entity.get();
+        entityPtr->setWorld(this);
+        m_entities.push_back(std::move(entity));
+        return entityPtr;
+    }
 
+private:
+    // Game state
     StateStack& m_stateStack;
-    std::unique_ptr<Player> m_pPlayer;
-    std::vector<std::unique_ptr<Enemy>> m_enemies;
-    sf::RectangleShape m_ground;
     bool m_hasPauseKeyBeenReleased = true;
 
-    void updateCollisions();
+    // Player reference
+    Player* m_pPlayer = nullptr;
+
+    // Entities
+    std::vector<std::unique_ptr<Entity>> m_entities;
+
+    // Ground
+    sf::RectangleShape m_ground;
 };
