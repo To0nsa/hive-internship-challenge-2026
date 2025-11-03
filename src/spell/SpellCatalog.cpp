@@ -12,7 +12,7 @@ static SpellDef makeIceBolt() {
     def.stats.slowPercent  = 0.50f;
     def.stats.slowDuration = 5.0f;
 
-    def.stats.projectile.speed        = 800.f;
+    def.stats.projectile.speed        = 1200.f;
     def.stats.projectile.lifetime     = 1.0f;
     def.stats.projectile.colliderSize = {18.f, 8.f};
 
@@ -44,8 +44,8 @@ static SpellDef makeLightning() {
 }
 
 const SpellDef& getSpellDef(SpellId id) {
-    static const SpellDef ICE          = makeIceBolt();
-    static const SpellDef LIGHTNING    = makeLightning();
+    static const SpellDef ICE       = makeIceBolt();
+    static const SpellDef LIGHTNING = makeLightning();
     switch (id) {
     case SpellId::IceBolt:
         return ICE;

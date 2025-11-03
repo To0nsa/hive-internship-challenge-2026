@@ -25,13 +25,13 @@ class Demon final : public Enemy {
     void updateFly(float dt);
 
     // Casting
-    static inline constexpr float kCastCooldown = 2.0f;
+    static inline constexpr float kCastCooldown      = 2.0f;
     float                         m_castCooldownLeft = 0.f;
 
     // Movement goal: hover around desired range from player
     static inline constexpr float kDesiredRange = 300.f;
-    static inline constexpr float kHoldSlack    = 30.f;   // acceptable band around desired
-    static inline constexpr float kMoveSpeed    = 500.f;  // px/s
+    static inline constexpr float kHoldSlack    = 30.f;  // acceptable band around desired
+    static inline constexpr float kMoveSpeed    = 800.f; // px/s
 
     // Stats
     static inline constexpr float kDemonHpMax         = 50.f;

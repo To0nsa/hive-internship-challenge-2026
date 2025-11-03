@@ -20,6 +20,7 @@ class StateMenu : public IState {
   public:
     StateStack&               m_stateStack;
     std::unique_ptr<sf::Text> m_pText;
+    std::unique_ptr<sf::Text> m_pSubText;
     bool                      m_hasStartKeyBeenPressed  = false;
     bool                      m_hasStartKeyBeenReleased = false;
 };

@@ -3,12 +3,12 @@
 #include "../../../ResourceManager.h"
 #include "../../../animation/Animation.h"
 #include "../../../collision/RectCollider.h"
-#include "../../../gamestates/StatePlaying.h"
-#include "../../../utils/Geom.h"
-#include "../../../spell/SpellCatalog.h"
-#include "../../../spell/CastRequest.h"
-#include "../../../spell/projectile/Projectile.h"
 #include "../../../faction/Faction.h"
+#include "../../../gamestates/StatePlaying.h"
+#include "../../../spell/CastRequest.h"
+#include "../../../spell/SpellCatalog.h"
+#include "../../../spell/projectile/Projectile.h"
+#include "../../../utils/Geom.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Sprite.hpp>
@@ -17,24 +17,24 @@
 
 namespace {
     // Animation clip names
-    constexpr const char* kIdle = "player_idle";
-    constexpr const char* kRun  = "player_run";
-    constexpr const char* kJump = "player_jump";
-    constexpr const char* kFall = "player_fall";
-    constexpr const char* kDash = "player_dash";
+    constexpr const char* kIdle  = "player_idle";
+    constexpr const char* kRun   = "player_run";
+    constexpr const char* kJump  = "player_jump";
+    constexpr const char* kFall  = "player_fall";
+    constexpr const char* kDash  = "player_dash";
     constexpr const char* kDeath = "player_death";
-    constexpr const char* kCast = "player_cast";
+    constexpr const char* kCast  = "player_cast";
 } // namespace
 
 bool Player::init() {
     // Load animation textures if present
-    const sf::Texture* idleTex = ResourceManager::getOrLoadTexture("PlayerIdleAnimation.png");
-    const sf::Texture* runTex  = ResourceManager::getOrLoadTexture("PlayerMoveAnimation.png");
-    const sf::Texture* jumpTex = ResourceManager::getOrLoadTexture("PlayerJumpAnimation.png");
-    const sf::Texture* fallTex = ResourceManager::getOrLoadTexture("PlayerFallAnimation.png");
-    const sf::Texture* dashTex = ResourceManager::getOrLoadTexture("PlayerDashAnimation.png");
+    const sf::Texture* idleTex  = ResourceManager::getOrLoadTexture("PlayerIdleAnimation.png");
+    const sf::Texture* runTex   = ResourceManager::getOrLoadTexture("PlayerMoveAnimation.png");
+    const sf::Texture* jumpTex  = ResourceManager::getOrLoadTexture("PlayerJumpAnimation.png");
+    const sf::Texture* fallTex  = ResourceManager::getOrLoadTexture("PlayerFallAnimation.png");
+    const sf::Texture* dashTex  = ResourceManager::getOrLoadTexture("PlayerDashAnimation.png");
     const sf::Texture* deathTex = ResourceManager::getOrLoadTexture("PlayerDeathAnimation.png");
-    const sf::Texture* castTex = ResourceManager::getOrLoadTexture("PlayerCastAnimation.png");
+    const sf::Texture* castTex  = ResourceManager::getOrLoadTexture("PlayerCastAnimation.png");
 
     // Setup sprite
     m_pSprite = std::make_unique<sf::Sprite>(*idleTex);
@@ -119,7 +119,6 @@ void Player::update(float dt) {
         return;
     }
 
-    
     updateActorBase(dt);
 
     // Edge-triggered input for jump/dash
@@ -142,8 +141,12 @@ void Player::update(float dt) {
     m_input.m_movingLeft  = leftDown;
     m_input.m_movingRight = rightDown;
     if (jumpPressed) {
-        m_jumpRequested  = true;
-        m_jumpBufferLeft = kJumpBufferTime;
+        // Disable jump buffering: only accept if currently grounded or within coyote window
+        if (isGrounded() || m_coyoteTimer > 0.f)
+            m_jumpRequested = true;
+        else
+            m_jumpRequested = false;
+        m_jumpBufferLeft = 0.f; // no queued jump
     }
     if (dashPressed) {
         m_dashRequested = true;
@@ -155,8 +158,7 @@ void Player::update(float dt) {
     } else {
         m_coyoteTimer -= dt;
     }
-    if (m_jumpBufferLeft > 0.f)
-        m_jumpBufferLeft -= dt;
+    // No jump buffering; do not decrement buffer timer
 
     // Dash timers and transitions
     if (m_dashCooldownLeft > 0.f)
@@ -231,9 +233,9 @@ void Player::update(float dt) {
 }
 
 void Player::tryApplyJump() {
-    if ((m_jumpRequested || m_jumpBufferLeft > 0.f) && (isGrounded() || m_coyoteTimer > 0.f) &&
+    if (m_jumpRequested && (isGrounded() || m_coyoteTimer > 0.f) &&
         (m_stamina >= kJumpStaminaCost)) {
-        m_velocity.y     = -kJumpSpeed;
+        m_velocity.y = -kJumpSpeed;
         // Spend stamina
         m_stamina -= kJumpStaminaCost;
         m_jumpRequested  = false;
@@ -332,7 +334,8 @@ void Player::enterCast() {
     sf::Vector2f orig = m_position + aimDir * (kFrameSize.x * 0.4f);
 
     if (m_world) {
-        auto* proj = m_world->createEntity<Projectile>(SpellId::IceBolt, Faction::Player, orig, aimDir);
+        auto* proj =
+            m_world->createEntity<Projectile>(SpellId::IceBolt, Faction::Player, orig, aimDir);
         if (proj) {
             (void)proj->init();
         }

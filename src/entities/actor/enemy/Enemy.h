@@ -7,4 +7,3 @@ class Enemy : public Actor {
     Enemy()           = default;
     ~Enemy() override = default;
 };
-

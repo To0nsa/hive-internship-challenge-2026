@@ -1,7 +1,7 @@
 #pragma once
+#include "../../animation/Animation.h"
 #include "../../entities/Entity.h"
 #include "../../faction/Faction.h"
-#include "../../animation/Animation.h"
 #include "../../utils/Math.h"
 #include "../SpellCatalog.h"
 

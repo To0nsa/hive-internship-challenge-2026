@@ -1,11 +1,11 @@
 #pragma once
 
+#include "../HUD/GameHUD.h"
 #include "../entities/Entity.h"
 #include "../entities/actor/player/Player.h"
 #include "../level/AnimatedParallaxStrip.h"
 #include "../level/GroundStream.h"
 #include "../level/ParallaxBackground.h"
-#include "../HUD/GameHUD.h"
 #include "../utils/Stopwatch.h"
 #include "IState.h"
 
@@ -26,12 +26,15 @@ class StatePlaying : public IState {
     // Input helpers
     sf::Vector2f getMouseWorld() const;
 
+    // Score API
+    void addScore(int points);
+
     // Lifecycle
     void requestExitToMenu();
 
     // World queries
     Player* getPlayer() const { return m_pPlayer; }
-    float getGroundTopY() const {
+    float   getGroundTopY() const {
         if (m_ground)
             return m_ground->getTopYForView(m_view);
         // Fallback if ground not ready yet: bottom band at 5% height
@@ -95,7 +98,7 @@ class StatePlaying : public IState {
     float    m_cameraX           = 0.f;
     float    m_cameraTargetX     = 0.f; // smoothed target center X
     float    m_cameraSpeed       = 0.f;
-    float    m_cameraTargetSpeed = 500.f;
+    float    m_cameraTargetSpeed = 400.f;
 
     // HUD
     GameHUD m_hud;
@@ -104,8 +107,8 @@ class StatePlaying : public IState {
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
     // Scoring
-    int   m_scorePoints         = 0;
-    float m_scoreSecondAccum    = 0.f; // adds +10 per whole second elapsed
+    int   m_scorePoints      = 0;
+    float m_scoreSecondAccum = 0.f; // adds +10 per whole second elapsed
 
     // Camera tuning
     static inline constexpr float kCameraAccel          = 1200.f;

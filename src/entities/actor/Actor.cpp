@@ -107,8 +107,8 @@ void Actor::applyPhysics(float dt, const Collider* ground) {
     prevActor.position.y -= dy; // position before applying vertical integration
 
     // Choose the smallest upward correction needed to rest on top.
-    float bestLiftDy = -std::numeric_limits<float>::infinity(); // largest deltaY ≤ 0
-    bool  touchingTop = false;                                   // exact top contact without overlap
+    float bestLiftDy  = -std::numeric_limits<float>::infinity(); // largest deltaY ≤ 0
+    bool  touchingTop = false; // exact top contact without overlap
 
     auto consider = [&](const sf::FloatRect& groundCollider) {
         // Require actual overlap this frame to resolve.
@@ -118,13 +118,13 @@ void Actor::applyPhysics(float dt, const Collider* ground) {
             touchingTop = true;
 
         // We only care about landings from above this frame: bottom crossing the top plane.
-        const float groundTop   = geom::top(groundCollider);
-        const float prevBottom  = geom::bottom(prevActor);
-        const float currentB    = geom::bottom(actorCollider);
-        const float currentLeft = geom::left(actorCollider);
+        const float groundTop    = geom::top(groundCollider);
+        const float prevBottom   = geom::bottom(prevActor);
+        const float currentB     = geom::bottom(actorCollider);
+        const float currentLeft  = geom::left(actorCollider);
         const float currentRight = geom::right(actorCollider);
-        const float groundLeft  = geom::left(groundCollider);
-        const float groundRight = geom::right(groundCollider);
+        const float groundLeft   = geom::left(groundCollider);
+        const float groundRight  = geom::right(groundCollider);
 
         // Horizontal overlap required to stand on top.
         if (currentRight <= groundLeft || currentLeft >= groundRight)

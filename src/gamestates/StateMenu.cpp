@@ -24,6 +24,18 @@ bool StateMenu::init() {
     sf::FloatRect localBounds = m_pText->getLocalBounds();
     m_pText->setOrigin({localBounds.size.x / 2.0f, localBounds.size.y / 2.0f});
 
+    m_pSubText = std::make_unique<sf::Text>(*pFont);
+    if (!m_pSubText)
+        return false;
+
+    m_pSubText->setString("Use WASD to move\n SPACE to jump\n Mouse left click to cast a spell\n "
+                          "Aim with the mouse\n Dash with mouse wheel click button\n Avoid demons "
+                          "and obstacles!\n Collect red squares "
+                          "and survive to gain score\n Be careful a big wave of lava is coming!");
+    m_pSubText->setStyle(sf::Text::Regular);
+    localBounds = m_pSubText->getLocalBounds();
+    m_pSubText->setOrigin({localBounds.size.x / 2.0f, localBounds.size.y / 2.0f});
+
     return true;
 }
 
@@ -40,6 +52,8 @@ void StateMenu::update(float dt) {
 }
 
 void StateMenu::render(sf::RenderTarget& target) const {
-    m_pText->setPosition({target.getSize().x * 0.5f, target.getSize().y * 0.5f});
+    m_pText->setPosition({target.getSize().x * 0.5f, target.getSize().y * 0.8f});
     target.draw(*m_pText);
+    m_pSubText->setPosition({target.getSize().x * 0.5f, target.getSize().y * 0.2f});
+    target.draw(*m_pSubText);
 }

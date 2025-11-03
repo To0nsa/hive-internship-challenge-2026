@@ -2,14 +2,14 @@
 
 #include "../../Config.h"
 #include "../../Debug.h"
-#include "../../utils/Math.h"
-#include "../../entities/Entity.h"
 #include "../../ResourceManager.h"
+#include "../../entities/Entity.h"
+#include "../../utils/Math.h"
 
 static inline AnimationClip makeClipFromSpell(const std::string& name, const SpellClip& spell) {
     const sf::Texture* pTex = ResourceManager::getOrLoadTexture(spell.textureKey);
-    auto clip = Animation::makeClipFromRow(name, *pTex, spell.frameSize, spell.frameCount, spell.fps,
-                                           spell.loop);
+    auto clip = Animation::makeClipFromRow(name, *pTex, spell.frameSize, spell.frameCount,
+                                           spell.fps, spell.loop);
     return clip;
 }
 
@@ -28,8 +28,8 @@ Projectile::Projectile(SpellId spellId, Faction faction, const sf::Vector2f& ori
 
     // Sprite + animator
     const sf::Texture* pStart = ResourceManager::getOrLoadTexture(m_def.visuals.start.textureKey);
-    m_pSprite   = std::make_unique<sf::Sprite>(*pStart);
-    m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
+    m_pSprite                 = std::make_unique<sf::Sprite>(*pStart);
+    m_pAnimator               = std::make_unique<SpriteAnimator>(*m_pSprite);
 
     // Build animation clips
     buildClips();

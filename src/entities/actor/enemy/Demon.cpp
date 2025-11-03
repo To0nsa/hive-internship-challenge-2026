@@ -2,16 +2,16 @@
 
 #include "../../../ResourceManager.h"
 #include "../../../animation/Animation.h"
-#include "../../../gamestates/StatePlaying.h"
 #include "../../../entities/actor/player/Player.h"
-#include "../../../spell/projectile/Projectile.h"
-#include "../../../spell/SpellCatalog.h"
 #include "../../../faction/Faction.h"
+#include "../../../gamestates/StatePlaying.h"
+#include "../../../spell/SpellCatalog.h"
+#include "../../../spell/projectile/Projectile.h"
 
 namespace {
     constexpr const char* kFly   = "demon_fly";
     constexpr const char* kDeath = "demon_death";
-}
+} // namespace
 
 bool Demon::init() {
     // Load textures
@@ -40,7 +40,7 @@ bool Demon::init() {
 
     // Collider
     setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});
-    setArtFacingDirX(+1.f);
+    setArtFacingDirX(-1.f);
     enterFly();
     return true;
 }
@@ -65,7 +65,7 @@ void Demon::updateFly(float dt) {
         return;
 
     const sf::Vector2f toPlayer = player->getPosition() - m_position;
-    const float         dist     = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+    const float        dist     = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
 
     sf::Vector2f dir{0.f, 0.f};
     if (dist > 0.001f) {
@@ -117,7 +117,8 @@ void Demon::update(float dt) {
 
             // Spawn lightning bolt
             const sf::Vector2f origin = selfPos + dir * 20.f;
-            if (auto* proj = m_world->createEntity<Projectile>(SpellId::Lightning, Faction::Enemy, origin, dir))
+            if (auto* proj = m_world->createEntity<Projectile>(SpellId::Lightning, Faction::Enemy,
+                                                               origin, dir))
                 (void)proj->init();
             m_castCooldownLeft = kCastCooldown;
         }

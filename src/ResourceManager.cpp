@@ -56,24 +56,6 @@ const sf::SoundBuffer* ResourceManager::getOrLoadSoundBuffer(const std::string& 
     return pSoundBuffer;
 }
 
-const sf::Shader* ResourceManager::getOrLoadShader(const std::string& filename) {
-    auto it = m_loadedShaders.find(filename);
-    if (it != m_loadedShaders.end())
-        return &it->second;
-
-    if (!sf::Shader::isAvailable())
-        return nullptr;
-
-    auto res = m_loadedShaders.emplace(filename, sf::Shader());
-    if (!res.second)
-        return nullptr;
-
-    sf::Shader* pShader = &res.first->second;
-    if (!pShader->loadFromFile(getAssetPath(filename), sf::Shader::Type::Fragment))
-        return nullptr;
-    return pShader;
-}
-
 std::filesystem::path ResourceManager::getAssetPath(const std::string& filename) {
     std::filesystem::path path = "assets/" + filename;
 

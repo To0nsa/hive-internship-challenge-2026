@@ -5,24 +5,24 @@
 #include "../ResourceManager.h"
 #include "../collision/MultiRectCollider.h"
 #include "../entities/actor/Actor.h"
+#include "../entities/actor/enemy/Demon.h"
+#include "../entities/actor/enemy/Enemy.h"
+#include "../entities/collectible/RedSquare.h"
+#include "../faction/Faction.h"
 #include "../obstacle/Obstacle.h"
 #include "../obstacle/ObstacleFactory.h"
 #include "../obstacle/ObstacleTypes.h"
-#include "../entities/actor/enemy/Enemy.h"
-#include "../entities/actor/enemy/Demon.h"
-#include "../spell/projectile/Projectile.h"
-#include "../faction/Faction.h"
 #include "../platform/Platform.h"
 #include "../platform/PlatformFactory.h"
-#include "../utils/Math.h"
+#include "../spell/projectile/Projectile.h"
 #include "../utils/Geom.h"
+#include "../utils/Math.h"
 #include "../utils/Random.h"
 #include "StatePaused.h"
 #include "StateStack.h"
-#include "../Config.h"
-#include <SFML/Graphics/RenderWindow.hpp>
 
 #include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/RenderWindow.hpp>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -67,7 +67,7 @@ bool StatePlaying::init() {
     m_pPlayer = createEntity<Player>();
     if (!m_pPlayer || !m_pPlayer->init())
         return false;
-    m_pPlayer->setPosition(sf::Vector2f(200, 800));
+    m_pPlayer->setPosition(sf::Vector2f(Config::windowWidth * 0.5f, Config::windowHeight * 0.5f));
 
     // HUD and game clock
     m_hud.setPlayer(m_pPlayer);
@@ -224,20 +224,35 @@ void StatePlaying::update(float dt) {
                     }
                 }
             } else if (proj->getFaction() == Faction::Player) {
-                // Player projectile hits enemies
+                // Player projectile hits enemies or collectibles
                 for (const auto& eOther : m_entities) {
-                    auto* enemy = dynamic_cast<Enemy*>(eOther.get());
-                    if (!enemy || !enemy->isAlive())
+                    // Enemies
+                    if (auto* enemy = dynamic_cast<Enemy*>(eOther.get())) {
+                        if (!enemy->isAlive())
+                            continue;
+                        const sf::FloatRect eb = enemy->getCollider().worldAabb();
+                        if (geom::aabbIntersects(pr, eb)) {
+                            // Award kill if this hit is lethal
+                            const float hpBefore = enemy->getHp();
+                            enemy->applyDamage(proj->getStats().damage);
+                            if (hpBefore > 0.f && enemy->getHp() <= 0.f)
+                                m_scorePoints += 100; // enemy killed
+                            proj->requestImpact();
+                            break;
+                        }
                         continue;
-                    const sf::FloatRect eb = enemy->getCollider().worldAabb();
-                    if (geom::aabbIntersects(pr, eb)) {
-                        // Award kill if this hit is lethal
-                        const float hpBefore = enemy->getHp();
-                        enemy->applyDamage(proj->getStats().damage);
-                        if (hpBefore > 0.f && enemy->getHp() <= 0.f)
-                            m_scorePoints += 100; // enemy killed
-                        proj->requestImpact();
-                        break;
+                    }
+                    // RedSquare collectibles
+                    if (auto* sq = dynamic_cast<RedSquare*>(eOther.get())) {
+                        if (!sq->isAlive())
+                            continue;
+                        const sf::FloatRect qb = sq->getCollider().worldAabb();
+                        if (geom::aabbIntersects(pr, qb)) {
+                            addScore(100);
+                            sq->setAlive(false);
+                            proj->requestImpact();
+                            break;
+                        }
                     }
                 }
             }
@@ -263,6 +278,15 @@ void StatePlaying::update(float dt) {
     if (m_pPlayer && m_pPlayer->isAlive() && m_ground) {
         const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
         if (m_ground->intersectsLavaGap(pb, m_view)) {
+            m_pPlayer->applyDamage(10000.f);
+        }
+    }
+
+    // Kill if the camera (left edge) catches up to the player
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        const sf::FloatRect pb      = m_pPlayer->getCollider().worldAabb();
+        const float         camLeft = getCameraLeft();
+        if (geom::right(pb) < camLeft) {
             m_pPlayer->applyDamage(10000.f);
         }
     }
@@ -297,7 +321,15 @@ void StatePlaying::update(float dt) {
                 const auto& desc    = getPlatformDesc(kind);
                 const float y = groundTop - desc.colliderSize.y - Random::rangef(100.f, 300.f);
                 const float x = m_nextPlatformX;
-                spawnPlatform(*this, kind, {x, y});
+                if (auto* p = spawnPlatform(*this, kind, {x, y})) {
+                    // Spawn a red square 10px above the platform top, centered horizontally
+                    const sf::FloatRect pb  = p->getCollider().worldAabb();
+                    const float         top = pb.position.y;
+                    const float         cx  = pb.position.x + pb.size.x * 0.5f;
+                    const float         cy  = top - 10.f - (RedSquare::kSize * 0.5f);
+                    if (auto* sq = createEntity<RedSquare>(sf::Vector2f{cx, cy}))
+                        (void)sq->init();
+                }
                 m_nextPlatformX += Random::rangef(480.f, 880.f);
             }
         }
@@ -457,4 +489,12 @@ sf::Vector2f StatePlaying::getMouseWorld() const {
     }
     // Fallback: center of view
     return {m_view.getCenter().x, m_view.getCenter().y};
+}
+
+void StatePlaying::addScore(int points) {
+    if (points <= 0)
+        return;
+    m_scorePoints += points;
+    // Reflect immediately on HUD
+    m_hud.setScore(m_scorePoints);
 }

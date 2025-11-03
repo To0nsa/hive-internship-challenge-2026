@@ -1,11 +1,11 @@
 // GameHUD.cpp
 #include "GameHUD.h"
 
-#include "../utils/Palette.h"
 #include "../Config.h"
 #include "../ResourceManager.h"
-#include "../utils/utils.h"
 #include "../entities/actor/player/Player.h"
+#include "../utils/Palette.h"
+#include "../utils/utils.h"
 
 GameHUD::GameHUD() {
     // Stats Bars
@@ -30,8 +30,8 @@ GameHUD::GameHUD() {
         m_pTimerText->setOutlineThickness(2.f);
         // Center origin for top-center anchor
         const auto bounds = m_pTimerText->getLocalBounds();
-        m_pTimerText->setOrigin({bounds.size.x * 0.5f + bounds.position.x,
-                                 bounds.size.y * 0.5f + bounds.position.y});
+        m_pTimerText->setOrigin(
+            {bounds.size.x * 0.5f + bounds.position.x, bounds.size.y * 0.5f + bounds.position.y});
         m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
 
         // Score text (top-right)
@@ -86,8 +86,8 @@ void GameHUD::setElapsedSeconds(float seconds) {
         return;
     m_pTimerText->setString(text);
     const auto bounds = m_pTimerText->getLocalBounds();
-    m_pTimerText->setOrigin({bounds.size.x * 0.5f + bounds.position.x,
-                             bounds.size.y * 0.5f + bounds.position.y});
+    m_pTimerText->setOrigin(
+        {bounds.size.x * 0.5f + bounds.position.x, bounds.size.y * 0.5f + bounds.position.y});
     m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
 }
 

@@ -50,7 +50,7 @@ class Player final : public Actor {
     // Configuration
     static inline constexpr float kMaxSpeed     = 500.f;
     static inline constexpr float kAcceleration = 1200.f;
-    static inline constexpr float kDeceleration = 600.f;
+    static inline constexpr float kDeceleration = 800.f;
     static inline constexpr float kMinSpeed     = 5.f;
     static inline constexpr float kGravity      = 2400.f;
 
@@ -58,7 +58,7 @@ class Player final : public Actor {
     static inline constexpr float kPlayerHpMax            = 100.f;
     static inline constexpr float kPlayerHpRegenRate      = 1.f;
     static inline constexpr float kPlayerManaMax          = 100.f;
-    static inline constexpr float kPlayerManaRegenRate    = 1.f;
+    static inline constexpr float kPlayerManaRegenRate    = 3.f;
     static inline constexpr float kPlayerStaminaMax       = 100.f;
     static inline constexpr float kPlayerStaminaRegenRate = 1.f;
     static inline constexpr float kJumpStaminaCost        = 2.f;
@@ -72,7 +72,7 @@ class Player final : public Actor {
     float                         m_jumpBufferLeft = 0.f;
 
     // Dash
-    static inline constexpr float kDashSpeed         = 1000.f;
+    static inline constexpr float kDashSpeed         = 1400.f;
     static inline constexpr float kDashDuration      = 0.20f;
     static inline constexpr float kDashCooldown      = 3.f;
     bool                          m_dashRequested    = false;
