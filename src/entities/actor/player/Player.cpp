@@ -173,40 +173,7 @@ void Player::update(float dt) {
     if (m_state != State::Dash)
         tryApplyJump();
 
-    // Simple vertical physics
-    m_velocity.y += kGravity * dt;
-    m_position.y += m_velocity.y * dt;
-
-    // Ground handling: stand on solids; otherwise allow falling into lava floor (bottom of view).
-    const float collHalfH = 0.5f * m_colliderSize.y * std::abs(m_spriteScale.y);
-    if (m_world) {
-        // Resolve against solid ground pieces
-        RectCollider  rc(*this);
-        sf::FloatRect aabb        = rc.worldAabb();
-        const auto&   groundRects = m_world->getGroundRects();
-        sf::FloatRect inter;
-        for (const auto& r : groundRects) {
-            if (geom::aabbIntersects(aabb, r, inter)) {
-                const float topR    = r.position.y;
-                const float bottomA = aabb.position.y + aabb.size.y;
-                if (m_velocity.y >= 0.f && aabb.position.y < topR && bottomA > topR) {
-                    m_position.y = topR - collHalfH;
-                    m_velocity.y = 0.f;
-                    rc           = RectCollider(*this);
-                    aabb         = rc.worldAabb();
-                }
-            }
-        }
-
-        // Lava floor: clamp to the bottom of the view so the player can run in lava
-        const float bottomOfView = m_world->getViewBottomY();
-        const float bottom       = m_position.y + collHalfH;
-        if (bottom > bottomOfView) {
-            m_position.y = bottomOfView - collHalfH;
-            if (m_velocity.y > 0.f)
-                m_velocity.y = 0.f;
-        }
-    }
+    // Vertical physics and collision are applied from the world via Actor::applyPhysics().
 
     // Animation selection
     if (m_pAnimator) {
@@ -286,21 +253,4 @@ void Player::enterDash(float dirX) {
         m_pAnimator->playClip(kDash);
 }
 
-bool Player::isGrounded() const {
-    if (!m_world)
-        return false;
-
-    RectCollider rc(*this);
-    const auto   aabb  = rc.worldAabb();
-    const auto&  rects = m_world->getGroundRects();
-    for (const auto& r : rects) {
-        if (geom::touchTop(aabb, r, 2.0f))
-            return true;
-    }
-
-    // Or on the lava floor (bottom of the view)
-    const float collHalfH = 0.5f * m_colliderSize.y * std::abs(m_spriteScale.y);
-    const float bottom    = m_position.y + collHalfH;
-    const float viewB     = m_world->getViewBottomY();
-    return bottom >= viewB - 0.5f;
-}
+bool Player::isGrounded() const { return m_grounded; }

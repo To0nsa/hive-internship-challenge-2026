@@ -2,10 +2,10 @@
 
 #include "../entities/Entity.h"
 #include "../entities/actor/player/Player.h"
-#include "IState.h"
 #include "../level/AnimatedParallaxStrip.h"
 #include "../level/GroundStream.h"
 #include "../level/ParallaxBackground.h"
+#include "IState.h"
 
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/Text.hpp>
@@ -37,6 +37,12 @@ class StatePlaying : public IState {
         static const std::vector<sf::FloatRect> kEmpty;
         return kEmpty;
     }
+
+    // Solid rectangles for obstacles
+    const std::vector<sf::FloatRect>& getObstacleRects() const;
+
+    // All walkable-top solids
+    const std::vector<sf::FloatRect>& getSolidTopRects() const;
 
     // Camera helpers
     float getCameraLeft() const;
@@ -85,4 +91,8 @@ class StatePlaying : public IState {
     static inline constexpr float kFollowThresholdRatio = 0.80f; // 80% from left
     static inline constexpr float kCatchupLerp          = 8.f;   // view center smoothing
     static inline constexpr float kTargetCatchupLerp    = 2.5f;  // target center smoothing
+
+    // Cached rectangles for obstacle/solid queries (rebuilt on demand)
+    mutable std::vector<sf::FloatRect> m_cachedObstacleRects;
+    mutable std::vector<sf::FloatRect> m_cachedSolidTopRects;
 };

@@ -3,11 +3,13 @@
 #include "../Config.h"
 #include "../Debug.h"
 #include "../ResourceManager.h"
+#include "../collision/MultiRectCollider.h"
+#include "../entities/actor/Actor.h"
+#include "../obstacle/Obstacle.h"
 #include "../obstacle/ObstacleFactory.h"
 #include "../obstacle/ObstacleTypes.h"
 #include "../utils/Math.h"
 #include "../utils/Random.h"
-#include "../entities/actor/Actor.h"
 #include "StatePaused.h"
 #include "StateStack.h"
 
@@ -105,6 +107,30 @@ void StatePlaying::update(float dt) {
     if (m_ground)
         m_ground->updateForView(m_view);
 
+    // Apply physics to actors using combined ground + obstacle colliders (walk on them)
+    MultiRectCollider combined;
+    if (m_ground) {
+        std::vector<sf::FloatRect> solids = m_ground->getCollider().getRectColliders();
+        solids.reserve(solids.size() + m_entities.size());
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                solids.emplace_back(o->getCollider().worldAabb());
+            }
+        }
+        combined.setRectColliders(std::move(solids));
+    }
+    for (auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+        if (auto* actor = dynamic_cast<Actor*>(entity.get())) {
+            const Collider* col = m_ground ? static_cast<const Collider*>(&combined)
+                                           : static_cast<const Collider*>(nullptr);
+            actor->applyPhysics(dt, col);
+        }
+    }
+
     // Horizontal collide player vs obstacles
     if (m_pPlayer && m_pPlayer->isAlive()) {
         sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
@@ -153,21 +179,49 @@ void StatePlaying::update(float dt) {
             if (!entity->isAlive())
                 continue;
             if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
-                const sf::FloatRect aabb = o->getCollider().worldAabb();
+                const sf::FloatRect aabb  = o->getCollider().worldAabb();
                 const float         right = aabb.position.x + aabb.size.x;
                 if (right < cullBefore)
                     o->setAlive(false);
             }
         }
 
-        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(), [](auto& e) {
-                                 return !e->isAlive();
-                             }),
+        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
+                                        [](auto& e) { return !e->isAlive(); }),
                          m_entities.end());
     }
-    
+
     if (m_ground)
         m_ground->updateForView(m_view);
+}
+
+// Collect obstacle rectangles for collision queries
+const std::vector<sf::FloatRect>& StatePlaying::getObstacleRects() const {
+    m_cachedObstacleRects.clear();
+    m_cachedObstacleRects.reserve(m_entities.size());
+    for (const auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+        if (dynamic_cast<const Obstacle*>(entity.get())) {
+            m_cachedObstacleRects.push_back(entity->getCollider().worldAabb());
+        }
+    }
+    return m_cachedObstacleRects;
+}
+
+// Collect all walkable-top solids: ground + obstacles
+const std::vector<sf::FloatRect>& StatePlaying::getSolidTopRects() const {
+    m_cachedSolidTopRects.clear();
+    // Start with ground rects
+    const auto& groundRects = getGroundRects();
+    m_cachedSolidTopRects.reserve(groundRects.size() + m_entities.size());
+    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), groundRects.begin(),
+                                 groundRects.end());
+    // Append obstacle rects
+    const auto& obstacleRects = getObstacleRects();
+    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), obstacleRects.begin(),
+                                 obstacleRects.end());
+    return m_cachedSolidTopRects;
 }
 
 void StatePlaying::render(sf::RenderTarget& target) const {

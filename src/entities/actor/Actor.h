@@ -25,6 +25,12 @@ class Actor : public Entity {
     float getStamina() const;
     float getStaminaMax() const;
 
+    void applyDamage(float dmg);
+
+    // Minimal vertical physics with top-only collision against provided ground collider.
+    // Pass a MultiRectCollider (preferred) or any Collider containing the walkable surfaces.
+    virtual void applyPhysics(float dt, const Collider* ground);
+
   protected:
     virtual void updateActorBase(float dt);
 
@@ -44,4 +50,7 @@ class Actor : public Entity {
 
     // Rendering
     void render(sf::RenderTarget& target) const override;
+
+    // Grounded state updated by applyPhysics
+    bool m_grounded = false;
 };
