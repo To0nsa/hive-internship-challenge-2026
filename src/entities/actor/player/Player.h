@@ -15,13 +15,14 @@ class Player final : public Actor {
 
   private:
     // State machine
-    enum class State { Move, Dash };
+    enum class State { Move, Dash, Death };
     State m_state = State::Move;
 
     bool isGrounded() const;
 
     void enterMove();
     void enterDash(float dirX);
+    void enterDeath();
 
     void applyMovement(const sf::Vector2f& direction, float dt);
     void tryApplyJump();

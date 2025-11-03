@@ -8,6 +8,8 @@
 #include "../obstacle/Obstacle.h"
 #include "../obstacle/ObstacleFactory.h"
 #include "../obstacle/ObstacleTypes.h"
+#include "../platform/Platform.h"
+#include "../platform/PlatformFactory.h"
 #include "../utils/Math.h"
 #include "../utils/Random.h"
 #include "StatePaused.h"
@@ -58,7 +60,8 @@ bool StatePlaying::init() {
     // Seed RNG and schedule first obstacle spawn a bit ahead of view
     Random::seed(Random::timeSeed());
     const float viewRight = getCameraLeft() + m_view.getSize().x * 2.f;
-    m_nextObstacleX       = viewRight + Random::rangef(680.f, 1280.f);
+    m_nextObstacleX       = viewRight + Random::rangef(880.f, 1680.f);
+    m_nextPlatformX       = viewRight + Random::rangef(680.f, 980.f);
 
     return true;
 }
@@ -107,31 +110,8 @@ void StatePlaying::update(float dt) {
     if (m_ground)
         m_ground->updateForView(m_view);
 
-    // Apply physics to actors using combined ground + obstacle colliders (walk on them)
-    MultiRectCollider combined;
-    if (m_ground) {
-        std::vector<sf::FloatRect> solids = m_ground->getCollider().getRectColliders();
-        solids.reserve(solids.size() + m_entities.size());
-        for (auto& entity : m_entities) {
-            if (!entity->isAlive())
-                continue;
-            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
-                solids.emplace_back(o->getCollider().worldAabb());
-            }
-        }
-        combined.setRectColliders(std::move(solids));
-    }
-    for (auto& entity : m_entities) {
-        if (!entity->isAlive())
-            continue;
-        if (auto* actor = dynamic_cast<Actor*>(entity.get())) {
-            const Collider* col = m_ground ? static_cast<const Collider*>(&combined)
-                                           : static_cast<const Collider*>(nullptr);
-            actor->applyPhysics(dt, col);
-        }
-    }
-
-    // Horizontal collide player vs obstacles
+    // Resolve horizontal collisions first (player vs obstacles) to prevent side hits
+    // from being treated as vertical landings in the physics step.
     if (m_pPlayer && m_pPlayer->isAlive()) {
         sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
         for (auto& entity : m_entities) {
@@ -152,6 +132,32 @@ void StatePlaying::update(float dt) {
         }
     }
 
+    // Apply physics to actors using combined ground + obstacle colliders (walk on them)
+    MultiRectCollider combined;
+    if (m_ground) {
+        std::vector<sf::FloatRect> solids = m_ground->getCollider().getRectColliders();
+        solids.reserve(solids.size() + m_entities.size());
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                solids.emplace_back(o->getCollider().worldAabb());
+            } else if (auto* p = dynamic_cast<Platform*>(entity.get())) {
+                solids.emplace_back(p->getCollider().worldAabb());
+            }
+        }
+        combined.setRectColliders(std::move(solids));
+    }
+    for (auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+        if (auto* actor = dynamic_cast<Actor*>(entity.get())) {
+            const Collider* col = m_ground ? static_cast<const Collider*>(&combined)
+                                           : static_cast<const Collider*>(nullptr);
+            actor->applyPhysics(dt, col);
+        }
+    }
+
     // Stream simple random obstacles ahead of camera
     {
         const float viewLeft  = getCameraLeft();
@@ -168,6 +174,45 @@ void StatePlaying::update(float dt) {
                 m_nextObstacleX += Random::rangef(680.f, 1280.f);
             }
         }
+    }
+
+    // Stream simple random platforms ahead of camera
+    {
+        const float viewLeft  = getCameraLeft();
+        const float viewRight = viewLeft + m_view.getSize().x * 2.f;
+        if (m_ground) {
+            const float groundTop = m_ground->getTopYForView(m_view);
+            while (viewRight + 50.f >= m_nextPlatformX) {
+                const int   kindIdx = Random::rangei(0, static_cast<int>(PlatformKind::Count) - 1);
+                const auto  kind    = static_cast<PlatformKind>(kindIdx);
+                const auto& desc    = getPlatformDesc(kind);
+                const float y = groundTop - desc.colliderSize.y - Random::rangef(100.f, 300.f);
+                const float x = m_nextPlatformX;
+                spawnPlatform(*this, kind, {x, y});
+                m_nextPlatformX += Random::rangef(480.f, 880.f);
+            }
+        }
+    }
+
+    // Lifetime culling: remove platforms behind the camera
+    {
+        const float viewLeft   = getCameraLeft();
+        const float cullBefore = viewLeft - m_view.getSize().x;
+
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* p = dynamic_cast<Platform*>(entity.get())) {
+                const sf::FloatRect aabb  = p->getCollider().worldAabb();
+                const float         right = aabb.position.x + aabb.size.x;
+                if (right < cullBefore)
+                    p->setAlive(false);
+            }
+        }
+
+        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
+                                        [](auto& e) { return !e->isAlive(); }),
+                         m_entities.end());
     }
 
     // Lifetime culling: remove obstacles behind the camera
@@ -209,7 +254,21 @@ const std::vector<sf::FloatRect>& StatePlaying::getObstacleRects() const {
     return m_cachedObstacleRects;
 }
 
-// Collect all walkable-top solids: ground + obstacles
+// Collect platform rectangles for collision queries
+const std::vector<sf::FloatRect>& StatePlaying::getPlatformRects() const {
+    m_cachedPlatformRects.clear();
+    m_cachedPlatformRects.reserve(m_entities.size());
+    for (const auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+        if (dynamic_cast<const Platform*>(entity.get())) {
+            m_cachedPlatformRects.push_back(entity->getCollider().worldAabb());
+        }
+    }
+    return m_cachedPlatformRects;
+}
+
+// Collect all walkable-top solids: ground + obstacles + platforms
 const std::vector<sf::FloatRect>& StatePlaying::getSolidTopRects() const {
     m_cachedSolidTopRects.clear();
     // Start with ground rects
@@ -221,6 +280,10 @@ const std::vector<sf::FloatRect>& StatePlaying::getSolidTopRects() const {
     const auto& obstacleRects = getObstacleRects();
     m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), obstacleRects.begin(),
                                  obstacleRects.end());
+    // Append platform rects
+    const auto& platformRects = getPlatformRects();
+    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), platformRects.begin(),
+                                 platformRects.end());
     return m_cachedSolidTopRects;
 }
 

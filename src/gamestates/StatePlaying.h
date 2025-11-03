@@ -40,6 +40,8 @@ class StatePlaying : public IState {
 
     // Solid rectangles for obstacles
     const std::vector<sf::FloatRect>& getObstacleRects() const;
+    // Solid rectangles for platforms
+    const std::vector<sf::FloatRect>& getPlatformRects() const;
 
     // All walkable-top solids
     const std::vector<sf::FloatRect>& getSolidTopRects() const;
@@ -75,8 +77,9 @@ class StatePlaying : public IState {
     std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
     std::unique_ptr<GroundStream>          m_ground;
 
-    // Obstacle spawning
+    // Obstacle and platform spawning
     float m_nextObstacleX = 0.f;
+    float m_nextPlatformX = 0.f;
 
     // Camera
     sf::View m_view;
@@ -92,7 +95,8 @@ class StatePlaying : public IState {
     static inline constexpr float kCatchupLerp          = 8.f;   // view center smoothing
     static inline constexpr float kTargetCatchupLerp    = 2.5f;  // target center smoothing
 
-    // Cached rectangles for obstacle/solid queries (rebuilt on demand)
+    // Cached rectangles for obstacle/solid queries
     mutable std::vector<sf::FloatRect> m_cachedObstacleRects;
+    mutable std::vector<sf::FloatRect> m_cachedPlatformRects;
     mutable std::vector<sf::FloatRect> m_cachedSolidTopRects;
 };

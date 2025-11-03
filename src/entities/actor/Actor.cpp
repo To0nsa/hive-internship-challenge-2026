@@ -81,7 +81,6 @@ void Actor::updateActorBase(float dt) {
 }
 
 void Actor::applyPhysics(float dt, const Collider* ground) {
-    // Tunables kept simple for prototype
     static constexpr float kPhysGravity = 2400.f;
     static constexpr float kMaxVelY     = 3000.f;
 
@@ -90,8 +89,10 @@ void Actor::applyPhysics(float dt, const Collider* ground) {
         m_velocity.y += kPhysGravity * dt;
     if (m_velocity.y > kMaxVelY)
         m_velocity.y = kMaxVelY;
+
+    const float dy = m_velocity.y * dt;
     if (m_velocity.y != 0.f) {
-        m_position.y += m_velocity.y * dt;
+        m_position.y += dy;
         if (m_pSprite)
             m_pSprite->setPosition(m_position);
     }
@@ -102,20 +103,43 @@ void Actor::applyPhysics(float dt, const Collider* ground) {
         return;
 
     const sf::FloatRect actorCollider = getCollider().worldAabb();
-    const float         actorR        = geom::right(actorCollider);
-    const float         actorB        = geom::bottom(actorCollider);
+    sf::FloatRect       prevActor     = actorCollider;
+    prevActor.position.y -= dy; // position before applying vertical integration
 
-    float closestLiftDy = -std::numeric_limits<float>::infinity(); // largest deltaY ≤ 0
+    // Choose the smallest upward correction needed to rest on top.
+    float bestLiftDy = -std::numeric_limits<float>::infinity(); // largest deltaY ≤ 0
+    bool  touchingTop = false;                                   // exact top contact without overlap
 
     auto consider = [&](const sf::FloatRect& groundCollider) {
-        const float groundR = geom::right(groundCollider);
-        // Only collide if horizontally overlapping
-        if (actorR <= geom::left(groundCollider) || geom::left(actorCollider) >= groundR)
+        // Require actual overlap this frame to resolve.
+        sf::FloatRect inter;
+        // Track exact top contact even without overlap (resting on top, no motion)
+        if (m_velocity.y == 0.f && geom::touchTop(actorCollider, groundCollider, 0.75f))
+            touchingTop = true;
+
+        // We only care about landings from above this frame: bottom crossing the top plane.
+        const float groundTop   = geom::top(groundCollider);
+        const float prevBottom  = geom::bottom(prevActor);
+        const float currentB    = geom::bottom(actorCollider);
+        const float currentLeft = geom::left(actorCollider);
+        const float currentRight = geom::right(actorCollider);
+        const float groundLeft  = geom::left(groundCollider);
+        const float groundRight = geom::right(groundCollider);
+
+        // Horizontal overlap required to stand on top.
+        if (currentRight <= groundLeft || currentLeft >= groundRight)
             return;
-        // Move up to rest on top
-        const float deltaY = geom::top(groundCollider) - actorB;
-        if (deltaY <= 0.f)
-            closestLiftDy = std::max(closestLiftDy, deltaY);
+
+        // Must be above last frame and now at/through the top plane.
+        constexpr float kTopEps = 0.001f;
+        if (prevBottom > groundTop + kTopEps)
+            return; // not a landing from above
+        if (currentB < groundTop - kTopEps)
+            return; // still above top -> no contact yet
+
+        // Upward lift required to rest bottom on top of ground.
+        const float deltaY = groundTop - currentB; // ≤ 0 when penetrating from above
+        bestLiftDy         = std::max(bestLiftDy, deltaY);
     };
 
     if (const auto* multi = dynamic_cast<const MultiRectCollider*>(ground)) {
@@ -125,11 +149,14 @@ void Actor::applyPhysics(float dt, const Collider* ground) {
         consider(ground->worldAabb());
     }
 
-    if (closestLiftDy > -std::numeric_limits<float>::infinity()) {
-        m_position.y += closestLiftDy;
+    if (bestLiftDy > -std::numeric_limits<float>::infinity()) {
+        m_position.y += bestLiftDy;
         if (m_pSprite)
             m_pSprite->setPosition(m_position);
         m_velocity.y = 0.f;
         m_grounded   = true;
+    } else if (touchingTop) {
+        // Maintain grounded state on exact top contact
+        m_grounded = true;
     }
 }

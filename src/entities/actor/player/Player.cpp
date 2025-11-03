@@ -18,6 +18,7 @@ namespace {
     constexpr const char* kJump = "player_jump";
     constexpr const char* kFall = "player_fall";
     constexpr const char* kDash = "player_dash";
+    constexpr const char* kDeath = "player_death";
 } // namespace
 
 bool Player::init() {
@@ -27,6 +28,7 @@ bool Player::init() {
     const sf::Texture* jumpTex = ResourceManager::getOrLoadTexture("PlayerJumpAnimation.png");
     const sf::Texture* fallTex = ResourceManager::getOrLoadTexture("PlayerFallAnimation.png");
     const sf::Texture* dashTex = ResourceManager::getOrLoadTexture("PlayerDashAnimation.png");
+    const sf::Texture* deathTex = ResourceManager::getOrLoadTexture("PlayerDeathAnimation.png");
 
     // Setup sprite
     m_pSprite = std::make_unique<sf::Sprite>(*idleTex);
@@ -49,6 +51,8 @@ bool Player::init() {
     m_pAnimator->addClip(std::move(fallClip));
     auto dashClip = Animation::makeClipFromRow(kDash, *dashTex, kFrameSize, 4, 20.f, false);
     m_pAnimator->addClip(std::move(dashClip));
+    auto deathClip = Animation::makeClipFromRow(kDeath, *deathTex, kFrameSize, 6, 8.f, false);
+    m_pAnimator->addClip(std::move(deathClip));
 
     // Setup collider
     setColliderSize(
@@ -251,6 +255,12 @@ void Player::enterDash(float dirX) {
     setFacing(m_dashDirX > 0 ? Facing::Right : Facing::Left);
     if (m_pAnimator)
         m_pAnimator->playClip(kDash);
+}
+
+void Player::enterDeath() {
+    m_state = State::Death;
+    if (m_pAnimator)
+        m_pAnimator->playClip(kDeath);
 }
 
 bool Player::isGrounded() const { return m_grounded; }
