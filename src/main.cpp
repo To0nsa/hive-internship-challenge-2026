@@ -39,9 +39,13 @@ int main(int argc, char* argv[]) {
             if (event->is<sf::Event::Closed>()) {
                 window.close();
             }
+
+            // Dispatch event to current state
+            pState->handleEvent(event.value());
         }
 
         pState->update(elapsedTime.asSeconds());
+        
         window.clear();
         pState->render(window);
         window.display();

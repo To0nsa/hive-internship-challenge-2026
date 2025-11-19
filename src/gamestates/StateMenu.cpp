@@ -4,6 +4,8 @@
 #include "StatePlaying.h"
 #include "StateStack.h"
 
+#include <SFML/Window/Event.hpp>
+#include <SFML/Window/Keyboard.hpp>
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Text.hpp>
@@ -39,16 +41,16 @@ bool StateMenu::init() {
     return true;
 }
 
+void StateMenu::handleEvent(const sf::Event& event) {
+    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+        if (pKeyEvent->scancode == sf::Keyboard::Scan::Enter) {
+            m_stateStack.push<StatePlaying>();
+        }
+    }
+}
+
 void StateMenu::update(float dt) {
     (void)dt;
-    m_hasStartKeyBeenPressed |= sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
-    if (m_hasStartKeyBeenReleased) {
-        m_hasStartKeyBeenPressed  = false;
-        m_hasStartKeyBeenReleased = false;
-        m_stateStack.push<StatePlaying>();
-    }
-    m_hasStartKeyBeenReleased |=
-        m_hasStartKeyBeenPressed && !sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Enter);
 }
 
 void StateMenu::render(sf::RenderTarget& target) const {

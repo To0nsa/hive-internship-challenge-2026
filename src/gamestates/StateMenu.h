@@ -16,11 +16,10 @@ class StateMenu : public IState {
     bool init() override;
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
+    void handleEvent(const sf::Event& event) override;
 
   public:
     StateStack&               m_stateStack;
     std::unique_ptr<sf::Text> m_pText;
     std::unique_ptr<sf::Text> m_pSubText;
-    bool                      m_hasStartKeyBeenPressed  = false;
-    bool                      m_hasStartKeyBeenReleased = false;
 };
