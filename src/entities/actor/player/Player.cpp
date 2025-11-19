@@ -28,16 +28,16 @@ namespace {
 
 bool Player::init() {
     // Load animation textures if present
-    const sf::Texture* idleTex  = ResourceManager::getTexture("PlayerIdleAnimation.png");
-    const sf::Texture* runTex   = ResourceManager::getTexture("PlayerMoveAnimation.png");
-    const sf::Texture* jumpTex  = ResourceManager::getTexture("PlayerJumpAnimation.png");
-    const sf::Texture* fallTex  = ResourceManager::getTexture("PlayerFallAnimation.png");
-    const sf::Texture* dashTex  = ResourceManager::getTexture("PlayerDashAnimation.png");
-    const sf::Texture* deathTex = ResourceManager::getTexture("PlayerDeathAnimation.png");
-    const sf::Texture* castTex  = ResourceManager::getTexture("PlayerCastAnimation.png");
+    const sf::Texture& idleTex  = ResourceManager::getTexture("PlayerIdleAnimation.png");
+    const sf::Texture& runTex   = ResourceManager::getTexture("PlayerMoveAnimation.png");
+    const sf::Texture& jumpTex  = ResourceManager::getTexture("PlayerJumpAnimation.png");
+    const sf::Texture& fallTex  = ResourceManager::getTexture("PlayerFallAnimation.png");
+    const sf::Texture& dashTex  = ResourceManager::getTexture("PlayerDashAnimation.png");
+    const sf::Texture& deathTex = ResourceManager::getTexture("PlayerDeathAnimation.png");
+    const sf::Texture& castTex  = ResourceManager::getTexture("PlayerCastAnimation.png");
 
     // Setup sprite
-    m_pSprite = std::make_unique<sf::Sprite>(*idleTex);
+    m_pSprite = std::make_unique<sf::Sprite>(idleTex);
     m_pSprite->setOrigin({kFrameSize.x * 0.5f, kFrameSize.y * 0.5f});
     m_spriteScale = kPlayerScale;
     applyFacingScale();
@@ -47,19 +47,19 @@ bool Player::init() {
     m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
 
     // Build animation clips
-    auto idleClip = Animation::makeClipFromRow(kIdle, *idleTex, kFrameSize, 4, 6.f, true);
+    auto idleClip = Animation::makeClipFromRow(kIdle, idleTex, kFrameSize, 4, 6.f, true);
     m_pAnimator->addClip(std::move(idleClip));
-    auto runClip = Animation::makeClipFromRow(kRun, *runTex, kFrameSize, 7, 12.f, true);
+    auto runClip = Animation::makeClipFromRow(kRun, runTex, kFrameSize, 7, 12.f, true);
     m_pAnimator->addClip(std::move(runClip));
-    auto jumpClip = Animation::makeClipFromRow(kJump, *jumpTex, kFrameSize, 6, 12.f, false);
+    auto jumpClip = Animation::makeClipFromRow(kJump, jumpTex, kFrameSize, 6, 12.f, false);
     m_pAnimator->addClip(std::move(jumpClip));
-    auto fallClip = Animation::makeClipFromRow(kFall, *fallTex, kFrameSize, 3, 12.f, true);
+    auto fallClip = Animation::makeClipFromRow(kFall, fallTex, kFrameSize, 3, 12.f, true);
     m_pAnimator->addClip(std::move(fallClip));
-    auto dashClip = Animation::makeClipFromRow(kDash, *dashTex, kFrameSize, 4, 20.f, false);
+    auto dashClip = Animation::makeClipFromRow(kDash, dashTex, kFrameSize, 4, 20.f, false);
     m_pAnimator->addClip(std::move(dashClip));
-    auto deathClip = Animation::makeClipFromRow(kDeath, *deathTex, kFrameSize, 6, 8.f, false);
+    auto deathClip = Animation::makeClipFromRow(kDeath, deathTex, kFrameSize, 6, 8.f, false);
     m_pAnimator->addClip(std::move(deathClip));
-    auto castClip = Animation::makeClipFromRow(kCast, *castTex, kFrameSize, 5, 20.f, false);
+    auto castClip = Animation::makeClipFromRow(kCast, castTex, kFrameSize, 5, 20.f, false);
     m_pAnimator->addClip(std::move(castClip));
 
     // Setup collider

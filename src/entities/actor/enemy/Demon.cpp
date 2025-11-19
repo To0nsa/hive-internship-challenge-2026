@@ -15,12 +15,12 @@ namespace {
 
 bool Demon::init() {
     // Load textures
-    const sf::Texture* flyTex   = ResourceManager::getTexture("DemonFlyAnimation.png");
-    const sf::Texture* deathTex = ResourceManager::getTexture("DemonDeathAnimation.png");
+    sf::Texture& flyTex   = ResourceManager::getTexture("DemonFlyAnimation.png");
+    sf::Texture& deathTex = ResourceManager::getTexture("DemonDeathAnimation.png");
 
     // Sprite
     const sf::Vector2i kFrame{81, 71};
-    m_pSprite = std::make_unique<sf::Sprite>(*flyTex);
+    m_pSprite = std::make_unique<sf::Sprite>(flyTex);
     m_pSprite->setOrigin({kFrame.x * 0.5f, kFrame.y * 0.5f});
     m_spriteScale = {1.2f, 1.2f};
     applyFacingScale();
@@ -33,10 +33,8 @@ bool Demon::init() {
     m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
 
     // Clips
-    if (flyTex)
-        m_pAnimator->addClip(Animation::makeClipFromRow(kFly, *flyTex, kFrame, 4, 10.f, true));
-    if (deathTex)
-        m_pAnimator->addClip(Animation::makeClipFromRow(kDeath, *deathTex, kFrame, 7, 10.f, false));
+    m_pAnimator->addClip(Animation::makeClipFromRow(kFly, flyTex, kFrame, 4, 10.f, true));
+    m_pAnimator->addClip(Animation::makeClipFromRow(kDeath, deathTex, kFrame, 7, 10.f, false));
 
     // Collider
     setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});

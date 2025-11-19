@@ -12,13 +12,9 @@ StatePaused::StatePaused(StateStack& stateStack) : m_stateStack(stateStack) {}
 bool StatePaused::init() {
     m_pPrevState = m_stateStack.getCurrentState();
 
-    const sf::Font* pFont = ResourceManager::getFont("Lavigne.ttf");
-    if (pFont == nullptr)
-        return false;
+    const sf::Font& pFont = ResourceManager::getFont("Lavigne.ttf");
 
-    m_pText = std::make_unique<sf::Text>(*pFont);
-    if (!m_pText)
-        return false;
+    m_pText = std::make_unique<sf::Text>(pFont);
 
     m_pText->setString("PRESS <ESC> TO UNPAUSE");
     m_pText->setStyle(sf::Text::Bold);

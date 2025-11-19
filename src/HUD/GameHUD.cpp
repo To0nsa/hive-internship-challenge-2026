@@ -23,27 +23,26 @@ GameHUD::GameHUD() {
     m_staminaBar.setOutlineThickness(kOutlinePx);
 
     // Timer text
-    if (const sf::Font* font = ResourceManager::getFont("Lavigne.ttf")) {
-        m_pTimerText = std::make_unique<sf::Text>(*font, "00:00", 28);
-        m_pTimerText->setFillColor(Palette::kUiOutline);
-        m_pTimerText->setOutlineColor(Palette::kUiBack);
-        m_pTimerText->setOutlineThickness(2.f);
-        // Center origin for top-center anchor
-        const auto bounds = m_pTimerText->getLocalBounds();
-        m_pTimerText->setOrigin(
-            {bounds.size.x * 0.5f + bounds.position.x, bounds.size.y * 0.5f + bounds.position.y});
-        m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
+    const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
+    m_pTimerText = std::make_unique<sf::Text>(font, "00:00", 28);
+    m_pTimerText->setFillColor(Palette::kUiOutline);
+    m_pTimerText->setOutlineColor(Palette::kUiBack);
+    m_pTimerText->setOutlineThickness(2.f);
+    // Center origin for top-center anchor
+    const auto bounds = m_pTimerText->getLocalBounds();
+    m_pTimerText->setOrigin(
+        {bounds.size.x * 0.5f + bounds.position.x, bounds.size.y * 0.5f + bounds.position.y});
+    m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
 
-        // Score text (top-right)
-        m_pScoreText = std::make_unique<sf::Text>(*font, "Score 0", 28);
-        m_pScoreText->setFillColor(Palette::kUiOutline);
-        m_pScoreText->setOutlineColor(Palette::kUiBack);
-        m_pScoreText->setOutlineThickness(2.f);
-        const auto sb = m_pScoreText->getLocalBounds();
-        // Top-right anchor
-        m_pScoreText->setOrigin({sb.size.x + sb.position.x, sb.position.y});
-        m_pScoreText->setPosition({static_cast<float>(Config::windowWidth) - 20.f, m_timerTopY});
-    }
+    // Score text (top-right)
+    m_pScoreText = std::make_unique<sf::Text>(font, "Score 0", 28);
+    m_pScoreText->setFillColor(Palette::kUiOutline);
+    m_pScoreText->setOutlineColor(Palette::kUiBack);
+    m_pScoreText->setOutlineThickness(2.f);
+    const auto sb = m_pScoreText->getLocalBounds();
+    // Top-right anchor
+    m_pScoreText->setOrigin({sb.size.x + sb.position.x, sb.position.y});
+    m_pScoreText->setPosition({static_cast<float>(Config::windowWidth) - 20.f, m_timerTopY});
 
     layout();
 }

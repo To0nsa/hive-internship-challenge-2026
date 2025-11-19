@@ -12,9 +12,9 @@ void ResourceManager::init(std::string executablePath) {
     m_assetPath += "assets/";
 }
 
-const sf::Font* ResourceManager::getFont(const std::string& filename) {
+const sf::Font& ResourceManager::getFont(const std::string& filename) {
     if (auto it = m_loadedFonts.find(filename); it != m_loadedFonts.end())
-        return &it->second;
+        return it->second;
 
     auto [it, inserted] = m_loadedFonts.emplace(filename, sf::Font{});
     if (!inserted) {
@@ -29,12 +29,12 @@ const sf::Font* ResourceManager::getFont(const std::string& filename) {
             "ResourceManager::getFont: could not load font from '" + fullPath.string() + "'");
     }
 
-    return &font;
+    return font;
 }
 
-const sf::Texture* ResourceManager::getTexture(const std::string& filename) {
+sf::Texture& ResourceManager::getTexture(const std::string&filename) {
     if (auto it = m_loadedTextures.find(filename); it != m_loadedTextures.end())
-        return &it->second;
+        return it->second;
 
     auto [it, inserted] = m_loadedTextures.emplace(filename, sf::Texture{});
     if (!inserted) {
@@ -49,12 +49,12 @@ const sf::Texture* ResourceManager::getTexture(const std::string& filename) {
             "ResourceManager::getTexture: could not load texture from '" + fullPath.string() + "'");
     }
 
-    return &texture;
+    return texture;
 }
 
-const sf::SoundBuffer* ResourceManager::getSoundBuffer(const std::string& filename) {
+const sf::SoundBuffer& ResourceManager::getSoundBuffer(const std::string& filename) {
     if (auto it = m_loadedSoundBuffers.find(filename); it != m_loadedSoundBuffers.end())
-        return &it->second;
+        return it->second;
 
     auto [it, inserted] = m_loadedSoundBuffers.emplace(filename, sf::SoundBuffer{});
     if (!inserted) {
@@ -71,7 +71,7 @@ const sf::SoundBuffer* ResourceManager::getSoundBuffer(const std::string& filena
             fullPath.string() + "'");
     }
 
-    return &buffer;
+    return buffer;
 }
 
 std::filesystem::path ResourceManager::getAssetPath(const std::string& filename) {

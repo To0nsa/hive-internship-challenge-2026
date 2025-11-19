@@ -7,8 +7,8 @@
 #include "../../utils/Math.h"
 
 static inline AnimationClip makeClipFromSpell(const std::string& name, const SpellClip& spell) {
-    const sf::Texture* pTex = ResourceManager::getTexture(spell.textureKey);
-    auto clip = Animation::makeClipFromRow(name, *pTex, spell.frameSize, spell.frameCount,
+    const sf::Texture& pTex = ResourceManager::getTexture(spell.textureKey);
+    auto clip = Animation::makeClipFromRow(name, pTex, spell.frameSize, spell.frameCount,
                                            spell.fps, spell.loop);
     return clip;
 }
@@ -27,8 +27,8 @@ Projectile::Projectile(SpellId spellId, Faction faction, const sf::Vector2f& ori
     m_timeToLive = m_def.stats.projectile.lifetime;
 
     // Sprite + animator
-    const sf::Texture* pStart = ResourceManager::getTexture(m_def.visuals.start.textureKey);
-    m_pSprite                 = std::make_unique<sf::Sprite>(*pStart);
+    const sf::Texture& pStart = ResourceManager::getTexture(m_def.visuals.start.textureKey);
+    m_pSprite                 = std::make_unique<sf::Sprite>(pStart);
     m_pAnimator               = std::make_unique<SpriteAnimator>(*m_pSprite);
 
     // Build animation clips
