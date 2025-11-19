@@ -12,7 +12,7 @@ class Platform final : public Entity {
     explicit Platform(const PlatformDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const sf::Texture* pTex = ResourceManager::getOrLoadTexture(m_desc.textureKey);
+        const sf::Texture* pTex = ResourceManager::getTexture(m_desc.textureKey);
         if (!pTex)
             return false;
 

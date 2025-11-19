@@ -12,7 +12,7 @@ StatePaused::StatePaused(StateStack& stateStack) : m_stateStack(stateStack) {}
 bool StatePaused::init() {
     m_pPrevState = m_stateStack.getCurrentState();
 
-    const sf::Font* pFont = ResourceManager::getOrLoadFont("Lavigne.ttf");
+    const sf::Font* pFont = ResourceManager::getFont("Lavigne.ttf");
     if (pFont == nullptr)
         return false;
 

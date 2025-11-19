@@ -10,8 +10,9 @@
 #include <memory>
 #include <optional>
 #include <stack>
+#include <iostream>
 
-int main(int argc, char* argv[]) {
+int main(int argc, char* argv[]) try {
     (void)argc;
 
     // ResourceManager must be instantiated here -- DO NOT CHANGE
@@ -25,7 +26,7 @@ int main(int argc, char* argv[]) {
 
     StateStack gamestates;
     if (!gamestates.push<StateMenu>())
-        return -1;
+        return EXIT_FAILURE;
 
     sf::Clock clock;
     while (window.isOpen()) {
@@ -33,7 +34,7 @@ int main(int argc, char* argv[]) {
 
         IState* pState = gamestates.getCurrentState();
         if (!pState)
-            return -1;
+            return EXIT_FAILURE;
 
         while (const std::optional<sf::Event> event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
@@ -45,7 +46,7 @@ int main(int argc, char* argv[]) {
         }
 
         pState->update(elapsedTime.asSeconds());
-        
+
         window.clear();
         pState->render(window);
         window.display();
@@ -53,5 +54,12 @@ int main(int argc, char* argv[]) {
         gamestates.performDeferredPops();
     }
 
-    return 0;
+    return EXIT_SUCCESS;
+
+} catch (const std::exception& e) {
+    std::cerr << "Fatal error: " << e.what() << std::endl;
+    return EXIT_FAILURE;
+} catch (...) {
+    std::cerr << "Fatal error: unknown exception occurred" << std::endl;
+    return EXIT_FAILURE;
 }

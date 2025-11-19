@@ -28,13 +28,13 @@ namespace {
 
 bool Player::init() {
     // Load animation textures if present
-    const sf::Texture* idleTex  = ResourceManager::getOrLoadTexture("PlayerIdleAnimation.png");
-    const sf::Texture* runTex   = ResourceManager::getOrLoadTexture("PlayerMoveAnimation.png");
-    const sf::Texture* jumpTex  = ResourceManager::getOrLoadTexture("PlayerJumpAnimation.png");
-    const sf::Texture* fallTex  = ResourceManager::getOrLoadTexture("PlayerFallAnimation.png");
-    const sf::Texture* dashTex  = ResourceManager::getOrLoadTexture("PlayerDashAnimation.png");
-    const sf::Texture* deathTex = ResourceManager::getOrLoadTexture("PlayerDeathAnimation.png");
-    const sf::Texture* castTex  = ResourceManager::getOrLoadTexture("PlayerCastAnimation.png");
+    const sf::Texture* idleTex  = ResourceManager::getTexture("PlayerIdleAnimation.png");
+    const sf::Texture* runTex   = ResourceManager::getTexture("PlayerMoveAnimation.png");
+    const sf::Texture* jumpTex  = ResourceManager::getTexture("PlayerJumpAnimation.png");
+    const sf::Texture* fallTex  = ResourceManager::getTexture("PlayerFallAnimation.png");
+    const sf::Texture* dashTex  = ResourceManager::getTexture("PlayerDashAnimation.png");
+    const sf::Texture* deathTex = ResourceManager::getTexture("PlayerDeathAnimation.png");
+    const sf::Texture* castTex  = ResourceManager::getTexture("PlayerCastAnimation.png");
 
     // Setup sprite
     m_pSprite = std::make_unique<sf::Sprite>(*idleTex);

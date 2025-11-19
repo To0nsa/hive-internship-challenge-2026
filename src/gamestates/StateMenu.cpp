@@ -13,7 +13,7 @@
 StateMenu::StateMenu(StateStack& stateStack) : m_stateStack(stateStack) {}
 
 bool StateMenu::init() {
-    const sf::Font* pFont = ResourceManager::getOrLoadFont("Lavigne.ttf");
+    const sf::Font* pFont = ResourceManager::getFont("Lavigne.ttf");
     if (pFont == nullptr)
         return false;
 

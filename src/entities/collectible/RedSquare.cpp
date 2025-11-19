@@ -9,9 +9,9 @@
 
 bool RedSquare::init() {
     // Hidden sprite used only for collider transform (not rendered)
-    const sf::Texture* pTex = ResourceManager::getOrLoadTexture("ice_boltstart.png");
+    const sf::Texture* pTex = ResourceManager::getTexture("ice_boltstart.png");
     if (!pTex)
-        pTex = ResourceManager::getOrLoadTexture("PlayerIdleAnimation.png");
+        pTex = ResourceManager::getTexture("PlayerIdleAnimation.png");
     if (!pTex)
         return false;
     m_pSprite = std::make_unique<sf::Sprite>(*pTex);

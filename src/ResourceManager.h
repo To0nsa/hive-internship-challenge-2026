@@ -11,9 +11,9 @@
 class ResourceManager {
   public:
     static void                   init(std::string executablePath);
-    static const sf::Font*        getOrLoadFont(const std::string& filename);
-    static const sf::Texture*     getOrLoadTexture(const std::string& filename);
-    static const sf::SoundBuffer* getOrLoadSoundBuffer(const std::string& filename);
+    static const sf::Font*        getFont(const std::string& filename);
+    static const sf::Texture*     getTexture(const std::string& filename);
+    static const sf::SoundBuffer* getSoundBuffer(const std::string& filename);
 
   private:
     static inline std::string                                      m_assetPath;

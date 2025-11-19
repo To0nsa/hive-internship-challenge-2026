@@ -15,8 +15,8 @@ namespace {
 
 bool Demon::init() {
     // Load textures
-    const sf::Texture* flyTex   = ResourceManager::getOrLoadTexture("DemonFlyAnimation.png");
-    const sf::Texture* deathTex = ResourceManager::getOrLoadTexture("DemonDeathAnimation.png");
+    const sf::Texture* flyTex   = ResourceManager::getTexture("DemonFlyAnimation.png");
+    const sf::Texture* deathTex = ResourceManager::getTexture("DemonDeathAnimation.png");
 
     // Sprite
     const sf::Vector2i kFrame{81, 71};

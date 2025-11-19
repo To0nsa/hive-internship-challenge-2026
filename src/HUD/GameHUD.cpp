@@ -23,7 +23,7 @@ GameHUD::GameHUD() {
     m_staminaBar.setOutlineThickness(kOutlinePx);
 
     // Timer text
-    if (const sf::Font* font = ResourceManager::getOrLoadFont("Lavigne.ttf")) {
+    if (const sf::Font* font = ResourceManager::getFont("Lavigne.ttf")) {
         m_pTimerText = std::make_unique<sf::Text>(*font, "00:00", 28);
         m_pTimerText->setFillColor(Palette::kUiOutline);
         m_pTimerText->setOutlineColor(Palette::kUiBack);
