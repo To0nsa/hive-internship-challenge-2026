@@ -29,7 +29,7 @@ void StatePaused::update(float dt) {
     bool isPauseKeyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape);
     m_hasPauseKeyBeenReleased |= !isPauseKeyPressed;
     if (m_hasPauseKeyBeenReleased && isPauseKeyPressed)
-        m_stateStack.popDeferred();
+        m_stateStack.requestPop();
 }
 
 void StatePaused::render(sf::RenderTarget& target) const {

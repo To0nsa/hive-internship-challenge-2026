@@ -6,7 +6,9 @@
 namespace sf {
     class RenderTarget;
 };
+
 class StateStack;
+
 class IState {
   public:
     virtual ~IState() = default;

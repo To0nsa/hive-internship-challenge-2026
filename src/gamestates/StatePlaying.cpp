@@ -32,7 +32,7 @@ StatePlaying::StatePlaying(StateStack& stateStack) : m_stateStack(stateStack) {}
 
 void StatePlaying::requestExitToMenu() {
     // Pop this state; the menu remains underneath.
-    m_stateStack.popDeferred();
+    m_stateStack.requestPop();
 }
 
 bool StatePlaying::init() {

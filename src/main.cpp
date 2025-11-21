@@ -25,8 +25,7 @@ int main(int argc, char* argv[]) try {
     window.setVerticalSyncEnabled(true);
 
     StateStack gamestates;
-    if (!gamestates.push<StateMenu>())
-        return EXIT_FAILURE;
+    gamestates.push<StateMenu>();
 
     sf::Clock clock;
     while (window.isOpen()) {
@@ -51,7 +50,7 @@ int main(int argc, char* argv[]) try {
         pState->render(window);
         window.display();
 
-        gamestates.performDeferredPops();
+        gamestates.performPendingPops();
     }
 
     return EXIT_SUCCESS;
