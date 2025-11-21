@@ -236,9 +236,9 @@ class GroundStream : public sf::Drawable {
     mutable AnimationClip                   m_lavaClip;
 
     // Tunables (kept close to original intent)
-    static inline constexpr float kColliderHeightRatio = 0.05f; // fraction of view height
-    static inline constexpr float kCellWidth           = 220.f; // world units per cell
-    static inline constexpr int   kBlockCells          = 5;     // cells per block (1 gap inside)
-    static inline constexpr float kLavaScale           = 6.f;   // sprite scale
-    static inline constexpr float kLavaYOffset         = 85.f;  // visual lift above band
+    static constexpr float kColliderHeightRatio = 0.05f; // fraction of view height
+    static constexpr float kCellWidth           = 220.f; // world units per cell
+    static constexpr int   kBlockCells          = 5;     // cells per block (1 gap inside)
+    static constexpr float kLavaScale           = 6.f;   // sprite scale
+    static constexpr float kLavaYOffset         = 85.f;  // visual lift above band
 };

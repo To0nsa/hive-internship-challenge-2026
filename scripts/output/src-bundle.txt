@@ -1,0 +1,4147 @@
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/Config.h =====
+#pragma once
+
+namespace sf {
+    class RenderWindow;
+}
+
+namespace Config {
+    constexpr int  windowWidth   = 1200;
+    constexpr int  windowHeight  = 900;
+    constexpr char windowTitle[] = "SFML Game";
+    constexpr bool kDebugDraw    = false;
+
+    // Set by main after creating the window, used for input utilities.
+    inline sf::RenderWindow* gWindow = nullptr;
+} // namespace Config
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/Config.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/Debug.h =====
+#pragma once
+#include <SFML/Graphics/Color.hpp>
+#include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Sprite.hpp>
+
+namespace Debug {
+    inline void drawSpriteBounds(sf::RenderTarget& target, const sf::Sprite& sprite,
+                                 const sf::Color& color, float thickness = 1.f) {
+        const sf::FloatRect bounds = sprite.getGlobalBounds();
+
+        sf::RectangleShape outline;
+        outline.setPosition(bounds.position);
+        outline.setSize(bounds.size);
+        outline.setFillColor(sf::Color(0, 0, 0, 0));
+        outline.setOutlineColor(color);
+        outline.setOutlineThickness(thickness);
+        target.draw(outline);
+    }
+
+    inline void drawSpriteOrigin(sf::RenderTarget& target, const sf::Sprite& sprite,
+                                 const sf::Color& color, float size = 10.f, float thickness = 2.f) {
+        const sf::Vector2f originPos = sprite.getTransform().transformPoint(sprite.getOrigin());
+
+        sf::RectangleShape crosshairH;
+        crosshairH.setPosition({originPos.x - size * 0.5f, originPos.y - thickness * 0.5f});
+        crosshairH.setSize({size, thickness});
+        crosshairH.setFillColor(color);
+        target.draw(crosshairH);
+
+        sf::RectangleShape crosshairV;
+        crosshairV.setPosition({originPos.x - thickness * 0.5f, originPos.y - size * 0.5f});
+        crosshairV.setSize({thickness, size});
+        crosshairV.setFillColor(color);
+        target.draw(crosshairV);
+    }
+
+    inline void drawColliderBounds(sf::RenderTarget& target, const Collider& collider,
+                                   const sf::Color& color, float thickness = 1.f) {
+        const sf::FloatRect bounds = collider.worldAabb();
+
+        sf::RectangleShape outline;
+        outline.setPosition(bounds.position);
+        outline.setSize(bounds.size);
+        outline.setFillColor(sf::Color(0, 0, 0, 0));
+        outline.setOutlineColor(color);
+        outline.setOutlineThickness(thickness);
+        target.draw(outline);
+    }
+
+    inline void drawVerticalGuide(sf::RenderTarget& target, const sf::View& view, float x,
+                                  const sf::Color& color, float thickness = 3.f) {
+        const float        bottomY = 0.f;
+        const float        height  = view.getSize().y;
+        sf::RectangleShape line({thickness, height});
+        line.setPosition({x - thickness * 0.5f, bottomY});
+        line.setFillColor(color);
+        target.draw(line);
+    }
+
+    inline void drawCameraGuides(sf::RenderTarget& target, const sf::View& view, float catchupX,
+                                 float followX) {
+        drawVerticalGuide(target, view, catchupX, sf::Color::Cyan);
+        drawVerticalGuide(target, view, followX, sf::Color::Yellow);
+    }
+} // namespace Debug
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/Debug.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/GameHUD.cpp =====
+// GameHUD.cpp
+#include "GameHUD.h"
+
+#include "../Config.h"
+#include "../ResourceManager.h"
+#include "../entities/actor/player/Player.h"
+#include "../utils/Palette.h"
+#include "../utils/utils.h"
+
+GameHUD::GameHUD() {
+    // Stats Bars
+    // HP bar
+    m_hpBar.setColors(Palette::kHpFill, Palette::kUiBack, Palette::kUiOutline);
+    m_hpBar.setSize(kBarSize);
+    m_hpBar.setOutlineThickness(kOutlinePx);
+    // Mana bar
+    m_manaBar.setColors(Palette::kManaFill, Palette::kUiBack, Palette::kUiOutline);
+    m_manaBar.setSize(kBarSize);
+    m_manaBar.setOutlineThickness(kOutlinePx);
+    // Stamina bar
+    m_staminaBar.setColors(Palette::kStaminaFill, Palette::kUiBack, Palette::kUiOutline);
+    m_staminaBar.setSize(kBarSize);
+    m_staminaBar.setOutlineThickness(kOutlinePx);
+
+    // Timer text
+    const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
+    m_pTimerText = std::make_unique<sf::Text>(font, "00:00", 28);
+    m_pTimerText->setFillColor(Palette::kUiOutline);
+    m_pTimerText->setOutlineColor(Palette::kUiBack);
+    m_pTimerText->setOutlineThickness(2.f);
+    // Center origin for top-center anchor
+    const auto bounds = m_pTimerText->getLocalBounds();
+    m_pTimerText->setOrigin(
+        {bounds.size.x * 0.5f + bounds.position.x, bounds.size.y * 0.5f + bounds.position.y});
+    m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
+
+    // Score text (top-right)
+    m_pScoreText = std::make_unique<sf::Text>(font, "Score 0", 28);
+    m_pScoreText->setFillColor(Palette::kUiOutline);
+    m_pScoreText->setOutlineColor(Palette::kUiBack);
+    m_pScoreText->setOutlineThickness(2.f);
+    const auto sb = m_pScoreText->getLocalBounds();
+    // Top-right anchor
+    m_pScoreText->setOrigin({sb.size.x + sb.position.x, sb.position.y});
+    m_pScoreText->setPosition({static_cast<float>(Config::windowWidth) - 20.f, m_timerTopY});
+
+    layout();
+}
+
+void GameHUD::setPlayer(const Player* player) { m_pPlayer = player; }
+
+void GameHUD::update(float dt) {
+    (void)dt;
+    if (!m_pPlayer)
+        return;
+
+    m_hpBar.setValue(m_pPlayer->getHp(), m_pPlayer->getHpMax());
+    m_manaBar.setValue(m_pPlayer->getMana(), m_pPlayer->getManaMax());
+    m_staminaBar.setValue(m_pPlayer->getStamina(), m_pPlayer->getStaminaMax());
+}
+
+void GameHUD::setTopLeft(sf::Vector2f topLeft) {
+    if (topLeft == m_topLeft)
+        return;
+    m_topLeft = topLeft;
+    layout();
+}
+
+void GameHUD::layout() {
+    const float x = m_topLeft.x;
+    float       y = m_topLeft.y;
+
+    m_hpBar.setPosition({x, y});
+    y += kBarSize.y + kBarSpacing;
+    m_manaBar.setPosition({x, y});
+    y += kBarSize.y + kBarSpacing;
+    m_staminaBar.setPosition({x, y});
+}
+
+void GameHUD::setElapsedSeconds(float seconds) {
+    if (!m_pTimerText)
+        return;
+    const std::string text = formatMMSS(seconds);
+    if (m_pTimerText->getString() == text)
+        return;
+    m_pTimerText->setString(text);
+    const auto bounds = m_pTimerText->getLocalBounds();
+    m_pTimerText->setOrigin(
+        {bounds.size.x * 0.5f + bounds.position.x, bounds.size.y * 0.5f + bounds.position.y});
+    m_pTimerText->setPosition({Config::windowWidth * 0.5f, m_timerTopY});
+}
+
+void GameHUD::setScore(int score) {
+    if (!m_pScoreText)
+        return;
+    const std::string text = std::string("Score ") + std::to_string(score);
+    if (m_pScoreText->getString() == text)
+        return;
+    m_pScoreText->setString(text);
+    // Maintain top-right anchor when length changes
+    const auto sb = m_pScoreText->getLocalBounds();
+    m_pScoreText->setOrigin({sb.size.x + sb.position.x, sb.position.y});
+    m_pScoreText->setPosition({static_cast<float>(Config::windowWidth) - 20.f, m_timerTopY});
+}
+
+void GameHUD::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+    target.draw(m_hpBar, states);
+    target.draw(m_manaBar, states);
+    target.draw(m_staminaBar, states);
+    if (m_pTimerText)
+        target.draw(*m_pTimerText, states);
+    if (m_pScoreText)
+        target.draw(*m_pScoreText, states);
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/GameHUD.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/GameHUD.h =====
+#pragma once
+
+#include "StatBar.h"
+
+#include <SFML/Graphics/Drawable.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Text.hpp>
+
+class Player;
+
+class GameHUD final : public sf::Drawable {
+  public:
+    GameHUD();
+
+    void setPlayer(const Player* player);
+
+    void update(float dt);
+    void setTopLeft(sf::Vector2f topLeft);
+
+    // Timer text API
+    void setElapsedSeconds(float seconds);
+    // Score text API
+    void setScore(int score);
+
+  private:
+    void layout();
+    void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
+
+    // Player reference
+    const Player* m_pPlayer = nullptr;
+
+    // Stats bar
+    StatBar m_hpBar;
+    StatBar m_manaBar;
+    StatBar m_staminaBar;
+
+    // Layout
+    sf::Vector2f m_topLeft{20.f, 20.f};
+    float        m_timerTopY = 16.f;
+
+    inline static const sf::Vector2f kBarSize{240.f, 18.f};
+    inline static constexpr float    kBarSpacing = 6.f;
+    inline static constexpr float    kOutlinePx  = 1.f;
+
+    // Text
+    std::unique_ptr<sf::Text> m_pTimerText;
+    std::unique_ptr<sf::Text> m_pScoreText;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/GameHUD.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/StatBar.cpp =====
+// StatBar.cpp
+#include "StatBar.h"
+
+#include <algorithm>
+
+StatBar::StatBar() {
+    m_back.setFillColor(sf::Color(32, 32, 32));
+    m_back.setOutlineColor(sf::Color::White);
+    m_back.setOutlineThickness(kDefaultOutline);
+
+    m_fill.setFillColor(sf::Color::Green);
+
+    m_back.setSize(m_size);
+    updateVisual();
+}
+
+void StatBar::setValue(float current, float max) {
+    float fraction = 0.f;
+
+    if (max > 0.f) {
+        fraction = current / max;
+
+        if (fraction < 0.f) {
+            fraction = 0.f;
+        } else if (fraction > 1.f) {
+            fraction = 1.f;
+        }
+    }
+
+    setFraction(fraction);
+}
+
+void StatBar::setFraction(float fraction) {
+    const float clamped = std::clamp(fraction, 0.f, 1.f);
+    if (clamped == m_fraction)
+        return;
+    m_fraction = clamped;
+    updateVisual();
+}
+
+void StatBar::setColors(const sf::Color& fill, const sf::Color& back, const sf::Color& outline) {
+    m_fill.setFillColor(fill);
+    m_back.setFillColor(back);
+    m_back.setOutlineColor(outline);
+}
+
+void StatBar::setSize(sf::Vector2f size) {
+    if (size == m_size)
+        return;
+    m_size = size;
+    m_back.setSize(size);
+    updateVisual();
+}
+
+void StatBar::setPosition(sf::Vector2f pos) {
+    m_back.setPosition(pos);
+    m_fill.setPosition(pos);
+}
+
+void StatBar::setOutlineThickness(float px) { m_back.setOutlineThickness(px); }
+
+void StatBar::updateVisual() {
+    const float w = std::max(0.f, m_size.x * m_fraction);
+    m_fill.setSize({w, m_size.y});
+}
+
+void StatBar::draw(sf::RenderTarget& target, sf::RenderStates states) const {
+    target.draw(m_back, states);
+    target.draw(m_fill, states);
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/StatBar.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/StatBar.h =====
+#pragma once
+#include <SFML/Graphics.hpp>
+
+class StatBar : public sf::Drawable {
+  public:
+    StatBar();
+
+    void setValue(float current, float max);
+    void setFraction(float fraction);
+
+    // Style & layout
+    void setColors(const sf::Color& fill, const sf::Color& back, const sf::Color& outline);
+    void setSize(sf::Vector2f size);
+    void setPosition(sf::Vector2f pos);
+    void setOutlineThickness(float px);
+
+  private:
+    void updateVisual();
+    void draw(sf::RenderTarget& target, sf::RenderStates states) const override;
+
+    inline static const sf::Vector2f kDefaultSize{240.f, 18.f};
+    inline static const float        kDefaultOutline = 1.f;
+
+    sf::RectangleShape m_back;
+    sf::RectangleShape m_fill;
+
+    float        m_fraction = 1.f;
+    sf::Vector2f m_size     = kDefaultSize;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/HUD/StatBar.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/ResourceManager.cpp =====
+#include "ResourceManager.h"
+
+#include <algorithm>
+#include <iostream>
+#include <stdexcept>
+
+void ResourceManager::init(std::string executablePath) {
+    std::replace(executablePath.begin(), executablePath.end(), '\\', '/');
+    size_t lastSlashIndex = executablePath.find_last_of('/');
+    if (lastSlashIndex != std::string::npos)
+        m_assetPath = executablePath.substr(0, lastSlashIndex + 1);
+    m_assetPath += "assets/";
+}
+
+const sf::Font& ResourceManager::getFont(const std::string& filename) {
+    if (auto it = m_loadedFonts.find(filename); it != m_loadedFonts.end())
+        return it->second;
+
+    auto [it, inserted] = m_loadedFonts.emplace(filename, sf::Font{});
+    if (!inserted) {
+        throw std::runtime_error(
+            "ResourceManager::getFont: failed to emplace font entry for '" + filename + "'");
+    }
+
+    sf::Font& font = it->second;
+    const auto fullPath = getAssetPath(filename);
+    if (!font.openFromFile(fullPath)) {
+        throw std::runtime_error(
+            "ResourceManager::getFont: could not load font from '" + fullPath.string() + "'");
+    }
+
+    return font;
+}
+
+sf::Texture& ResourceManager::getTexture(const std::string&filename) {
+    if (auto it = m_loadedTextures.find(filename); it != m_loadedTextures.end())
+        return it->second;
+
+    auto [it, inserted] = m_loadedTextures.emplace(filename, sf::Texture{});
+    if (!inserted) {
+        throw std::runtime_error(
+            "ResourceManager::getTexture: failed to emplace texture entry for '" + filename + "'");
+    }
+
+    sf::Texture& texture = it->second;
+    const auto fullPath = getAssetPath(filename);
+    if (!texture.loadFromFile(fullPath)) {
+        throw std::runtime_error(
+            "ResourceManager::getTexture: could not load texture from '" + fullPath.string() + "'");
+    }
+
+    return texture;
+}
+
+const sf::SoundBuffer& ResourceManager::getSoundBuffer(const std::string& filename) {
+    if (auto it = m_loadedSoundBuffers.find(filename); it != m_loadedSoundBuffers.end())
+        return it->second;
+
+    auto [it, inserted] = m_loadedSoundBuffers.emplace(filename, sf::SoundBuffer{});
+    if (!inserted) {
+        throw std::runtime_error(
+            "ResourceManager::getSoundBuffer: failed to emplace sound buffer entry for '" +
+            filename + "'");
+    }
+
+    sf::SoundBuffer& buffer = it->second;
+    const auto fullPath = getAssetPath(filename);
+    if (!buffer.loadFromFile(fullPath)) {
+        throw std::runtime_error(
+            "ResourceManager::getSoundBuffer: could not load sound buffer from '" +
+            fullPath.string() + "'");
+    }
+
+    return buffer;
+}
+
+std::filesystem::path ResourceManager::getAssetPath(const std::string& filename) {
+    return std::filesystem::path(m_assetPath) / filename;
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/ResourceManager.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/ResourceManager.h =====
+#pragma once
+
+#include <SFML/Audio/SoundBuffer.hpp>
+#include <SFML/Graphics/Font.hpp>
+#include <SFML/Graphics/Shader.hpp>
+#include <SFML/Graphics/Texture.hpp>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+
+class ResourceManager {
+  public:
+    static void                   init(std::string executablePath);
+    static const sf::Font&        getFont(const std::string& filename);
+    static sf::Texture&           getTexture(const std::string& filename);
+    static const sf::SoundBuffer& getSoundBuffer(const std::string& filename);
+
+  private:
+    static inline std::string                                      m_assetPath;
+    static inline std::unordered_map<std::string, sf::Font>        m_loadedFonts;
+    static inline std::unordered_map<std::string, sf::Texture>     m_loadedTextures;
+    static inline std::unordered_map<std::string, sf::SoundBuffer> m_loadedSoundBuffers;
+
+    static std::filesystem::path getAssetPath(const std::string& filename);
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/ResourceManager.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/animation/Animation.cpp =====
+#include "Animation.h"
+
+#include <algorithm>
+#include <utility>
+
+// SpriteAnimator implementation
+SpriteAnimator::SpriteAnimator(sf::Sprite& sprite) : m_sprite(sprite) {}
+
+void SpriteAnimator::addClip(AnimationClip clip) { m_clips.emplace(clip.name, std::move(clip)); }
+
+void SpriteAnimator::playClip(const std::string& clipName, std::function<void()> onCompleteOnce) {
+    if (m_activeClipName == clipName && !m_restartRequested)
+        return;
+    auto it = m_clips.find(clipName);
+    if (it == m_clips.end())
+        return;
+
+    m_activeClipName   = clipName;
+    m_activeClip       = &it->second;
+    m_onCompleteOnce   = std::move(onCompleteOnce);
+    m_timeAccumulator  = 0.f;
+    m_frameIndex       = 0;
+    m_restartRequested = false;
+    if (m_activeClip->texture)
+        m_sprite.setTexture(*m_activeClip->texture);
+    applyFrameRect();
+}
+
+void SpriteAnimator::requestRestart() { m_restartRequested = true; }
+
+bool SpriteAnimator::isPlayingClip(const std::string& clipName) const {
+    return m_activeClipName == clipName;
+}
+
+void SpriteAnimator::ensureClip(const std::string& clipName) {
+    if (!isPlayingClip(clipName))
+        playClip(clipName);
+}
+
+void SpriteAnimator::update(float dt) {
+    if (!m_activeClip)
+        return;
+    if (m_activeClip->frameRects.empty() || m_activeClip->fps <= 0.f)
+        return;
+
+    m_timeAccumulator += dt;
+    const float frameDuration = 1.f / m_activeClip->fps;
+
+    while (m_timeAccumulator >= frameDuration) {
+        m_timeAccumulator -= frameDuration;
+        advanceFrame(*m_activeClip);
+    }
+}
+
+void SpriteAnimator::advanceFrame(const AnimationClip& clip) {
+    if (m_frameIndex + 1 < clip.frameRects.size()) {
+        ++m_frameIndex;
+        applyFrameRect();
+        return;
+    }
+
+    if (clip.looping) {
+        m_frameIndex = 0;
+        applyFrameRect();
+    } else {
+        // Hold on the last frame and fire completion once.
+        if (m_onCompleteOnce) {
+            auto cb          = std::move(m_onCompleteOnce);
+            m_onCompleteOnce = nullptr;
+            cb();
+        }
+    }
+}
+
+void SpriteAnimator::applyFrameRect() {
+    if (!m_activeClip || m_activeClip->frameRects.empty())
+        return;
+    m_sprite.setTextureRect(m_activeClip->frameRects[m_frameIndex]);
+}
+
+// Animation namespace implementation
+namespace Animation {
+
+    AnimationClip makeClipFromRow(const std::string& name, const sf::Texture& texture,
+                                  sf::Vector2i frameSize, int frameCount, float fps, bool looping) {
+        AnimationClip clip;
+        clip.name    = name;
+        clip.texture = &texture;
+        clip.fps     = fps;
+        clip.looping = looping;
+
+        clip.frameRects.reserve(frameCount);
+        for (int i = 0; i < frameCount; ++i) {
+            clip.frameRects.emplace_back(
+                sf::IntRect{{i * frameSize.x, 0}, {frameSize.x, frameSize.y}});
+        }
+        return clip;
+    }
+
+    AnimationClip makeClipFromSheet(const std::string& name, const sf::Texture& texture,
+                                    sf::Vector2i frameSize, sf::Vector2i firstCell,
+                                    sf::Vector2i lastCell, float fps, bool looping) {
+        AnimationClip clip;
+        clip.name    = name;
+        clip.texture = &texture;
+        clip.fps     = fps;
+        clip.looping = looping;
+
+        // Grid metrics
+        const sf::Vector2u texSz = texture.getSize();
+        const int          cols  = (frameSize.x > 0) ? static_cast<int>(texSz.x) / frameSize.x : 0;
+        const int          rows  = (frameSize.y > 0) ? static_cast<int>(texSz.y) / frameSize.y : 0;
+        if (cols <= 0 || rows <= 0)
+            return clip;
+
+        auto toIndex = [cols](sf::Vector2i cell) { return cell.y * cols + cell.x; };
+
+        // Clamp to grid and ensure start <= end
+        firstCell.x = std::clamp(firstCell.x, 0, cols - 1);
+        firstCell.y = std::clamp(firstCell.y, 0, rows - 1);
+        lastCell.x  = std::clamp(lastCell.x, 0, cols - 1);
+        lastCell.y  = std::clamp(lastCell.y, 0, rows - 1);
+
+        int start = toIndex(firstCell);
+        int end   = toIndex(lastCell);
+        if (start > end)
+            std::swap(start, end);
+
+        clip.frameRects.reserve(static_cast<std::size_t>(end - start + 1));
+        for (int i = start; i <= end; ++i) {
+            const int c = i % cols;
+            const int r = i / cols;
+            clip.frameRects.emplace_back(
+                sf::IntRect{{c * frameSize.x, r * frameSize.y}, {frameSize.x, frameSize.y}});
+        }
+        return clip;
+    }
+
+} // namespace Animation
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/animation/Animation.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/animation/Animation.h =====
+#pragma once
+
+#include <SFML/Graphics/Rect.hpp>
+#include <SFML/Graphics/Sprite.hpp>
+#include <SFML/Graphics/Texture.hpp>
+#include <SFML/System/Vector2.hpp>
+#include <functional>
+#include <string>
+#include <unordered_map>
+#include <vector>
+
+struct AnimationClip {
+    std::string              name;
+    const sf::Texture*       texture = nullptr;
+    std::vector<sf::IntRect> frameRects; // Rects defining each frame in the animation
+    float                    fps     = 8.f;
+    bool                     looping = true;
+};
+
+class SpriteAnimator {
+  public:
+    explicit SpriteAnimator(sf::Sprite& sprite);
+
+    void addClip(AnimationClip clip);
+
+    // Start or switch to a clip. If non-looping, onCompleteOnce fires when the
+    // clip finishes.
+    void playClip(const std::string& clipName, std::function<void()> onCompleteOnce = {});
+
+    void requestRestart();
+
+    bool isPlayingClip(const std::string& clipName) const;
+
+    // Helper: ensure a clip is playing without restarting if already active
+    void ensureClip(const std::string& clipName);
+
+    void update(float dt);
+
+  private:
+    sf::Sprite&                                    m_sprite;
+    std::unordered_map<std::string, AnimationClip> m_clips;
+
+    std::string           m_activeClipName;
+    const AnimationClip*  m_activeClip = nullptr;
+    std::function<void()> m_onCompleteOnce;
+
+    float       m_timeAccumulator  = 0.f;
+    std::size_t m_frameIndex       = 0;
+    bool        m_restartRequested = false;
+
+    void advanceFrame(const AnimationClip& clip);
+    void applyFrameRect();
+};
+
+namespace Animation {
+
+    AnimationClip makeClipFromRow(const std::string& name, const sf::Texture& texture,
+                                  sf::Vector2i frameSize, int frameCount, float fps, bool looping);
+
+    AnimationClip makeClipFromSheet(const std::string& name, const sf::Texture& texture,
+                                    sf::Vector2i frameSize, sf::Vector2i firstCell,
+                                    sf::Vector2i lastCell, float fps, bool looping);
+
+} // namespace Animation
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/animation/Animation.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/Collider.h =====
+// Collider.h
+#pragma once
+#include <SFML/Graphics.hpp>
+
+class Collider {
+  public:
+    virtual ~Collider() = default;
+
+    virtual sf::FloatRect worldAabb() const = 0;
+
+    bool intersects(const Collider& other) const {
+        return worldAabb().findIntersection(other.worldAabb()).has_value();
+    }
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/Collider.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/Collision.h =====
+#pragma once
+
+#include "Collider.h"
+
+#include <SFML/Graphics/Rect.hpp>
+#include <optional>
+
+namespace collision {
+
+    inline std::optional<sf::FloatRect> overlap(const Collider& a, const Collider& b) {
+        return a.worldAabb().findIntersection(b.worldAabb());
+    }
+
+    inline bool intersects(const Collider& a, const Collider& b) {
+        return overlap(a, b).has_value();
+    }
+
+} // namespace collision
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/Collision.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/MultiRectCollider.h =====
+#pragma once
+
+#include "Collider.h"
+
+#include <SFML/Graphics/Rect.hpp>
+#include <algorithm>
+#include <limits>
+#include <vector>
+
+// A collider composed of multiple axis-aligned rectangles.
+// Used for ground with gaps where a single AABB isn't sufficient.
+class MultiRectCollider final : public Collider {
+  public:
+    MultiRectCollider() = default;
+
+    void setRectColliders(std::vector<sf::FloatRect> rects) { m_rects = std::move(rects); }
+    const std::vector<sf::FloatRect>& getRectColliders() const { return m_rects; }
+
+    sf::FloatRect worldAabb() const override {
+        if (m_rects.empty())
+            return sf::FloatRect{{0.f, 0.f}, {0.f, 0.f}};
+
+        float minX = std::numeric_limits<float>::infinity();
+        float minY = std::numeric_limits<float>::infinity();
+        float maxX = -std::numeric_limits<float>::infinity();
+        float maxY = -std::numeric_limits<float>::infinity();
+
+        for (const auto& r : m_rects) {
+            const float l   = r.position.x;
+            const float t   = r.position.y;
+            const float rgt = r.position.x + r.size.x;
+            const float bot = r.position.y + r.size.y;
+
+            minX = std::min(minX, l);
+            minY = std::min(minY, t);
+            maxX = std::max(maxX, rgt);
+            maxY = std::max(maxY, bot);
+        }
+
+        const float w = std::max(0.f, maxX - minX);
+        const float h = std::max(0.f, maxY - minY);
+        return sf::FloatRect{{minX, minY}, {w, h}};
+    }
+
+  private:
+    std::vector<sf::FloatRect> m_rects;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/MultiRectCollider.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/RectCollider.cpp =====
+#include "RectCollider.h"
+
+#include "../entities/Entity.h"
+
+#include <SFML/Graphics/Transformable.hpp>
+#include <cmath>
+
+sf::FloatRect RectCollider::worldAabb() const {
+    const sf::Transformable& sprite = m_entity->getColliderTransformable();
+    const sf::Vector2f&      size   = m_entity->getColliderSize();
+    const sf::Vector2f&      offset = m_entity->getColliderOffset();
+
+    const sf::Vector2f center = sprite.getTransform().transformPoint(sprite.getOrigin() + offset);
+
+    const sf::Vector2f s = sprite.getScale();
+    const sf::Vector2f half{std::abs(s.x) * (size.x * 0.5f), std::abs(s.y) * (size.y * 0.5f)};
+
+    const sf::Vector2f pos  = {center.x - half.x, center.y - half.y};
+    const sf::Vector2f dims = {half.x * 2.f, half.y * 2.f};
+
+    return sf::FloatRect(pos, dims);
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/RectCollider.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/RectCollider.h =====
+#pragma once
+
+#include "Collider.h"
+
+class Entity;
+
+class RectCollider final : public Collider {
+  public:
+    explicit RectCollider(const Entity& entity) : m_entity(&entity) {}
+
+    sf::FloatRect worldAabb() const override;
+
+  private:
+    const Entity* m_entity = nullptr;
+};
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/RectCollider.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/Entity.h =====
+#pragma once
+
+#include "../animation/Animation.h"
+#include "../collision/RectCollider.h"
+
+#include <SFML/Graphics/Sprite.hpp>
+#include <SFML/System/Vector2.hpp>
+#include <cmath>
+#include <memory>
+
+class StatePlaying;
+
+namespace sf {
+    class RenderTarget;
+};
+
+class Entity {
+  public:
+    Entity() : m_collider(*this) {}
+    virtual ~Entity() = default;
+
+    virtual bool init()                                 = 0;
+    virtual void update(float dt)                       = 0;
+    virtual void render(sf::RenderTarget& target) const = 0;
+
+    bool isAlive() const { return m_alive; }
+    void setAlive(bool alive) { m_alive = alive; }
+
+    const sf::Vector2f& getPosition() const { return m_position; }
+    void                setPosition(const sf::Vector2f& position) { m_position = position; };
+
+    // back-reference to owning world (StatePlaying)
+    void          setWorld(StatePlaying* world) { m_world = world; }
+    StatePlaying* getWorld() const { return m_world; }
+
+    // Collision helper
+    const sf::Transformable& getColliderTransformable() const { return *m_pSprite; }
+    const sf::Vector2f&      getColliderSize() const { return m_colliderSize; }
+    const sf::Vector2f&      getColliderOffset() const { return m_colliderOffset; }
+    void                     setColliderSize(const sf::Vector2f& size) { m_colliderSize = size; }
+    void setColliderOffset(const sf::Vector2f& offset) { m_colliderOffset = offset; }
+
+    const RectCollider& getCollider() const { return m_collider; }
+
+  protected:
+    // State
+    bool m_alive = true;
+
+    // Render
+    std::unique_ptr<sf::Sprite> m_pSprite;
+    sf::Vector2f                m_spriteScale{1.f, 1.f};
+    // Rendering transform
+    sf::Vector2f m_position;
+
+    // Animation
+    std::unique_ptr<SpriteAnimator> m_pAnimator;
+
+    // Facing
+    enum class Facing { Left, Right };
+    Facing m_facing        = Facing::Right;
+    float  m_artFacingDirX = +1.f; // +1 = art facing right, -1 = art facing left
+
+    void setFacing(Facing facing) {
+        m_facing = facing;
+        applyFacingScale();
+    }
+    void setArtFacingDirX(float directionX) {
+        m_artFacingDirX = (directionX >= 0.f) ? +1.f : -1.f;
+        applyFacingScale();
+    }
+    void applyFacingScale() {
+        if (!m_pSprite)
+            return;
+        const float dir = (m_facing == Facing::Right) ? +1.f : -1.f;
+        m_pSprite->setScale({dir * std::abs(m_spriteScale.x) * m_artFacingDirX, m_spriteScale.y});
+    }
+
+    // Physics and movement
+    sf::Vector2f m_velocity;
+
+    // Collision
+    RectCollider m_collider;
+    sf::Vector2f m_colliderSize;
+    sf::Vector2f m_colliderOffset;
+
+  public:
+    // State playing is my world <3
+    StatePlaying* m_world = nullptr;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/Entity.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/Actor.cpp =====
+// src/game/Actor.cpp
+#include "Actor.h"
+
+#include "../../Config.h"
+#include "../../Debug.h"
+#include "../../ResourceManager.h"
+#include "../../collision/MultiRectCollider.h"
+#include "../../utils/Geom.h"
+
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <algorithm>
+#include <cmath>
+#include <limits>
+
+void Actor::render(sf::RenderTarget& target) const {
+    if (m_pSprite)
+        target.draw(*m_pSprite);
+    if (m_pSprite && Config::kDebugDraw) {
+        Debug::drawSpriteBounds(target, *m_pSprite, sf::Color::Red, 1.f);
+        Debug::drawSpriteOrigin(target, *m_pSprite, sf::Color::Yellow, 10.f, 2.f);
+        Debug::drawColliderBounds(target, getCollider(), sf::Color::Green, 1.f);
+    }
+}
+
+void Actor::setInitialStats(float hpMax, float manaMax, float manaRegenRate, float hpRegenRate,
+                            float staminaMax, float staminaRegenRate) {
+    m_hpMax            = std::max(0.f, hpMax);
+    m_hp               = m_hpMax;
+    m_hpRegenRate      = std::max(0.f, hpRegenRate);
+    m_manaMax          = std::max(0.f, manaMax);
+    m_mana             = m_manaMax;
+    m_manaRegenRate    = std::max(0.f, manaRegenRate);
+    m_staminaMax       = std::max(0.f, staminaMax);
+    m_stamina          = m_staminaMax;
+    m_staminaRegenRate = std::max(0.f, staminaRegenRate);
+}
+
+void Actor::regenerateMana(float dt) {
+    if (m_mana < m_manaMax) {
+        m_mana += m_manaRegenRate * dt;
+        if (m_mana > m_manaMax)
+            m_mana = m_manaMax;
+    }
+}
+
+void Actor::regenerateHp(float dt) {
+    if (m_hp < m_hpMax) {
+        m_hp += m_hpRegenRate * dt;
+        if (m_hp > m_hpMax)
+            m_hp = m_hpMax;
+    }
+}
+
+void Actor::regenerateStamina(float dt) {
+    if (m_stamina < m_staminaMax) {
+        m_stamina += m_staminaRegenRate * dt;
+        if (m_stamina > m_staminaMax)
+            m_stamina = m_staminaMax;
+    }
+}
+
+float Actor::getHp() const { return m_hp; }
+float Actor::getHpMax() const { return m_hpMax; }
+float Actor::getMana() const { return m_mana; }
+float Actor::getManaMax() const { return m_manaMax; }
+float Actor::getStamina() const { return m_stamina; }
+float Actor::getStaminaMax() const { return m_staminaMax; }
+
+void Actor::applyDamage(float dmg) {
+    if (dmg <= 0.f)
+        return;
+    m_hp -= dmg;
+    if (m_hp < 0.f)
+        m_hp = 0.f;
+}
+
+void Actor::updateActorBase(float dt) {
+    regenerateHp(dt);
+    regenerateMana(dt);
+    regenerateStamina(dt);
+}
+
+void Actor::applyPhysics(float dt, const Collider* ground) {
+    static constexpr float kPhysGravity = 2400.f;
+    static constexpr float kMaxVelY     = 3000.f;
+
+    // Gravity + vertical move
+    if (!m_grounded)
+        m_velocity.y += kPhysGravity * dt;
+    if (m_velocity.y > kMaxVelY)
+        m_velocity.y = kMaxVelY;
+
+    const float dy = m_velocity.y * dt;
+    if (m_velocity.y != 0.f) {
+        m_position.y += dy;
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+    }
+
+    // Ground collision (top-only). Skip if moving upward.
+    m_grounded = false;
+    if (m_velocity.y < 0.f || !ground)
+        return;
+
+    const sf::FloatRect actorCollider = getCollider().worldAabb();
+    sf::FloatRect       prevActor     = actorCollider;
+    prevActor.position.y -= dy; // position before applying vertical integration
+
+    // Choose the smallest upward correction needed to rest on top.
+    float bestLiftDy  = -std::numeric_limits<float>::infinity(); // largest deltaY ≤ 0
+    bool  touchingTop = false; // exact top contact without overlap
+
+    auto consider = [&](const sf::FloatRect& groundCollider) {
+        // Require actual overlap this frame to resolve.
+        sf::FloatRect inter;
+        // Track exact top contact even without overlap (resting on top, no motion)
+        if (m_velocity.y == 0.f && geom::touchTop(actorCollider, groundCollider, 0.75f))
+            touchingTop = true;
+
+        // We only care about landings from above this frame: bottom crossing the top plane.
+        const float groundTop    = geom::top(groundCollider);
+        const float prevBottom   = geom::bottom(prevActor);
+        const float currentB     = geom::bottom(actorCollider);
+        const float currentLeft  = geom::left(actorCollider);
+        const float currentRight = geom::right(actorCollider);
+        const float groundLeft   = geom::left(groundCollider);
+        const float groundRight  = geom::right(groundCollider);
+
+        // Horizontal overlap required to stand on top.
+        if (currentRight <= groundLeft || currentLeft >= groundRight)
+            return;
+
+        // Must be above last frame and now at/through the top plane.
+        constexpr float kTopEps = 0.001f;
+        if (prevBottom > groundTop + kTopEps)
+            return; // not a landing from above
+        if (currentB < groundTop - kTopEps)
+            return; // still above top -> no contact yet
+
+        // Upward lift required to rest bottom on top of ground.
+        const float deltaY = groundTop - currentB; // ≤ 0 when penetrating from above
+        bestLiftDy         = std::max(bestLiftDy, deltaY);
+    };
+
+    if (const auto* multi = dynamic_cast<const MultiRectCollider*>(ground)) {
+        for (const auto& r : multi->getRectColliders())
+            consider(r);
+    } else {
+        consider(ground->worldAabb());
+    }
+
+    if (bestLiftDy > -std::numeric_limits<float>::infinity()) {
+        m_position.y += bestLiftDy;
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+        m_velocity.y = 0.f;
+        m_grounded   = true;
+    } else if (touchingTop) {
+        // Maintain grounded state on exact top contact
+        m_grounded = true;
+    }
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/Actor.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/Actor.h =====
+#pragma once
+
+#include "../Entity.h"
+
+class Collider;
+
+class Actor : public Entity {
+  public:
+    Actor()          = default;
+    virtual ~Actor() = default;
+
+    // Stats
+    void setInitialStats(float hpMax, float manaMax, float manaRegenRate, float hpRegenRate,
+                         float staminaMax, float staminaRegenRate);
+
+    void regenerateMana(float dt);
+    void regenerateHp(float dt);
+    void regenerateStamina(float dt);
+
+    // Getters
+    float getHp() const;
+    float getHpMax() const;
+    float getMana() const;
+    float getManaMax() const;
+    float getStamina() const;
+    float getStaminaMax() const;
+
+    void applyDamage(float dmg);
+
+    // Minimal vertical physics with top-only collision against provided ground collider.
+    // Pass a MultiRectCollider (preferred) or any Collider containing the walkable surfaces.
+    virtual void applyPhysics(float dt, const Collider* ground);
+
+  protected:
+    virtual void updateActorBase(float dt);
+
+    // Stats
+    // Health
+    float m_hp          = 1.f;
+    float m_hpMax       = 1.f;
+    float m_hpRegenRate = 0.f;
+    // Mana
+    float m_mana          = 0.f;
+    float m_manaMax       = 0.f;
+    float m_manaRegenRate = 0.f;
+    // Stamina
+    float m_stamina          = 0.f;
+    float m_staminaMax       = 0.f;
+    float m_staminaRegenRate = 0.f;
+
+    // Rendering
+    void render(sf::RenderTarget& target) const override;
+
+    // Grounded state updated by applyPhysics
+    bool m_grounded = false;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/Actor.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Demon.cpp =====
+#include "Demon.h"
+
+#include "../../../ResourceManager.h"
+#include "../../../animation/Animation.h"
+#include "../../../entities/actor/player/Player.h"
+#include "../../../faction/Faction.h"
+#include "../../../gamestates/StatePlaying.h"
+#include "../../../spell/SpellCatalog.h"
+#include "../../../spell/projectile/Projectile.h"
+
+namespace {
+    constexpr const char* kFly   = "demon_fly";
+    constexpr const char* kDeath = "demon_death";
+} // namespace
+
+bool Demon::init() {
+    // Load textures
+    sf::Texture& flyTex   = ResourceManager::getTexture("DemonFlyAnimation.png");
+    sf::Texture& deathTex = ResourceManager::getTexture("DemonDeathAnimation.png");
+
+    // Sprite
+    const sf::Vector2i kFrame{81, 71};
+    m_pSprite = std::make_unique<sf::Sprite>(flyTex);
+    m_pSprite->setOrigin({kFrame.x * 0.5f, kFrame.y * 0.5f});
+    m_spriteScale = {1.2f, 1.2f};
+    applyFacingScale();
+    m_pSprite->setPosition(m_position);
+
+    // Stats
+    setInitialStats(kDemonHpMax, kDemonManaMax, kDemonManaRegenRate, kDemonHpRegenRate, 0.f, 0.f);
+
+    // Animator
+    m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
+
+    // Clips
+    m_pAnimator->addClip(Animation::makeClipFromRow(kFly, flyTex, kFrame, 4, 10.f, true));
+    m_pAnimator->addClip(Animation::makeClipFromRow(kDeath, deathTex, kFrame, 7, 10.f, false));
+
+    // Collider
+    setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});
+    setArtFacingDirX(-1.f);
+    enterFly();
+    return true;
+}
+
+void Demon::enterFly() {
+    m_state = State::Fly;
+    if (m_pAnimator)
+        m_pAnimator->ensureClip(kFly);
+}
+
+void Demon::enterDeath() {
+    m_state = State::Death;
+    if (m_pAnimator)
+        m_pAnimator->playClip(kDeath, [this]() { setAlive(false); });
+}
+
+void Demon::updateFly(float dt) {
+    if (!m_world)
+        return;
+    Player* player = m_world->getPlayer();
+    if (!player)
+        return;
+
+    const sf::Vector2f toPlayer = player->getPosition() - m_position;
+    const float        dist     = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+
+    sf::Vector2f dir{0.f, 0.f};
+    if (dist > 0.001f) {
+        const sf::Vector2f n = {toPlayer.x / dist, toPlayer.y / dist};
+        if (dist > kDesiredRange + kHoldSlack) {
+            dir = n; // move toward
+        } else if (dist < kDesiredRange - kHoldSlack) {
+            dir = {-n.x, -n.y}; // move away
+        }
+
+        // Face horizontally toward player
+        setFacing((toPlayer.x >= 0.f) ? Entity::Facing::Right : Entity::Facing::Left);
+    }
+
+    m_position.x += dir.x * kMoveSpeed * dt;
+    m_position.y += dir.y * kMoveSpeed * dt;
+}
+
+void Demon::update(float dt) {
+    // Death gate
+    if (m_hp <= 0.f && m_state != State::Death)
+        enterDeath();
+    if (m_state == State::Death) {
+        if (m_pAnimator)
+            m_pAnimator->update(dt);
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+        return;
+    }
+
+    updateActorBase(dt);
+    updateFly(dt);
+
+    // Casting: aim at player and fire when in range and cooldown elapsed
+    if (m_castCooldownLeft > 0.f)
+        m_castCooldownLeft -= dt;
+    if (m_castCooldownLeft < 0.f)
+        m_castCooldownLeft = 0.f;
+
+    if (m_world && m_castCooldownLeft <= 0.f) {
+        if (auto* player = m_world->getPlayer()) {
+            const sf::Vector2f selfPos = m_position;
+            sf::Vector2f       dir     = player->getPosition() - selfPos;
+            const float        len     = std::sqrt(dir.x * dir.x + dir.y * dir.y);
+            if (len > 0.001f)
+                dir = {dir.x / len, dir.y / len};
+            else
+                dir = {1.f, 0.f};
+
+            // Spawn lightning bolt
+            const sf::Vector2f origin = selfPos + dir * 20.f;
+            if (auto* proj = m_world->createEntity<Projectile>(SpellId::Lightning, Faction::Enemy,
+                                                               origin, dir))
+                (void)proj->init();
+            m_castCooldownLeft = kCastCooldown;
+        }
+    }
+
+    // Animation tick
+    if (m_pAnimator)
+        m_pAnimator->update(dt);
+    if (m_pSprite)
+        m_pSprite->setPosition(m_position);
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Demon.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Demon.h =====
+#pragma once
+
+#include "Enemy.h"
+
+#include <SFML/System/Vector2.hpp>
+
+class Demon final : public Enemy {
+  public:
+    Demon()           = default;
+    ~Demon() override = default;
+
+    bool init() override;
+    void update(float dt) override;
+
+    // Flying: ignore Actor's vertical physics/gravity
+    void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
+
+  private:
+    enum class State { Fly, Death };
+    State m_state = State::Fly;
+
+    void enterFly();
+    void enterDeath();
+
+    void updateFly(float dt);
+
+    // Casting
+    static constexpr float kCastCooldown      = 2.0f;
+    float                         m_castCooldownLeft = 0.f;
+
+    // Movement goal: hover around desired range from player
+    static constexpr float kDesiredRange = 300.f;
+    static constexpr float kHoldSlack    = 30.f;  // acceptable band around desired
+    static constexpr float kMoveSpeed    = 800.f; // px/s
+
+    // Stats
+    static constexpr float kDemonHpMax         = 50.f;
+    static constexpr float kDemonManaMax       = 80.f;
+    static constexpr float kDemonHpRegenRate   = 0.f;
+    static constexpr float kDemonManaRegenRate = 5.f;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Demon.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Enemy.h =====
+#pragma once
+
+#include "../Actor.h"
+
+class Enemy : public Actor {
+  public:
+    Enemy()           = default;
+    ~Enemy() override = default;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Enemy.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/player/Player.cpp =====
+﻿#include "Player.h"
+
+#include "../../../ResourceManager.h"
+#include "../../../animation/Animation.h"
+#include "../../../collision/RectCollider.h"
+#include "../../../faction/Faction.h"
+#include "../../../gamestates/StatePlaying.h"
+#include "../../../spell/CastRequest.h"
+#include "../../../spell/SpellCatalog.h"
+#include "../../../spell/projectile/Projectile.h"
+#include "../../../utils/Geom.h"
+
+#include <SFML/Graphics/Sprite.hpp>
+#include <cmath>
+
+namespace {
+    // Animation clip names
+    constexpr const char* kIdle  = "player_idle";
+    constexpr const char* kRun   = "player_run";
+    constexpr const char* kJump  = "player_jump";
+    constexpr const char* kFall  = "player_fall";
+    constexpr const char* kDash  = "player_dash";
+    constexpr const char* kDeath = "player_death";
+    constexpr const char* kCast  = "player_cast";
+} // namespace
+
+bool Player::init() {
+    // Load animation textures if present
+    const sf::Texture& idleTex  = ResourceManager::getTexture("PlayerIdleAnimation.png");
+    const sf::Texture& runTex   = ResourceManager::getTexture("PlayerMoveAnimation.png");
+    const sf::Texture& jumpTex  = ResourceManager::getTexture("PlayerJumpAnimation.png");
+    const sf::Texture& fallTex  = ResourceManager::getTexture("PlayerFallAnimation.png");
+    const sf::Texture& dashTex  = ResourceManager::getTexture("PlayerDashAnimation.png");
+    const sf::Texture& deathTex = ResourceManager::getTexture("PlayerDeathAnimation.png");
+    const sf::Texture& castTex  = ResourceManager::getTexture("PlayerCastAnimation.png");
+
+    // Setup sprite
+    m_pSprite = std::make_unique<sf::Sprite>(idleTex);
+    m_pSprite->setOrigin({kFrameSize.x * 0.5f, kFrameSize.y * 0.5f});
+    m_spriteScale = kPlayerScale;
+    applyFacingScale();
+    m_pSprite->setPosition(m_position);
+
+    // Setup animator
+    m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
+
+    // Build animation clips
+    auto idleClip = Animation::makeClipFromRow(kIdle, idleTex, kFrameSize, 4, 6.f, true);
+    m_pAnimator->addClip(std::move(idleClip));
+    auto runClip = Animation::makeClipFromRow(kRun, runTex, kFrameSize, 7, 12.f, true);
+    m_pAnimator->addClip(std::move(runClip));
+    auto jumpClip = Animation::makeClipFromRow(kJump, jumpTex, kFrameSize, 6, 12.f, false);
+    m_pAnimator->addClip(std::move(jumpClip));
+    auto fallClip = Animation::makeClipFromRow(kFall, fallTex, kFrameSize, 3, 12.f, true);
+    m_pAnimator->addClip(std::move(fallClip));
+    auto dashClip = Animation::makeClipFromRow(kDash, dashTex, kFrameSize, 4, 20.f, false);
+    m_pAnimator->addClip(std::move(dashClip));
+    auto deathClip = Animation::makeClipFromRow(kDeath, deathTex, kFrameSize, 6, 8.f, false);
+    m_pAnimator->addClip(std::move(deathClip));
+    auto castClip = Animation::makeClipFromRow(kCast, castTex, kFrameSize, 5, 20.f, false);
+    m_pAnimator->addClip(std::move(castClip));
+
+    // Setup collider
+    setColliderSize(
+        {static_cast<float>(kFrameSize.x) * 0.2f, static_cast<float>(kFrameSize.y) * 0.88f});
+
+    // Setup stats
+    setInitialStats(kPlayerHpMax, kPlayerManaMax, kPlayerManaRegenRate, kPlayerHpRegenRate,
+                    kPlayerStaminaMax, kPlayerStaminaRegenRate);
+
+    // Enter initial state
+    enterMove();
+    return true;
+}
+
+void Player::applyMovement(const sf::Vector2f& direction, float dt) {
+    // Horizontal move
+    if (direction.x != 0.f) {
+        // Accelerate toward desired X
+        const float desiredX = direction.x * kMaxSpeed;
+        const float deltaX   = desiredX - m_velocity.x;
+        const float maxDelta = kAcceleration * dt;
+        if (std::abs(deltaX) > maxDelta) {
+            m_velocity.x += (deltaX > 0.f ? +maxDelta : -maxDelta);
+        } else {
+            m_velocity.x = desiredX;
+        }
+    } else {
+        // Decelerate X toward 0
+        const float speedX = std::abs(m_velocity.x);
+        if (speedX > 0.f) {
+            const float drop = kDeceleration * dt;
+            if (speedX <= drop || speedX <= kMinSpeed) {
+                m_velocity.x = 0.f;
+            } else {
+                m_velocity.x += (m_velocity.x > 0.f ? -drop : +drop);
+            }
+        }
+    }
+
+    // Integrate X only; Y handled separately
+    m_position.x += m_velocity.x * dt;
+}
+
+void Player::update(float dt) {
+    // Death state: if HP or Stamina is zero or below, enter death and only update animation.
+    if ((m_hp <= 0.f || m_stamina <= 0.f) && m_state != State::Death) {
+        enterDeath();
+    }
+    if (m_state == State::Death) {
+        if (m_pAnimator) {
+            m_pAnimator->ensureClip(kDeath);
+            m_pAnimator->update(dt);
+        }
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+        return;
+    }
+
+    updateActorBase(dt);
+
+    // Consume input supplied by the state
+    if (m_input.jumpPressed) {
+        // Disable jump buffering: only accept if currently grounded or within coyote window
+        if (isGrounded() || m_coyoteTimer > 0.f)
+            m_jumpRequested = true;
+        else
+            m_jumpRequested = false;
+        m_jumpBufferLeft = 0.f; // no queued jump
+    }
+    if (m_input.dashPressed) {
+        m_dashRequested = true;
+    }
+
+    // Timers: coyote time and jump buffer
+    if (isGrounded()) {
+        m_coyoteTimer = kCoyoteTime;
+    } else {
+        m_coyoteTimer -= dt;
+    }
+    // No jump buffering; do not decrement buffer timer
+
+    // Dash timers and transitions
+    if (m_dashCooldownLeft > 0.f)
+        m_dashCooldownLeft -= dt;
+    if (m_dashCooldownLeft < 0.f)
+        m_dashCooldownLeft = 0.f;
+    if (m_state == State::Dash) {
+        m_dashTimer -= dt;
+        if (m_dashTimer <= 0.f)
+            enterMove();
+    }
+
+    // Horizontal direction
+    sf::Vector2f dir{0.f, 0.f};
+    if (m_input.moveLeft)
+        dir.x -= 1.f;
+    if (m_input.moveRight)
+        dir.x += 1.f;
+    if (dir.x != 0.f)
+        dir.x = (dir.x > 0.f) ? 1.f : -1.f;
+
+    // Facing updates only during normal movement
+    if (m_state == State::Move) {
+        if (m_input.moveLeft)
+            setFacing(Entity::Facing::Left);
+        else if (m_input.moveRight)
+            setFacing(Entity::Facing::Right);
+    }
+
+    // Try dash when not already dashing
+    if (m_state != State::Dash && m_state != State::Cast)
+        tryApplyDash();
+
+    // Try cast
+    if (m_input.castPressed && m_state != State::Dash && m_state != State::Death)
+        enterCast();
+
+    // Apply horizontal movement
+    if (m_state == State::Move) {
+        applyMovement(dir, dt);
+    } else if (m_state == State::Dash) {
+        m_velocity.x = m_dashDirX * kDashSpeed;
+        m_position.x += m_velocity.x * dt;
+    } else if (m_state == State::Cast) {
+        // Allow light movement during cast
+        applyMovement(dir, dt);
+    }
+
+    // Jumping (disabled while dashing)
+    if (m_state != State::Dash)
+        tryApplyJump();
+
+    // Vertical physics and collision are applied from the world via Actor::applyPhysics().
+
+    // Animation selection
+    if (m_pAnimator) {
+        if (m_state == State::Dash) {
+            m_pAnimator->ensureClip(kDash);
+        } else if (m_state == State::Cast) {
+            m_pAnimator->ensureClip(kCast);
+        } else if (!isGrounded()) {
+            updateJumpAnimation();
+        } else {
+            updateMoveAnimation();
+        }
+        m_pAnimator->update(dt);
+    }
+
+    // Push transform to sprite
+    if (m_pSprite)
+        m_pSprite->setPosition(m_position);
+}
+
+void Player::tryApplyJump() {
+    if (m_jumpRequested && (isGrounded() || m_coyoteTimer > 0.f) &&
+        (m_stamina >= kJumpStaminaCost)) {
+        m_velocity.y = -kJumpSpeed;
+        // Spend stamina
+        m_stamina -= kJumpStaminaCost;
+        m_jumpRequested  = false;
+        m_jumpBufferLeft = 0.f;
+        if (m_pAnimator)
+            m_pAnimator->requestRestart();
+    }
+}
+
+void Player::tryApplyDash() {
+    if (!m_dashRequested)
+        return;
+    m_dashRequested = false;
+    if (m_dashCooldownLeft > 0.f)
+        return;
+    if (m_stamina < kDashStaminaCost)
+        return;
+
+    float dirX = 0.f;
+    if (m_input.moveLeft)
+        dirX = -1.f;
+    else if (m_input.moveRight)
+        dirX = +1.f;
+    else
+        dirX = (m_facing == Facing::Right) ? +1.f : -1.f;
+    enterDash(dirX);
+}
+
+void Player::updateJumpAnimation() {
+    if (m_velocity.y < 0.f) {
+        m_pAnimator->ensureClip(kJump);
+    } else {
+        m_pAnimator->ensureClip(kFall);
+    }
+}
+
+void Player::updateMoveAnimation() {
+    const float speed = std::abs(m_velocity.x);
+    if (speed > kMinSpeed)
+        m_pAnimator->ensureClip(kRun);
+    else
+        m_pAnimator->ensureClip(kIdle);
+}
+
+void Player::enterMove() {
+    m_state = State::Move;
+    if (m_pAnimator) {
+        if (!m_pAnimator->isPlayingClip(kIdle) && !m_pAnimator->isPlayingClip(kRun))
+            m_pAnimator->playClip(kIdle);
+    }
+}
+
+void Player::enterDash(float dirX) {
+    m_state            = State::Dash;
+    m_dashTimer        = kDashDuration;
+    m_dashCooldownLeft = kDashCooldown;
+    m_dashDirX         = (dirX >= 0.f) ? +1.f : -1.f;
+    // Spend stamina
+    if (m_stamina >= kDashStaminaCost)
+        m_stamina -= kDashStaminaCost;
+    setFacing(m_dashDirX > 0 ? Facing::Right : Facing::Left);
+    if (m_pAnimator)
+        m_pAnimator->playClip(kDash);
+}
+
+void Player::enterDeath() {
+    m_state = State::Death;
+    if (m_pAnimator) {
+        // When the non-looping death animation finishes, return to the menu.
+        StatePlaying* world = m_world;
+        m_pAnimator->playClip(kDeath, [world]() {
+            if (world)
+                world->requestExitToMenu();
+        });
+    }
+}
+
+void Player::enterCast() {
+    // Spend mana and spawn a projectile if possible
+    const SpellDef& def = getSpellDef(SpellId::IceBolt);
+    if (m_mana < def.stats.manaCost)
+        return;
+    m_mana -= def.stats.manaCost;
+
+    // Aim: from player position to mouse world position
+    sf::Vector2f aimDir{(m_facing == Facing::Right) ? +1.f : -1.f, 0.f};
+    if (m_world) {
+        const sf::Vector2f mouseWorld = m_world->getMouseWorld();
+        sf::Vector2f       v          = mouseWorld - m_position;
+        const float        len        = std::sqrt(v.x * v.x + v.y * v.y);
+        if (len > 0.001f)
+            aimDir = {v.x / len, v.y / len};
+    }
+
+    // Origin slightly in front along aim
+    sf::Vector2f orig = m_position + aimDir * (kFrameSize.x * 0.4f);
+
+    if (m_world) {
+        auto* proj =
+            m_world->createEntity<Projectile>(SpellId::IceBolt, Faction::Player, orig, aimDir);
+        if (proj) {
+            (void)proj->init();
+        }
+    }
+
+    // Play cast animation and return to move on completion
+    m_state = State::Cast;
+    if (m_pAnimator)
+        m_pAnimator->playClip(kCast, [this]() {
+            if (m_state == State::Cast)
+                enterMove();
+        });
+}
+
+bool Player::isGrounded() const { return m_grounded; }
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/player/Player.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/player/Player.h =====
+#pragma once
+
+#include "../Actor.h"
+
+struct PlayerInput {
+    bool moveLeft    = false;
+    bool moveRight   = false;
+    bool jumpPressed = false; // edge-triggered
+    bool dashPressed = false; // edge-triggered
+    bool castPressed = false; // edge-triggered
+};
+
+class Player final : public Actor {
+  public:
+    Player()           = default;
+    ~Player() override = default;
+
+    bool init() override;
+    void update(float dt) override;
+    void setInput(const PlayerInput& input) { m_input = input; }
+
+  private:
+    // State machine
+    enum class State { Move, Dash, Death, Cast };
+    State m_state = State::Move;
+
+    bool isGrounded() const;
+
+    void enterMove();
+    void enterDash(float dirX);
+    void enterDeath();
+    void enterCast();
+
+    void applyMovement(const sf::Vector2f& direction, float dt);
+    void tryApplyJump();
+    void tryApplyDash();
+    void tryApplyCast();
+
+    void updateJumpAnimation();
+    void updateMoveAnimation();
+
+    // Input state
+    PlayerInput m_input;
+    bool m_jumpRequested = false;
+
+    // Rendering
+    static inline const sf::Vector2i kFrameSize{100, 64};
+    static inline const sf::Vector2f kPlayerScale{1.5f, 1.5f};
+
+    // Configuration
+    static constexpr float kMaxSpeed     = 500.f;
+    static constexpr float kAcceleration = 1200.f;
+    static constexpr float kDeceleration = 800.f;
+    static constexpr float kMinSpeed     = 5.f;
+    static constexpr float kGravity      = 2400.f;
+
+    // Stats
+    static constexpr float kPlayerHpMax            = 100.f;
+    static constexpr float kPlayerHpRegenRate      = 1.f;
+    static constexpr float kPlayerManaMax          = 100.f;
+    static constexpr float kPlayerManaRegenRate    = 3.f;
+    static constexpr float kPlayerStaminaMax       = 100.f;
+    static constexpr float kPlayerStaminaRegenRate = 1.f;
+    static constexpr float kJumpStaminaCost        = 2.f;
+    static constexpr float kDashStaminaCost        = 2.f;
+
+    // Jumping
+    static constexpr float kJumpSpeed       = 1200.f;
+    static constexpr float kCoyoteTime      = 0.10f;
+    static constexpr float kJumpBufferTime  = 0.12f;
+    float                         m_coyoteTimer    = 0.f;
+    float                         m_jumpBufferLeft = 0.f;
+
+    // Dash
+    static constexpr float kDashSpeed         = 1100.f;
+    static constexpr float kDashDuration      = 0.20f;
+    static constexpr float kDashCooldown      = 3.f;
+    bool                          m_dashRequested    = false;
+    float                         m_dashTimer        = 0.f;
+    float                         m_dashCooldownLeft = 0.f;
+    float                         m_dashDirX         = 0.f; // -1 left, +1 right
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/player/Player.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/collectible/RedSquare.cpp =====
+#include "RedSquare.h"
+
+#include "../../Config.h"
+#include "../../Debug.h"
+#include "../../ResourceManager.h"
+#include "../../entities/actor/player/Player.h"
+#include "../../gamestates/StatePlaying.h"
+#include "../../utils/Geom.h"
+
+bool RedSquare::init() {
+    // Hidden sprite used only for collider transform (not rendered)
+    const sf::Texture& pTex = ResourceManager::getTexture("ice_boltstart.png");
+    m_pSprite = std::make_unique<sf::Sprite>(pTex);
+    m_pSprite->setOrigin({kSize * 0.5f, kSize * 0.5f});
+    m_pSprite->setPosition(m_startCenter);
+
+    // Collider matches square size
+    setColliderSize({kSize, kSize});
+
+    // Visual rectangle
+    m_shape.setSize({kSize, kSize});
+    m_shape.setOrigin({kSize * 0.5f, kSize * 0.5f});
+    m_shape.setFillColor(sf::Color(220, 68, 64)); // Red-ish
+    m_shape.setOutlineColor(sf::Color::White);
+    m_shape.setOutlineThickness(1.f);
+    m_shape.setPosition(m_startCenter);
+    return true;
+}
+
+void RedSquare::update(float dt) {
+    if (!isAlive())
+        return;
+
+    // Rotate in place
+    const float ang = m_shape.getRotation().asDegrees() + kRotateDps * dt;
+    m_shape.setRotation(sf::degrees(ang));
+    if (m_pSprite)
+        m_pSprite->setPosition(m_shape.getPosition());
+
+    // Collect on player intersection
+    if (m_world) {
+        if (auto* player = m_world->getPlayer()) {
+            if (player->isAlive()) {
+                const sf::FloatRect a = getCollider().worldAabb();
+                const sf::FloatRect b = player->getCollider().worldAabb();
+                if (geom::aabbIntersects(a, b)) {
+                    m_world->addScore(100);
+                    setAlive(false);
+                    return;
+                }
+            }
+        }
+
+        // Self-cull when far behind camera
+        const float camLeft = m_world->getCameraLeft();
+        const float right   = geom::right(getCollider().worldAabb());
+        if (right < camLeft - 100.f) {
+            setAlive(false);
+            return;
+        }
+    }
+}
+
+void RedSquare::render(sf::RenderTarget& target) const {
+    target.draw(m_shape);
+    if constexpr (Config::kDebugDraw) {
+        Debug::drawColliderBounds(target, getCollider(), sf::Color::Green, 1.f);
+    }
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/collectible/RedSquare.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/collectible/RedSquare.h =====
+#pragma once
+
+#include "../Entity.h"
+
+#include <SFML/Graphics/RectangleShape.hpp>
+
+// Minimal rotating collectible square.
+class RedSquare final : public Entity {
+  public:
+    explicit RedSquare(const sf::Vector2f& center) : m_startCenter(center) {}
+    ~RedSquare() override = default;
+
+    bool init() override;
+    void update(float dt) override;
+
+    // Size used for collider and visuals (square).
+    static constexpr float kSize = 24.f;
+
+  private:
+    void render(sf::RenderTarget& target) const override;
+
+    // Visual
+    sf::RectangleShape m_shape;
+    sf::Vector2f       m_startCenter{0.f, 0.f};
+
+    // Rotation
+    static constexpr float kRotateDps = 90.f; // degrees per second
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/collectible/RedSquare.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/faction/Faction.h =====
+// src/game/Faction.h
+#pragma once
+
+enum class Faction { Player, Enemy };
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/faction/Faction.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/IState.h =====
+#pragma once
+
+#include <SFML/Window/Keyboard.hpp>
+#include <SFML/Window/Event.hpp>
+
+namespace sf {
+    class RenderTarget;
+};
+
+class StateStack;
+
+class IState {
+  public:
+    virtual ~IState() = default;
+
+    virtual bool init()                                 = 0;
+    virtual void handleEvent(const sf::Event& event)    = 0;
+    virtual void update(float dt)                       = 0;
+    virtual void render(sf::RenderTarget& target) const = 0;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/IState.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StateMenu.cpp =====
+#include "StateMenu.h"
+
+#include "../ResourceManager.h"
+#include "StatePlaying.h"
+#include "StateStack.h"
+
+#include <SFML/Window/Event.hpp>
+#include <SFML/Window/Keyboard.hpp>
+#include <SFML/Graphics/Font.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Text.hpp>
+
+StateMenu::StateMenu(StateStack& stateStack) : m_stateStack(stateStack) {}
+
+bool StateMenu::init() {
+    const sf::Font& pFont = ResourceManager::getFont("Lavigne.ttf");
+
+    m_pText = std::make_unique<sf::Text>(pFont);
+
+    m_pText->setString("PRESS <ENTER> TO PLAY");
+    m_pText->setStyle(sf::Text::Bold);
+    sf::FloatRect localBounds = m_pText->getLocalBounds();
+    m_pText->setOrigin({localBounds.size.x / 2.0f, localBounds.size.y / 2.0f});
+
+    m_pSubText = std::make_unique<sf::Text>(pFont);
+
+    m_pSubText->setString("Use WASD to move\n SPACE to jump\n Mouse left click to cast a spell\n "
+                          "Aim with the mouse\n Dash with mouse wheel click button\n Avoid demons "
+                          "and obstacles!\n Collect red squares "
+                          "and survive to gain score\n Be careful a big wave of lava is coming!");
+    m_pSubText->setStyle(sf::Text::Regular);
+    localBounds = m_pSubText->getLocalBounds();
+    m_pSubText->setOrigin({localBounds.size.x / 2.0f, localBounds.size.y / 2.0f});
+
+    return true;
+}
+
+void StateMenu::handleEvent(const sf::Event& event) {
+    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+        if (pKeyEvent->scancode == sf::Keyboard::Scan::Enter) {
+            m_stateStack.push<StatePlaying>();
+        }
+    }
+}
+
+void StateMenu::update(float dt) {
+    (void)dt;
+}
+
+void StateMenu::render(sf::RenderTarget& target) const {
+    m_pText->setPosition({target.getSize().x * 0.5f, target.getSize().y * 0.8f});
+    target.draw(*m_pText);
+    m_pSubText->setPosition({target.getSize().x * 0.5f, target.getSize().y * 0.2f});
+    target.draw(*m_pSubText);
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StateMenu.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StateMenu.h =====
+#pragma once
+
+#include "IState.h"
+
+#include <memory>
+
+namespace sf {
+    class Text;
+};
+
+class StateMenu : public IState {
+  public:
+    StateMenu(StateStack& stateStack);
+    ~StateMenu() = default;
+
+    bool init() override;
+    void handleEvent(const sf::Event& event) override;
+    void update(float dt) override;
+    void render(sf::RenderTarget& target) const override;
+
+  public:
+    StateStack&               m_stateStack;
+    std::unique_ptr<sf::Text> m_pText;
+    std::unique_ptr<sf::Text> m_pSubText;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StateMenu.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePaused.cpp =====
+#include "StatePaused.h"
+
+#include "../ResourceManager.h"
+#include "StateStack.h"
+
+#include <SFML/Graphics/Font.hpp>
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/Text.hpp>
+
+StatePaused::StatePaused(StateStack& stateStack) : m_stateStack(stateStack) {}
+
+bool StatePaused::init() {
+    m_pPrevState = m_stateStack.getCurrentState();
+
+    const sf::Font& pFont = ResourceManager::getFont("Lavigne.ttf");
+
+    m_pText = std::make_unique<sf::Text>(pFont);
+
+    m_pText->setString("PRESS <ESC> TO UNPAUSE");
+    m_pText->setStyle(sf::Text::Bold);
+    sf::FloatRect localBounds = m_pText->getLocalBounds();
+    m_pText->setOrigin({localBounds.size.x / 2.0f, localBounds.size.y / 2.0f});
+
+    return true;
+}
+
+void StatePaused::handleEvent(const sf::Event& event) {
+    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+        if (pKeyEvent->scancode == sf::Keyboard::Scan::Escape) {
+            m_stateStack.requestPop();
+        }
+    }
+}
+
+void StatePaused::update(float dt) {
+    (void)dt;
+}
+
+void StatePaused::render(sf::RenderTarget& target) const {
+    if (m_pPrevState != nullptr)
+        m_pPrevState->render(target);
+
+    m_pText->setPosition({target.getSize().x * 0.5f, target.getSize().y * 0.2f});
+    target.draw(*m_pText);
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePaused.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePaused.h =====
+#pragma once
+
+#include "IState.h"
+
+#include <memory>
+
+namespace sf {
+    class Text;
+};
+
+class StatePaused : public IState {
+  public:
+    StatePaused(StateStack& stateStack);
+    ~StatePaused() = default;
+
+    bool init() override;
+    void handleEvent(const sf::Event& event) override;
+    void update(float dt) override;
+    void render(sf::RenderTarget& target) const override;
+
+  public:
+    StateStack&               m_stateStack;
+    const IState*             m_pPrevState = nullptr;
+    std::unique_ptr<sf::Text> m_pText;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePaused.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePlaying.cpp =====
+#include "StatePlaying.h"
+
+#include "../Config.h"
+#include "../Debug.h"
+#include "../ResourceManager.h"
+#include "../collision/MultiRectCollider.h"
+#include "../entities/actor/Actor.h"
+#include "../entities/actor/enemy/Demon.h"
+#include "../entities/actor/enemy/Enemy.h"
+#include "../entities/collectible/RedSquare.h"
+#include "../faction/Faction.h"
+#include "../obstacle/Obstacle.h"
+#include "../obstacle/ObstacleFactory.h"
+#include "../obstacle/ObstacleTypes.h"
+#include "../platform/Platform.h"
+#include "../platform/PlatformFactory.h"
+#include "../spell/projectile/Projectile.h"
+#include "../utils/Geom.h"
+#include "../utils/Math.h"
+#include "../utils/Random.h"
+#include "StatePaused.h"
+#include "StateStack.h"
+
+#include <SFML/Graphics/RenderTarget.hpp>
+#include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Window/Mouse.hpp>
+#include <algorithm>
+#include <cmath>
+#include <iostream>
+#include <memory>
+
+StatePlaying::StatePlaying(StateStack& stateStack) : m_stateStack(stateStack) {}
+
+void StatePlaying::requestExitToMenu() {
+    // Pop this state; the menu remains underneath.
+    m_stateStack.requestPop();
+}
+
+bool StatePlaying::init() {
+    // View set to window size
+    m_view.setSize(
+        {static_cast<float>(Config::windowWidth), static_cast<float>(Config::windowHeight)});
+    m_view.setCenter({m_view.getSize().x * 0.5f, m_view.getSize().y * 0.5f});
+    // Camera state
+    m_cameraX       = m_view.getCenter().x;
+    m_cameraTargetX = m_cameraX;
+    m_cameraSpeed   = 0.f; // ease-in
+
+    // Backgrounds
+    m_bg = std::make_unique<ParallaxBackground>(std::initializer_list<strip::ParallaxLayerDesc>{
+        {"bg_01", 0.16f},
+        {"bg_02", 0.22f},
+        {"bg_03", 0.28f},
+        {"bg_04", 0.34f},
+        {"bg_05", 0.50f},
+        {"bg_06", 0.62f},
+        {"bg_08", 0.76f},
+    });
+    // Animated background strip
+    m_bgAnim = std::make_unique<AnimatedParallaxStrip>(
+        std::vector<std::string>{"bg_anim_01", "bg_anim_02", "bg_anim_03"}, 0.15f, 6.f);
+
+    // Ground stream with colliders
+    m_ground = std::make_unique<GroundStream>(strip::ParallaxLayerDesc{"bg_07", 1.f});
+    m_ground->updateForView(m_view);
+
+    // Create player entity
+    m_pPlayer = createEntity<Player>();
+    if (!m_pPlayer || !m_pPlayer->init())
+        return false;
+    m_pPlayer->setPosition(sf::Vector2f(Config::windowWidth * 0.5f, Config::windowHeight * 0.5f));
+
+    // HUD and game clock
+    m_hud.setPlayer(m_pPlayer);
+    m_gameClock.reset();
+
+    // Seed RNG and schedule first obstacle spawn a bit ahead of view
+    Random::seed(Random::timeSeed());
+    const float viewRight = getCameraLeft() + m_view.getSize().x * 2.f;
+    m_nextObstacleX       = viewRight + Random::rangef(880.f, 1680.f);
+    m_nextPlatformX       = viewRight + Random::rangef(680.f, 980.f);
+
+    return true;
+}
+
+void StatePlaying::handleEvent(const sf::Event& event) {
+    if (const auto* pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+        if (pKeyEvent->scancode == sf::Keyboard::Scan::Escape) {
+            m_stateStack.push<StatePaused>();
+        }
+        switch (pKeyEvent->scancode) {
+        case sf::Keyboard::Scan::A:
+        case sf::Keyboard::Scan::Left:
+            m_input.moveLeft = true;
+            break;
+        case sf::Keyboard::Scan::D:
+        case sf::Keyboard::Scan::Right:
+            m_input.moveRight = true;
+            break;
+        case sf::Keyboard::Scan::Space:
+            m_input.jumpPressed = true;
+            break;
+        default:
+            break;
+        }
+    } else if (const auto* pKeyReleased = event.getIf<sf::Event::KeyReleased>()) {
+        switch (pKeyReleased->scancode) {
+        case sf::Keyboard::Scan::A:
+        case sf::Keyboard::Scan::Left:
+            m_input.moveLeft = false;
+            break;
+        case sf::Keyboard::Scan::D:
+        case sf::Keyboard::Scan::Right:
+            m_input.moveRight = false;
+            break;
+        default:
+            break;
+        }
+    } else if (const auto* pMouseEvent = event.getIf<sf::Event::MouseButtonPressed>()) {
+        if (pMouseEvent->button == sf::Mouse::Button::Middle) {
+            m_input.dashPressed = true;
+        } else if (pMouseEvent->button == sf::Mouse::Button::Left) {
+            m_input.castPressed = true;
+        }
+    }
+}
+
+void StatePlaying::update(float dt) {
+
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        m_pPlayer->setInput(m_input);
+    }
+
+    // Update background anim
+    if (m_bgAnim)
+        m_bgAnim->update(dt);
+
+    // Update all entities
+    for (std::size_t i = 0; i < m_entities.size(); ++i) {
+        Entity* e = m_entities[i].get();
+        if (e && e->isAlive())
+            e->update(dt);
+    }
+
+    // One-shot actions get cleared once consumed by update
+    m_input.jumpPressed = false;
+    m_input.dashPressed = false;
+    m_input.castPressed = false;
+
+    // Tick game clock and update HUD
+    m_gameClock.tick(dt);
+    m_hud.update(dt);
+    m_hud.setElapsedSeconds(m_gameClock.getElapsed());
+
+    // Score: +10 per second
+    m_scoreSecondAccum += dt;
+    while (m_scoreSecondAccum >= 1.f) {
+        m_scorePoints += 10;
+        m_scoreSecondAccum -= 1.f;
+    }
+    m_hud.setScore(m_scorePoints);
+
+    // CAMERA UPDATE
+    // Camera auto-scroll baseline (advance target; center eases toward it)
+    if (m_cameraSpeed < m_cameraTargetSpeed) {
+        m_cameraSpeed = std::min(m_cameraTargetSpeed, m_cameraSpeed + kCameraAccel * dt);
+    } else if (m_cameraSpeed > m_cameraTargetSpeed) {
+        m_cameraSpeed = std::max(m_cameraTargetSpeed, m_cameraSpeed - kCameraAccel * dt);
+    }
+    m_cameraTargetX += m_cameraSpeed * dt;
+    // If player passes the follow threshold, let the target drift toward player smoothly.
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        const float playerX         = m_pPlayer->getPosition().x;
+        const float followThreshold = getFollowThresholdX();
+        if (playerX > followThreshold) {
+            const float alphaT    = math::expSmoothingFactor(kTargetCatchupLerp, dt);
+            const float desired   = playerX; // player centered
+            const float newTarget = m_cameraTargetX + (desired - m_cameraTargetX) * alphaT;
+            m_cameraTargetX       = std::max(m_cameraTargetX, newTarget);
+        }
+    }
+    // Ease camera center toward target
+    const float alpha = math::expSmoothingFactor(kCatchupLerp, dt);
+    m_cameraX += (m_cameraTargetX - m_cameraX) * alpha;
+    m_view.setCenter({m_cameraX, m_view.getSize().y * 0.5f});
+
+    // Update ground colliders for current view
+    if (m_ground)
+        m_ground->updateForView(m_view);
+
+    // Timed Demon spawns: every 10 seconds at y=400, just off the right edge of the view
+    m_demonSpawnTimer -= dt;
+    if (m_demonSpawnTimer <= 0.f) {
+        m_demonSpawnTimer += 10.f;
+        const float rightX = getCameraLeft() + m_view.getSize().x + 60.f;
+        const float y      = 400.f;
+        if (auto* demon = createEntity<Demon>()) {
+            if (demon->init()) {
+                demon->setPosition({rightX, y});
+                demon->update(0.f);
+            }
+        }
+    }
+
+    // Resolve horizontal collisions between player and obstacles
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                const sf::FloatRect ob = o->getCollider().worldAabb();
+                sf::FloatRect       inter;
+                if (geom::aabbIntersects(pb, ob, inter)) {
+                    if (m_pPlayer)
+                        m_pPlayer->applyDamage(o->getDps() * dt);
+                    const float pcx   = pb.position.x + pb.size.x * 0.5f;
+                    const float ocx   = ob.position.x + ob.size.x * 0.5f;
+                    const float pushX = (pcx < ocx ? -inter.size.x : +inter.size.x);
+                    const auto  p     = m_pPlayer->getPosition();
+                    m_pPlayer->setPosition({p.x + pushX, p.y});
+                    pb = m_pPlayer->getCollider().worldAabb();
+                }
+            }
+        }
+    }
+
+    // Apply physics to actors using combined ground + obstacle colliders (walk on them)
+    MultiRectCollider combined;
+    if (m_ground) {
+        std::vector<sf::FloatRect> solids = m_ground->getCollider().getRectColliders();
+        solids.reserve(solids.size() + m_entities.size());
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                solids.emplace_back(o->getCollider().worldAabb());
+            } else if (auto* p = dynamic_cast<Platform*>(entity.get())) {
+                solids.emplace_back(p->getCollider().worldAabb());
+            }
+        }
+        combined.setRectColliders(std::move(solids));
+    }
+    for (auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+        if (auto* actor = dynamic_cast<Actor*>(entity.get())) {
+            const Collider* col = m_ground ? static_cast<const Collider*>(&combined)
+                                           : static_cast<const Collider*>(nullptr);
+            actor->applyPhysics(dt, col);
+        }
+    }
+
+    // Spell collisions: projectiles vs actors by faction
+    {
+        for (const auto& eProj : m_entities) {
+            auto* proj = dynamic_cast<Projectile*>(eProj.get());
+            if (!proj || !proj->isAlive() || !proj->isDamageActive())
+                continue;
+
+            const sf::FloatRect pr = proj->getCollider().worldAabb();
+            if (proj->getFaction() == Faction::Enemy) {
+                // Enemy projectile hits the player
+                if (m_pPlayer && m_pPlayer->isAlive()) {
+                    const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+                    if (geom::aabbIntersects(pr, pb)) {
+                        m_pPlayer->applyDamage(proj->getStats().damage);
+                        proj->requestImpact();
+                        continue;
+                    }
+                }
+            } else if (proj->getFaction() == Faction::Player) {
+                // Player projectile hits enemies or collectibles
+                for (const auto& eOther : m_entities) {
+                    // Enemies
+                    if (auto* enemy = dynamic_cast<Enemy*>(eOther.get())) {
+                        if (!enemy->isAlive())
+                            continue;
+                        const sf::FloatRect eb = enemy->getCollider().worldAabb();
+                        if (geom::aabbIntersects(pr, eb)) {
+                            // Award kill if this hit is lethal
+                            const float hpBefore = enemy->getHp();
+                            enemy->applyDamage(proj->getStats().damage);
+                            if (hpBefore > 0.f && enemy->getHp() <= 0.f)
+                                m_scorePoints += 100; // enemy killed
+                            proj->requestImpact();
+                            break;
+                        }
+                        continue;
+                    }
+                    // RedSquare collectibles
+                    if (auto* sq = dynamic_cast<RedSquare*>(eOther.get())) {
+                        if (!sq->isAlive())
+                            continue;
+                        const sf::FloatRect qb = sq->getCollider().worldAabb();
+                        if (geom::aabbIntersects(pr, qb)) {
+                            addScore(100);
+                            sq->setAlive(false);
+                            proj->requestImpact();
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Apply DPS when standing on top of an obstacle
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                const sf::FloatRect ob = o->getCollider().worldAabb();
+                if (geom::touchTop(pb, ob, 0.75f)) {
+                    m_pPlayer->applyDamage(o->getDps() * dt);
+                }
+            }
+        }
+    }
+
+    // Kill if player falls into a lava gap
+    if (m_pPlayer && m_pPlayer->isAlive() && m_ground) {
+        const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
+        if (m_ground->intersectsLavaGap(pb, m_view)) {
+            m_pPlayer->applyDamage(10000.f);
+        }
+    }
+
+    // Kill if the camera (left edge) catches up to the player
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        const sf::FloatRect pb      = m_pPlayer->getCollider().worldAabb();
+        const float         camLeft = getCameraLeft();
+        if (geom::right(pb) < camLeft) {
+            m_pPlayer->applyDamage(10000.f);
+        }
+    }
+
+    // Stream simple random obstacles ahead of camera
+    {
+        const float viewLeft  = getCameraLeft();
+        const float viewRight = viewLeft + m_view.getSize().x * 2.f;
+        if (m_ground) {
+            const float groundTop = m_ground->getTopYForView(m_view);
+            while (viewRight + 50.f >= m_nextObstacleX) {
+                const int   kindIdx = Random::rangei(0, static_cast<int>(ObstacleKind::Count) - 1);
+                const auto  kind    = static_cast<ObstacleKind>(kindIdx);
+                const auto& desc    = getObstacleDesc(kind);
+                const float y       = groundTop - desc.colliderSize.y;
+                const float x       = m_nextObstacleX;
+                spawnObstacle(*this, kind, {x, y});
+                m_nextObstacleX += Random::rangef(680.f, 1280.f);
+            }
+        }
+    }
+
+    // Stream simple random platforms ahead of camera
+    {
+        const float viewLeft  = getCameraLeft();
+        const float viewRight = viewLeft + m_view.getSize().x * 2.f;
+        if (m_ground) {
+            const float groundTop = m_ground->getTopYForView(m_view);
+            while (viewRight + 50.f >= m_nextPlatformX) {
+                const int   kindIdx = Random::rangei(0, static_cast<int>(PlatformKind::Count) - 1);
+                const auto  kind    = static_cast<PlatformKind>(kindIdx);
+                const auto& desc    = getPlatformDesc(kind);
+                const float y = groundTop - desc.colliderSize.y - Random::rangef(100.f, 300.f);
+                const float x = m_nextPlatformX;
+                if (auto* p = spawnPlatform(*this, kind, {x, y})) {
+                    // Spawn a red square 10px above the platform top, centered horizontally
+                    const sf::FloatRect pb  = p->getCollider().worldAabb();
+                    const float         top = pb.position.y;
+                    const float         cx  = pb.position.x + pb.size.x * 0.5f;
+                    const float         cy  = top - 10.f - (RedSquare::kSize * 0.5f);
+                    if (auto* sq = createEntity<RedSquare>(sf::Vector2f{cx, cy}))
+                        (void)sq->init();
+                }
+                m_nextPlatformX += Random::rangef(480.f, 880.f);
+            }
+        }
+    }
+
+    // Lifetime culling: remove platforms behind the camera
+    {
+        const float viewLeft   = getCameraLeft();
+        const float cullBefore = viewLeft - m_view.getSize().x;
+
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* p = dynamic_cast<Platform*>(entity.get())) {
+                const sf::FloatRect aabb  = p->getCollider().worldAabb();
+                const float         right = aabb.position.x + aabb.size.x;
+                if (right < cullBefore)
+                    p->setAlive(false);
+            }
+        }
+
+        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
+                                        [](auto& e) { return !e->isAlive(); }),
+                         m_entities.end());
+    }
+
+    // Lifetime culling: remove obstacles behind the camera
+    {
+        const float viewLeft   = getCameraLeft();
+        const float cullBefore = viewLeft - m_view.getSize().x;
+
+        for (auto& entity : m_entities) {
+            if (!entity->isAlive())
+                continue;
+            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
+                const sf::FloatRect aabb  = o->getCollider().worldAabb();
+                const float         right = aabb.position.x + aabb.size.x;
+                if (right < cullBefore)
+                    o->setAlive(false);
+            }
+        }
+
+        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
+                                        [](auto& e) { return !e->isAlive(); }),
+                         m_entities.end());
+    }
+
+    if (m_ground)
+        m_ground->updateForView(m_view);
+}
+
+// Collect obstacle rectangles for collision queries
+const std::vector<sf::FloatRect>& StatePlaying::getObstacleRects() const {
+    m_cachedObstacleRects.clear();
+    m_cachedObstacleRects.reserve(m_entities.size());
+    for (const auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+        if (dynamic_cast<const Obstacle*>(entity.get())) {
+            m_cachedObstacleRects.push_back(entity->getCollider().worldAabb());
+        }
+    }
+    return m_cachedObstacleRects;
+}
+
+// Collect platform rectangles for collision queries
+const std::vector<sf::FloatRect>& StatePlaying::getPlatformRects() const {
+    m_cachedPlatformRects.clear();
+    m_cachedPlatformRects.reserve(m_entities.size());
+    for (const auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+        if (dynamic_cast<const Platform*>(entity.get())) {
+            m_cachedPlatformRects.push_back(entity->getCollider().worldAabb());
+        }
+    }
+    return m_cachedPlatformRects;
+}
+
+// Collect all walkable-top solids: ground + obstacles + platforms
+const std::vector<sf::FloatRect>& StatePlaying::getSolidTopRects() const {
+    m_cachedSolidTopRects.clear();
+    // Start with ground rects
+    const auto& groundRects = getGroundRects();
+    m_cachedSolidTopRects.reserve(groundRects.size() + m_entities.size());
+    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), groundRects.begin(),
+                                 groundRects.end());
+    // Append obstacle rects
+    const auto& obstacleRects = getObstacleRects();
+    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), obstacleRects.begin(),
+                                 obstacleRects.end());
+    // Append platform rects
+    const auto& platformRects = getPlatformRects();
+    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), platformRects.begin(),
+                                 platformRects.end());
+    return m_cachedSolidTopRects;
+}
+
+void StatePlaying::render(sf::RenderTarget& target) const {
+    const sf::View oldView = target.getView();
+    target.setView(m_view);
+
+    if (m_bgAnim)
+        m_bgAnim->drawForView(target, m_view);
+
+    if (m_bg) {
+        const std::size_t i06  = m_bg->findIndexByKey("bg_06");
+        const std::size_t upto = (i06 < m_bg->size()) ? i06 : (m_bg->size() ? m_bg->size() - 1 : 0);
+        m_bg->drawRangeForView(target, m_view, 0, upto);
+    }
+
+    for (const std::unique_ptr<Entity>& pEntity : m_entities) {
+        if (dynamic_cast<Actor*>(pEntity.get()))
+            pEntity->render(target);
+    }
+
+    if (m_ground)
+        m_ground->drawForView(target, m_view);
+
+    for (const std::unique_ptr<Entity>& pEntity : m_entities) {
+        if (!dynamic_cast<Actor*>(pEntity.get()))
+            pEntity->render(target);
+    }
+
+    // Foreground layer 08 after entities
+    if (m_bg) {
+        const std::size_t i08 = m_bg->findIndexByKey("bg_08");
+        if (i08 < m_bg->size())
+            m_bg->drawRangeForView(target, m_view, i08, i08);
+    }
+
+    // Debug helpers
+    if constexpr (Config::kDebugDraw) {
+        Debug::drawCameraGuides(target, m_view, getCameraCatchupX(), getFollowThresholdX());
+    }
+
+    target.setView(oldView);
+
+    // Draw HUD in screen space (default view)
+    target.draw(m_hud);
+}
+
+float StatePlaying::getCameraLeft() const {
+    return m_view.getCenter().x - 0.5f * m_view.getSize().x;
+}
+
+float StatePlaying::getCameraCatchupX() const { return getCameraLeft() + kCatchupMarginLeft; }
+
+float StatePlaying::getFollowThresholdX() const {
+    return getCameraLeft() + kFollowThresholdRatio * m_view.getSize().x;
+}
+
+sf::Vector2f StatePlaying::getMouseWorld() const {
+    if (Config::gWindow) {
+        const sf::Vector2i pixel = sf::Mouse::getPosition(*Config::gWindow);
+        return Config::gWindow->mapPixelToCoords(pixel, m_view);
+    }
+    // Fallback: center of view
+    return {m_view.getCenter().x, m_view.getCenter().y};
+}
+
+void StatePlaying::addScore(int points) {
+    if (points <= 0)
+        return;
+    m_scorePoints += points;
+    // Reflect immediately on HUD
+    m_hud.setScore(m_scorePoints);
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePlaying.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePlaying.h =====
+#pragma once
+
+#include "../HUD/GameHUD.h"
+#include "../entities/Entity.h"
+#include "../entities/actor/player/Player.h"
+#include "../level/AnimatedParallaxStrip.h"
+#include "../level/GroundStream.h"
+#include "../level/ParallaxBackground.h"
+#include "../utils/Stopwatch.h"
+#include "IState.h"
+
+#include <SFML/Graphics/RectangleShape.hpp>
+#include <SFML/Graphics/Text.hpp>
+#include <SFML/Graphics/VertexArray.hpp>
+#include <SFML/Graphics/View.hpp>
+
+class StatePlaying : public IState {
+  public:
+    StatePlaying(StateStack& stateStack);
+    ~StatePlaying() = default;
+
+    bool init() override;
+    void handleEvent(const sf::Event& event) override;
+    void update(float dt) override;
+    void render(sf::RenderTarget& target) const override;
+
+    // Input helpers
+    sf::Vector2f getMouseWorld() const;
+
+    // Score API
+    void addScore(int points);
+
+    // Lifecycle
+    void requestExitToMenu();
+
+    // World queries
+    Player* getPlayer() const { return m_pPlayer; }
+    float   getGroundTopY() const {
+        if (m_ground)
+            return m_ground->getTopYForView(m_view);
+        // Fallback if ground not ready yet: bottom band at 5% height
+        return m_view.getCenter().y - 0.5f * m_view.getSize().y +
+               (m_view.getSize().y * (1.f - 0.05f));
+    }
+
+    // Expose ground solids for simple collision in Player
+    const std::vector<sf::FloatRect>& getGroundRects() const {
+        if (m_ground)
+            return m_ground->getCollider().getRectColliders();
+        static const std::vector<sf::FloatRect> kEmpty;
+        return kEmpty;
+    }
+
+    // Solid rectangles for obstacles
+    const std::vector<sf::FloatRect>& getObstacleRects() const;
+    // Solid rectangles for platforms
+    const std::vector<sf::FloatRect>& getPlatformRects() const;
+
+    // All walkable-top solids
+    const std::vector<sf::FloatRect>& getSolidTopRects() const;
+
+    // Camera helpers
+    float getCameraLeft() const;
+    float getCameraCatchupX() const;   // left edge + margin
+    float getFollowThresholdX() const; // left + ratio * width
+    float getViewBottomY() const { return m_view.getCenter().y + 0.5f * m_view.getSize().y; }
+
+    // Create a new entity of type T and add it to the world
+    template <typename T, typename... Args> T* createEntity(Args&&... args) {
+        auto entity    = std::make_unique<T>(std::forward<Args>(args)...);
+        T*   entityPtr = entity.get();
+        entityPtr->setWorld(this);
+        m_entities.push_back(std::move(entity));
+        return entityPtr;
+    }
+
+  private:
+    // Game state
+    StateStack& m_stateStack;
+    bool        m_hasPauseKeyBeenReleased = true;
+
+    // Player reference
+    Player* m_pPlayer = nullptr;
+    PlayerInput m_input;
+
+    // Entities
+    std::vector<std::unique_ptr<Entity>> m_entities;
+
+    // Backgrounds / ground
+    std::unique_ptr<ParallaxBackground>    m_bg;
+    std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
+    std::unique_ptr<GroundStream>          m_ground;
+
+    // Obstacle and platform spawning
+    float m_nextObstacleX = 0.f;
+    float m_nextPlatformX = 0.f;
+
+    // Camera
+    sf::View m_view;
+    float    m_cameraX           = 0.f;
+    float    m_cameraTargetX     = 0.f; // smoothed target center X
+    float    m_cameraSpeed       = 0.f;
+    float    m_cameraTargetSpeed = 450.f;
+
+    // HUD
+    GameHUD m_hud;
+
+    // Timed spawns
+    float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
+
+    // Scoring
+    int   m_scorePoints      = 0;
+    float m_scoreSecondAccum = 0.f; // adds +10 per whole second elapsed
+
+    // Camera tuning
+    static constexpr float kCameraAccel          = 1200.f;
+    static constexpr float kCatchupMarginLeft    = 60.f;
+    static constexpr float kFollowThresholdRatio = 0.80f; // 80% from left
+    static constexpr float kCatchupLerp          = 8.f;   // view center smoothing
+    static constexpr float kTargetCatchupLerp    = 2.5f;  // target center smoothing
+
+    // Cached rectangles for obstacle/solid queries
+    mutable std::vector<sf::FloatRect> m_cachedObstacleRects;
+    mutable std::vector<sf::FloatRect> m_cachedPlatformRects;
+    mutable std::vector<sf::FloatRect> m_cachedSolidTopRects;
+
+    // Game clock
+    Stopwatch m_gameClock;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StatePlaying.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StateStack.h =====
+#pragma once
+
+#include "IState.h"
+
+#include <cassert>
+#include <memory>
+#include <vector>
+
+class StateStack {
+  public:
+
+    IState* getCurrentState() {
+        if (m_states.empty())
+            throw std::runtime_error("StateStack is empty; no current state available");
+        return m_states.back().get();
+    }
+
+    template <typename T>
+    void push() {
+        std::unique_ptr<IState> state = std::make_unique<T>(*this);
+        if (!state->init())
+            throw std::runtime_error(
+                std::string("Failed to initialize state: ") + typeid(T).name()
+            );
+
+        m_states.push_back(std::move(state));
+    }
+
+    std::unique_ptr<IState> pop() {
+        std::unique_ptr<IState> pState = std::move(m_states.back());
+        m_states.pop_back();
+        return pState;
+    }
+
+    void requestPop() { m_requestPopCount++; }
+
+    void performPendingPops() {
+        while (m_requestPopCount > 0) {
+            --m_requestPopCount;
+            assert(!m_states.empty());
+            if (m_states.empty())
+                break;
+            m_states.pop_back();
+        }
+    }
+
+  private:
+    std::vector<std::unique_ptr<IState>> m_states;
+    size_t                               m_requestPopCount = 0;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gamestates/StateStack.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/AnimatedParallaxStrip.h =====
+#pragma once
+#include "../ResourceManager.h"
+#include "BackgroundAssets.h"
+#include "StripUtil.h"
+
+#include <SFML/Graphics.hpp>
+#include <cmath>
+#include <string>
+#include <vector>
+
+class AnimatedParallaxStrip : public sf::Drawable {
+  public:
+    AnimatedParallaxStrip(std::vector<std::string> frames, float factor, float fps)
+        : m_frames(std::move(frames)), m_factor(factor), m_fps(fps) {}
+
+    void update(float dt) { m_time += dt; }
+
+    void drawForView(sf::RenderTarget& t, const sf::View& view) const {
+        if (m_frames.empty())
+            return;
+        const std::size_t idx  = static_cast<std::size_t>(m_time * m_fps) % m_frames.size();
+        const std::string file = bgassets::keyToFilename(m_frames[idx]);
+        sf::Texture& pTex = ResourceManager::getTexture(file);
+        // Ensure horizontal repeating for scrolling
+        pTex.setRepeated(true);
+        strip::drawStrip(t, view, pTex, m_factor);
+    }
+
+  private:
+    void draw(sf::RenderTarget&, sf::RenderStates) const override {}
+
+    std::vector<std::string> m_frames;
+    float                    m_factor = 0.15f;
+    float                    m_fps    = 2.f;
+    float                    m_time   = 0.f;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/AnimatedParallaxStrip.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/BackgroundAssets.h =====
+#pragma once
+
+#include <string>
+
+namespace bgassets {
+
+    inline std::string keyToFilename(const std::string& key) {
+        if (key == "bg_01")
+            return "Volcano Layer 01.png";
+        if (key == "bg_02")
+            return "Volcano Layer 02.png";
+        if (key == "bg_03")
+            return "Volcano Layer 03.png";
+        if (key == "bg_04")
+            return "Volcano Layer 04.png";
+        if (key == "bg_05")
+            return "Volcano Layer 05.png";
+        if (key == "bg_06")
+            return "Volcano Layer 06.png";
+        if (key == "bg_07")
+            return "Volcano Layer 07.png";
+        if (key == "bg_08")
+            return "Volcano Layer 08.png";
+
+        if (key == "bg_anim_01")
+            return "Volcano anim. 01.png";
+        if (key == "bg_anim_02")
+            return "Volcano anim. 02.png";
+        if (key == "bg_anim_03")
+            return "Volcano anim. 03.png";
+
+        return key;
+    }
+
+} // namespace bgassets
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/BackgroundAssets.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/GroundStream.h =====
+#pragma once
+
+#include "../Config.h"
+#include "../Debug.h"
+#include "../ResourceManager.h"
+#include "../animation/Animation.h"
+#include "../collision/MultiRectCollider.h"
+#include "../utils/Geom.h"
+#include "../utils/Math.h"
+#include "BackgroundAssets.h"
+#include "StripUtil.h"
+
+#include <SFML/Graphics.hpp>
+#include <algorithm>
+#include <cmath>
+#include <cstdint>
+#include <memory>
+#include <string>
+#include <vector>
+
+class GroundStream : public sf::Drawable {
+  public:
+    explicit GroundStream(const strip::ParallaxLayerDesc& layer) : m_layer(layer) {}
+
+    void update(float dt) {
+        if (m_lavaAnimator)
+            m_lavaAnimator->update(dt);
+    }
+
+    // Build collidable rectangles for the current view.
+    void updateForView(const sf::View& view) {
+        // View geometry
+        const sf::Vector2f viewSize = view.getSize();
+        const sf::Vector2f center   = view.getCenter();
+
+        const float viewLeft  = center.x - 0.5f * viewSize.x;
+        const float viewRight = viewLeft + viewSize.x;
+
+        const float height = viewSize.y * kColliderHeightRatio;
+        const float y =
+            (center.y - 0.5f * viewSize.y) + (viewSize.y - height); // bottom-anchored band
+
+        // Visible block range
+        const int firstCell  = static_cast<int>(std::floor(viewLeft / kCellWidth));
+        const int lastCell   = static_cast<int>(std::ceil(viewRight / kCellWidth));
+        const int firstBlock = blockIndexForCell(firstCell) - 1;
+        const int lastBlock  = blockIndexForCell(lastCell) + 1;
+
+        // Build solid rects for each block in view
+        std::vector<sf::FloatRect> solids;
+        solids.reserve(std::max(0, (lastBlock - firstBlock + 1)) * 2);
+
+        for (int block = firstBlock; block <= lastBlock; ++block)
+            appendSolidsForBlock(block, y, height, viewLeft, viewRight, solids);
+
+        m_collider.setRectColliders(std::move(solids));
+    }
+
+    // Draws the textured ground strip + lava inside gaps + debug AABBs.
+    void drawForView(sf::RenderTarget& target, const sf::View& view) const {
+        const std::string file = bgassets::keyToFilename(m_layer.key);
+        sf::Texture& pTex = ResourceManager::getTexture(file);
+        // Ensure horizontal repeating for scrolling
+        pTex.setRepeated(true);
+        strip::drawStrip(target, view, pTex, m_layer.factor);
+        drawLavaGaps(target, view);
+
+        if constexpr (Config::kDebugDraw) {
+            for (const auto& r : m_collider.getRectColliders()) {
+                sf::RectangleShape outline;
+                outline.setPosition(r.position);
+                outline.setSize(r.size);
+                outline.setFillColor(sf::Color(0, 0, 0, 0));
+                outline.setOutlineColor(sf::Color::Yellow);
+                outline.setOutlineThickness(1.f);
+                target.draw(outline);
+            }
+        }
+    }
+
+    const MultiRectCollider& getCollider() const { return m_collider; }
+
+    // Returns true if aabb overlaps the lava band inside any visible gap for the given view.
+    bool intersectsLavaGap(const sf::FloatRect& aabb, const sf::View& view) const {
+        // View geometry
+        const sf::Vector2f viewSize = view.getSize();
+        const sf::Vector2f center   = view.getCenter();
+
+        const float viewL = center.x - 0.5f * viewSize.x;
+        const float viewR = viewL + viewSize.x;
+
+        const float bandH = viewSize.y * kColliderHeightRatio;
+        const float y     = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH);
+
+        // Visible block range
+        const int firstCell  = static_cast<int>(std::floor(viewL / kCellWidth));
+        const int lastCell   = static_cast<int>(std::ceil(viewR / kCellWidth));
+        const int firstBlock = blockIndexForCell(firstCell) - 1;
+        const int lastBlock  = blockIndexForCell(lastCell) + 1;
+
+        sf::FloatRect gap;
+        for (int block = firstBlock; block <= lastBlock; ++block) {
+            gap = gapRectForBlock(block, y, bandH);
+            if (geom::left(gap) + geom::width(gap) < viewL || geom::left(gap) > viewR)
+                continue;
+            if (geom::aabbIntersects(aabb, gap))
+                return true;
+        }
+        return false;
+    }
+
+  private:
+    void draw(sf::RenderTarget&, sf::RenderStates) const override {}
+
+    // Lava animation setup
+    void ensureLavaClipExists() const {
+        if (m_lavaAnimator)
+            return;
+        sf::Texture& pTex = ResourceManager::getTexture("lava.png");
+        if (&pTex) {
+            m_lavaClip =
+                Animation::makeClipFromSheet("lava", pTex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
+            m_pLavaSprite = std::make_unique<sf::Sprite>(pTex);
+        } else {
+            // Texture missing; create an empty sprite to keep animator construction safe
+            static sf::Texture dummy;
+            m_pLavaSprite = std::make_unique<sf::Sprite>(dummy);
+        }
+        m_lavaAnimator = std::make_unique<SpriteAnimator>(*m_pLavaSprite);
+        m_lavaAnimator->addClip(m_lavaClip);
+        m_lavaAnimator->playClip("lava");
+    }
+
+    // Rendering of lava inside gaps
+    void drawLavaGaps(sf::RenderTarget& target, const sf::View& view) const {
+        ensureLavaClipExists();
+
+        // View geometry
+        const sf::Vector2f viewSize = view.getSize();
+        const sf::Vector2f center   = view.getCenter();
+
+        const float viewL = center.x - 0.5f * viewSize.x;
+        const float viewR = viewL + viewSize.x;
+
+        const float bandH = viewSize.y * kColliderHeightRatio;
+        // Slight lift so the lava reads above the band visually
+        const float y = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH) - kLavaYOffset;
+
+        // Same visible block range as updateForView
+        const int firstCell  = static_cast<int>(std::floor(viewL / kCellWidth));
+        const int lastCell   = static_cast<int>(std::ceil(viewR / kCellWidth));
+        const int firstBlock = blockIndexForCell(firstCell) - 1;
+        const int lastBlock  = blockIndexForCell(lastCell) + 1;
+
+        // Prepare lava sprite
+        if (!m_pLavaSprite)
+            return;
+        const sf::IntRect frame  = m_pLavaSprite->getTextureRect();
+        const float       frameW = static_cast<float>(std::max(1, frame.size.x));
+        const float       frameH = static_cast<float>(std::max(1, frame.size.y));
+        m_pLavaSprite->setOrigin({frameW * 0.5f, frameH * 0.5f});
+        m_pLavaSprite->setScale({kLavaScale, kLavaScale});
+
+        for (int block = firstBlock; block <= lastBlock; ++block) {
+            const sf::FloatRect gap = gapRectForBlock(block, y, bandH);
+            if (geom::left(gap) + geom::width(gap) < viewL || geom::left(gap) > viewR)
+                continue;
+
+            const float centerX = geom::left(gap) + 0.5f * geom::width(gap);
+            const float centerY = y + 0.5f * bandH;
+
+            m_pLavaSprite->setPosition({centerX, centerY});
+            target.draw(*m_pLavaSprite);
+        }
+    }
+
+    // Block / gap helpers
+    // Converts a cell index to its containing block index.
+    static int blockIndexForCell(int cell) { return math::floorDivInt(cell, kBlockCells); }
+    // Returns the world-space anchor cell index for the block.
+    static int blockAnchor(int blockIdx) { return blockIdx * kBlockCells; }
+
+    // Returns the world-space gap rect for the block (width = one cell).
+    static sf::FloatRect gapRectForBlock(int blockIdx, float y, float h) {
+        const int           anchor    = blockAnchor(blockIdx);
+        const std::uint32_t random    = math::mix32(static_cast<std::uint32_t>(anchor));
+        const int           gapOffset = 1 + static_cast<int>(random % 4); // 1..4
+        const float         left      = (anchor + gapOffset) * kCellWidth;
+        return sf::FloatRect{{left, y}, {kCellWidth, h}};
+    }
+
+    // Appends the two solid segments of a block (left & right of the gap) clipped to [viewL,
+    // viewR].
+    static void appendSolidsForBlock(int blockIdx, float y, float h, float viewL, float viewR,
+                                     std::vector<sf::FloatRect>& out) {
+        // Block bounds
+        const int   anchor = blockAnchor(blockIdx);
+        const float blockL = anchor * kCellWidth;
+        const float blockR = (anchor + kBlockCells) * kCellWidth;
+
+        // Clamp to view
+        const sf::FloatRect gap  = gapRectForBlock(blockIdx, y, h);
+        const float         gapL = geom::left(gap);
+        const float         gapR = geom::left(gap) + geom::width(gap);
+
+        // Helper to push a clipped rect
+        auto clipPush = [&](float L, float R) {
+            const float left  = std::max(L, viewL);
+            const float right = std::min(R, viewR);
+            if (right > left)
+                out.emplace_back(sf::FloatRect{{left, y}, {right - left, h}});
+        };
+
+        // Push solid segments
+        clipPush(blockL, gapL); // left solid
+        clipPush(gapR, blockR); // right solid
+    }
+
+  public:
+    // Top Y of the collidable band for a given view
+    float getTopYForView(const sf::View& view) const {
+        const sf::Vector2f viewSize = view.getSize();
+        const sf::Vector2f center   = view.getCenter();
+        const float        bandH    = viewSize.y * kColliderHeightRatio;
+        const float        y        = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH);
+        return y;
+    }
+
+  private:
+    strip::ParallaxLayerDesc m_layer;
+    MultiRectCollider        m_collider;
+
+    // Lava animation state.
+    mutable std::unique_ptr<sf::Sprite>     m_pLavaSprite;
+    mutable std::unique_ptr<SpriteAnimator> m_lavaAnimator;
+    mutable AnimationClip                   m_lavaClip;
+
+    // Tunables (kept close to original intent)
+    static constexpr float kColliderHeightRatio = 0.05f; // fraction of view height
+    static constexpr float kCellWidth           = 220.f; // world units per cell
+    static constexpr int   kBlockCells          = 5;     // cells per block (1 gap inside)
+    static constexpr float kLavaScale           = 6.f;   // sprite scale
+    static constexpr float kLavaYOffset         = 85.f;  // visual lift above band
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/GroundStream.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/ParallaxBackground.h =====
+#pragma once
+
+#include "../ResourceManager.h"
+#include "BackgroundAssets.h"
+#include "StripUtil.h"
+
+#include <SFML/Graphics.hpp>
+#include <string>
+#include <vector>
+
+class ParallaxBackground : public sf::Drawable {
+  public:
+    ParallaxBackground(std::initializer_list<strip::ParallaxLayerDesc> layers) : m_layers(layers) {}
+
+    void add(const strip::ParallaxLayerDesc& desc) { m_layers.push_back(desc); }
+
+    void drawRangeForView(sf::RenderTarget& t, const sf::View& view, std::size_t first,
+                          std::size_t last) const {
+        if (m_layers.empty())
+            return;
+        if (first >= m_layers.size())
+            return;
+        const std::size_t lastClamped = std::min(last, m_layers.size() - 1);
+        for (std::size_t i = first; i <= lastClamped; ++i) {
+            const auto& layer = m_layers[i];
+            const auto  file  = bgassets::keyToFilename(layer.key);
+            sf::Texture& pTex = ResourceManager::getTexture(file);
+            // Ensure horizontal repeating for scrolling
+            pTex.setRepeated(true);
+            strip::drawStrip(t, view, pTex, layer.factor);
+        }
+    }
+
+    std::size_t findIndexByKey(const std::string& key) const {
+        for (std::size_t i = 0; i < m_layers.size(); ++i)
+            if (m_layers[i].key == key)
+                return i;
+        return m_layers.size();
+    }
+
+    std::size_t size() const { return m_layers.size(); }
+
+  private:
+    void draw(sf::RenderTarget&, sf::RenderStates) const override {}
+
+    std::vector<strip::ParallaxLayerDesc> m_layers;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/ParallaxBackground.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/StripUtil.h =====
+#pragma once
+
+#include <SFML/Graphics.hpp>
+#include <algorithm>
+#include <cmath>
+
+namespace strip {
+
+    struct ParallaxLayerDesc {
+        std::string key;
+        float       factor = 0.f;
+    };
+
+    // Draw a horizontally repeating strip aligned to the view's bottom edge.
+    inline void drawStrip(sf::RenderTarget& target, const sf::View& view,
+                          const sf::Texture& texture, float parallaxFactor) {
+        // View geometry
+        const float viewWidthWorld  = view.getSize().x;
+        const float viewHeightWorld = view.getSize().y;
+        const float viewLeftWorld   = view.getCenter().x - 0.5f * viewWidthWorld;
+        const float viewTopWorld    = 0.f; // always anchored to bottom
+
+        // Slight overdraw to avoid edge artifacts
+        constexpr float paddingPixels = 2.f;
+
+        // Screen-space quad we'll draw into
+        sf::RectangleShape stripQuad({viewWidthWorld + 2.f * paddingPixels, viewHeightWorld});
+        stripQuad.setPosition({viewLeftWorld - paddingPixels, viewTopWorld});
+        stripQuad.setTexture(&texture, true);
+
+        // Texture info
+        const sf::Vector2u textureSizePx   = texture.getSize();
+        const int          textureHeightPx = static_cast<int>(textureSizePx.y);
+
+        // Convert world/screen size to texture space using a uniform vertical scale
+        const float pixelsPerTexel = viewHeightWorld / static_cast<float>(textureHeightPx);
+
+        // Horizontal scrolling in texture space
+        const float texUStartF = (viewLeftWorld * parallaxFactor) / pixelsPerTexel;
+        const float texUWidthF = stripQuad.getSize().x / pixelsPerTexel;
+
+        // Bottom-aligned vertical slice in texture space
+        const int texVHeight = static_cast<int>(viewHeightWorld / pixelsPerTexel);
+        const int texVStart  = textureHeightPx - texVHeight;
+
+        // Truncate to ints for the texture rect
+        const int texUStart = static_cast<int>(texUStartF);
+        const int texUWidth = static_cast<int>(texUWidthF);
+
+        sf::IntRect texRect({texUStart, texVStart}, {texUWidth, texVHeight});
+        stripQuad.setTextureRect(texRect);
+        target.draw(stripQuad);
+    }
+
+} // namespace strip
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/level/StripUtil.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/main.cpp =====
+#include "Config.h"
+#include "ResourceManager.h"
+#include "gamestates/IState.h"
+#include "gamestates/StateMenu.h"
+#include "gamestates/StateStack.h"
+
+#include <SFML/Graphics.hpp>
+#include <SFML/System/Clock.hpp>
+#include <SFML/System/Time.hpp>
+#include <memory>
+#include <optional>
+#include <stack>
+#include <iostream>
+
+int main(int argc, char* argv[]) try {
+    (void)argc;
+
+    // ResourceManager must be instantiated here -- DO NOT CHANGE
+    ResourceManager::init(argv[0]);
+
+    sf::RenderWindow window(sf::VideoMode({Config::windowWidth, Config::windowHeight}),
+                            Config::windowTitle);
+    Config::gWindow = &window;
+    window.setKeyRepeatEnabled(false);
+    window.setVerticalSyncEnabled(true);
+
+    StateStack gamestates;
+    gamestates.push<StateMenu>();
+
+    sf::Clock clock;
+    while (window.isOpen()) {
+        sf::Time elapsedTime = clock.restart();
+
+        IState* pState = gamestates.getCurrentState();
+
+        while (const std::optional<sf::Event> event = window.pollEvent()) {
+            if (event->is<sf::Event::Closed>()) {
+                window.close();
+            }
+
+            // Dispatch event to current state
+            pState->handleEvent(event.value());
+        }
+
+        pState->update(elapsedTime.asSeconds());
+
+        window.clear();
+        pState->render(window);
+        window.display();
+
+        gamestates.performPendingPops();
+    }
+
+    return EXIT_SUCCESS;
+
+} catch (const std::exception& e) {
+    std::cerr << "Fatal error: " << e.what() << std::endl;
+    return EXIT_FAILURE;
+} catch (...) {
+    std::cerr << "Fatal error: unknown exception occurred" << std::endl;
+    return EXIT_FAILURE;
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/main.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/obstacle/Obstacle.h =====
+﻿#pragma once
+
+#include "../Config.h"
+#include "../Debug.h"
+#include "../ResourceManager.h"
+#include "../animation/Animation.h"
+#include "../entities/Entity.h"
+#include "ObstacleTypes.h"
+
+#include <SFML/Graphics/Sprite.hpp>
+
+// Minimal obstacle entity: static sprite with optional sheet-based animation.
+class Obstacle final : public Entity {
+  public:
+    explicit Obstacle(const ObstacleDesc& desc) : m_desc(desc) {}
+
+    bool init() override {
+        const sf::Texture& pTex = ResourceManager::getTexture(m_desc.textureKey);
+
+        m_pSprite     = std::make_unique<sf::Sprite>(pTex);
+        m_spriteScale = m_desc.scale;
+        applyFacingScale();
+
+        if (m_desc.frameSize.x > 0 && m_desc.frameSize.y > 0) {
+            const sf::IntRect rect{
+                {m_desc.startCell.x * m_desc.frameSize.x, m_desc.startCell.y * m_desc.frameSize.y},
+                {m_desc.frameSize.x, m_desc.frameSize.y}};
+            m_pSprite->setTextureRect(rect);
+            m_pSprite->setOrigin({m_desc.frameSize.x * 0.5f, m_desc.frameSize.y * 0.5f});
+        }
+
+        // Animation
+        if (m_desc.animated) {
+            m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
+            auto clip =
+                Animation::makeClipFromSheet("main", pTex, m_desc.frameSize, m_desc.startCell,
+                                             m_desc.endCell, m_desc.fps, m_desc.loop);
+            m_pAnimator->addClip(std::move(clip));
+            m_pAnimator->playClip("main");
+        }
+
+        // Collider setup
+        sf::Vector2f spritePos = m_pSprite->getPosition();
+        setColliderSize(m_desc.colliderSize);
+        setColliderOffset(spritePos);
+        return true;
+    }
+
+    void update(float dt) override {
+        if (m_pAnimator)
+            m_pAnimator->update(dt);
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+    }
+
+    void render(sf::RenderTarget& target) const override {
+        if (m_pSprite)
+            target.draw(*m_pSprite);
+        if constexpr (Config::kDebugDraw) {
+            Debug::drawColliderBounds(target, getCollider(), sf::Color::Green, 1.f);
+            Debug::drawSpriteOrigin(target, *m_pSprite, sf::Color::Yellow, 10.f, 2.f);
+            Debug::drawSpriteBounds(target, *m_pSprite, sf::Color::Red, 1.f);
+        }
+    }
+
+    float               getDps() const { return m_desc.dps; }
+    const ObstacleDesc& getDesc() const { return m_desc; }
+
+  private:
+    ObstacleDesc m_desc;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/obstacle/Obstacle.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/obstacle/ObstacleFactory.h =====
+﻿#pragma once
+
+#include "Obstacle.h"
+#include "ObstacleTypes.h"
+
+class StatePlaying;
+
+// Tiny, inline spawn helper that hides the registry lookup
+inline Obstacle* spawnObstacle(StatePlaying& world, ObstacleKind kind, const sf::Vector2f& pos) {
+    const ObstacleDesc& desc = getObstacleDesc(kind);
+    auto*               obs  = world.createEntity<Obstacle>(desc);
+    if (!obs || !obs->init())
+        return nullptr;
+    // Position sprite so its visual top-left aligns at pos + visualOffset
+    obs->setPosition({pos + desc.visualOffset});
+    obs->update(0.f);
+    return obs;
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/obstacle/ObstacleFactory.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/obstacle/ObstacleTypes.h =====
+
+#pragma once
+
+#include <SFML/Graphics.hpp>
+#include <array>
+#include <cstdint>
+#include <string>
+#include <vector>
+
+enum class ObstacleKind : uint8_t { Altar1, Altar2, Tree, Lich, SkullPile, Count };
+
+struct ObstacleDesc {
+    ObstacleKind kind;
+    bool         animated;
+    const char*  textureKey;
+
+    // Animation source as a grid on a spritesheet
+    sf::Vector2i frameSize{0, 0};
+    sf::Vector2i startCell{0, 0};
+    sf::Vector2i endCell{0, 0};
+    float        fps  = 0.f;
+    bool         loop = true;
+
+    // Rendering + collision
+    sf::Vector2f visualOffset{0.f, 0.f};
+    sf::Vector2f colliderSize{0.f, 0.f};
+    sf::Vector2f scale{1.f, 1.f};
+    float        dps = 0.f;
+};
+
+static const std::array<ObstacleDesc, static_cast<size_t>(ObstacleKind::Count)> kTable = {{
+    // Altar1
+    ObstacleDesc{ObstacleKind::Altar1, true, "altar1.png",
+                 /*frameSize*/ {80, 112}, /*start*/ {0, 0}, /*end*/ {5, 2},
+                 /*fps*/ 8.f, /*loop*/ true,
+                 /*visualOffset*/ {0.f, -120.f},
+                 /*colliderSize*/ {30.f, 40.f},
+                 /*scale*/ {4.f, 4.f},
+                 /*dps*/ 10.f},
+    // Altar2
+    ObstacleDesc{ObstacleKind::Altar2, true, "altar2.png",
+                 /*frameSize*/ {96, 112}, /*start*/ {0, 0}, /*end*/ {5, 2},
+                 /*fps*/ 8.f, /*loop*/ true,
+                 /*visualOffset*/ {0.f, -120.f},
+                 /*colliderSize*/ {40.f, 50.f},
+                 /*scale*/ {4.f, 4.f},
+                 /*dps*/ 10.f},
+    // Tree (static)
+    ObstacleDesc{ObstacleKind::Tree, false, "tree.png",
+                 /*frameSize*/ {128, 128}, /*start*/ {0, 0}, /*end*/ {0, 0},
+                 /*fps*/ 0.f, /*loop*/ false,
+                 /*visualOffset*/ {0.f, 20.f},
+                 /*colliderSize*/ {20.f, 90.f},
+                 /*scale*/ {2.f, 2.f},
+                 /*dps*/ 10.f},
+    // Lich statue (static)
+    ObstacleDesc{ObstacleKind::Lich, false, "lich.png",
+                 /*frameSize*/ {256, 256}, /*start*/ {0, 0}, /*end*/ {0, 0},
+                 /*fps*/ 0.f, /*loop*/ false,
+                 /*visualOffset*/ {0.f, 30.f},
+                 /*colliderSize*/ {60.f, 80.f},
+                 /*scale*/ {4.f, 4.f},
+                 /*dps*/ 10.f},
+    // Skull pile (static)
+    ObstacleDesc{ObstacleKind::SkullPile, false, "skull_pile.png",
+                 /*frameSize*/ {128, 128}, /*start*/ {0, 0}, /*end*/ {0, 0},
+                 /*fps*/ 0.f, /*loop*/ false,
+                 /*visualOffset*/ {0.f, -40.f},
+                 /*colliderSize*/ {60.f, 40.f},
+                 /*scale*/ {4.f, 4.f},
+                 /*dps*/ 10.f},
+}};
+
+inline const ObstacleDesc& getObstacleDesc(ObstacleKind kind) {
+    return kTable.at(static_cast<size_t>(kind));
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/obstacle/ObstacleTypes.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/platform/Platform.h =====
+﻿#pragma once
+
+#include "../Config.h"
+#include "../Debug.h"
+#include "../ResourceManager.h"
+#include "../entities/Entity.h"
+#include "PlatformTypes.h"
+
+// Minimal static-image platform entity. No animation.
+class Platform final : public Entity {
+  public:
+    explicit Platform(const PlatformDesc& desc) : m_desc(desc) {}
+
+    bool init() override {
+        const sf::Texture& pTex = ResourceManager::getTexture(m_desc.textureKey);
+
+        m_pSprite     = std::make_unique<sf::Sprite>(pTex);
+        m_spriteScale = m_desc.scale;
+        applyFacingScale();
+
+        if (m_desc.frameSize.x > 0 && m_desc.frameSize.y > 0) {
+            const sf::IntRect rect{{0, 0}, {m_desc.frameSize.x, m_desc.frameSize.y}};
+            m_pSprite->setTextureRect(rect);
+            m_pSprite->setOrigin({m_desc.frameSize.x * 0.5f, m_desc.frameSize.y * 0.5f});
+        }
+
+        // Collider setup
+        sf::Vector2f spritePos = m_pSprite->getPosition();
+        setColliderSize(m_desc.colliderSize);
+        setColliderOffset(spritePos);
+        return true;
+    }
+
+    void update(float) override {
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+    }
+
+    void render(sf::RenderTarget& target) const override {
+        if (m_pSprite)
+            target.draw(*m_pSprite);
+        if constexpr (Config::kDebugDraw) {
+            Debug::drawColliderBounds(target, getCollider(), sf::Color::Cyan, 1.f);
+            Debug::drawSpriteBounds(target, *m_pSprite, sf::Color::Magenta, 1.f);
+            Debug::drawSpriteOrigin(target, *m_pSprite, sf::Color::Yellow, 10.f, 2.f);
+        }
+    }
+
+    const PlatformDesc& getDesc() const { return m_desc; }
+
+  private:
+    PlatformDesc m_desc;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/platform/Platform.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/platform/PlatformFactory.h =====
+﻿#pragma once
+
+#include "../gamestates/StatePlaying.h"
+#include "Platform.h"
+#include "PlatformTypes.h"
+
+class StatePlaying;
+
+// Tiny, inline spawn helper consistent with spawnObstacle
+inline Platform* spawnPlatform(StatePlaying& world, PlatformKind kind, const sf::Vector2f& pos) {
+    const PlatformDesc& desc = getPlatformDesc(kind);
+    auto*               p    = world.createEntity<Platform>(desc);
+    if (!p || !p->init())
+        return nullptr;
+    p->setPosition({pos + desc.visualOffset});
+    p->update(0.f);
+    return p;
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/platform/PlatformFactory.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/platform/PlatformTypes.h =====
+﻿#pragma once
+
+#include <SFML/Graphics.hpp>
+#include <array>
+#include <cstdint>
+#include <string>
+
+// Static-image platforms you can stand on.
+enum class PlatformKind : uint8_t { Platform1, Platform2, Count };
+
+struct PlatformDesc {
+    PlatformKind kind;
+    const char*  textureKey; // key for ResourceManager
+    sf::Vector2i frameSize{0, 0};
+    sf::Vector2f visualOffset{0.f, 0.f};
+    sf::Vector2f colliderSize{0.f, 0.f};
+    sf::Vector2f scale{1.f, 1.f};
+};
+
+static const std::array<PlatformDesc, static_cast<size_t>(PlatformKind::Count)> kPlatformTable = {{
+    PlatformDesc{PlatformKind::Platform1, "platform1.png",
+                 /*frameSize*/ {64, 64},
+                 /*visualOffset*/ {0.f, -180.f},
+                 /*colliderSize*/ {24.f, 16.f},
+                 /*scale*/ {2.f, 2.f}},
+    PlatformDesc{PlatformKind::Platform2, "platform2.png",
+                 /*frameSize*/ {64, 64},
+                 /*visualOffset*/ {0.f, -150.f},
+                 /*colliderSize*/ {24.f, 16.f},
+                 /*scale*/ {2.f, 2.f}},
+}};
+
+inline const PlatformDesc& getPlatformDesc(PlatformKind k) {
+    return kPlatformTable.at(static_cast<size_t>(k));
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/platform/PlatformTypes.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/CastRequest.h =====
+#pragma once
+#include "../faction/Faction.h"
+#include "SpellCatalog.h"
+
+#include <SFML/Graphics.hpp>
+
+struct CastRequest {
+    bool         hasValue = false;
+    SpellId      spellId  = SpellId::IceBolt;
+    Faction      faction  = Faction::Player;
+    sf::Vector2f origin{0.f, 0.f};
+    sf::Vector2f direction{1.f, 0.f};
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/CastRequest.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/SpellCatalog.cpp =====
+#include "SpellCatalog.h"
+
+// Ice Bolt
+static SpellDef makeIceBolt() {
+    SpellDef def;
+    def.type = SpellType::Projectile;
+
+    // Gameplay
+    def.stats.damage       = 25.f;
+    def.stats.manaCost     = 10.f;
+    def.stats.applySlow    = true;
+    def.stats.slowPercent  = 0.50f;
+    def.stats.slowDuration = 5.0f;
+
+    def.stats.projectile.speed        = 1200.f;
+    def.stats.projectile.lifetime     = 1.0f;
+    def.stats.projectile.colliderSize = {18.f, 8.f};
+
+    // Visuals
+    def.visuals.start = {"ice_boltstart.png", {48, 32}, 3, 16.f, false};
+    def.visuals.loop  = {"icebolt_loop.png", {48, 32}, 10, 16.f, true};
+    def.visuals.hit   = {"icebolt_hit.png", {48, 32}, 7, 16.f, false};
+    return def;
+}
+
+// Lightning
+static SpellDef makeLightning() {
+    SpellDef def;
+    def.type = SpellType::Projectile;
+
+    // Gameplay
+    def.stats.damage   = 10.f;
+    def.stats.manaCost = 10.f;
+
+    def.stats.projectile.speed        = 900.f;
+    def.stats.projectile.lifetime     = 1.2f;
+    def.stats.projectile.colliderSize = {16.f, 8.f};
+
+    // Visuals
+    def.visuals.start = {"lightning_start.png", {32, 32}, 5, 16.f, false};
+    def.visuals.loop  = {"lightning_loop.png", {32, 32}, 5, 12.f, true};
+    def.visuals.hit   = {"lightning_hit.png", {32, 32}, 6, 16.f, false};
+    return def;
+}
+
+const SpellDef& getSpellDef(SpellId id) {
+    static const SpellDef ICE       = makeIceBolt();
+    static const SpellDef LIGHTNING = makeLightning();
+    switch (id) {
+    case SpellId::IceBolt:
+        return ICE;
+    case SpellId::Lightning:
+        return LIGHTNING;
+    }
+    return ICE;
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/SpellCatalog.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/SpellCatalog.h =====
+#pragma once
+#include <SFML/Graphics.hpp>
+#include <string>
+
+// Type of spell
+enum class SpellType { Projectile, CallDownBeam };
+
+// Visual
+struct SpellClip {
+    std::string  textureKey;
+    sf::Vector2i frameSize;
+    int          frameCount;
+    float        fps;
+    bool         loop;
+};
+
+struct SpellVisuals {
+    SpellClip start, loop, hit;
+};
+
+// Stats
+struct SpellStats {
+    // Common
+    float manaCost     = 20.f;
+    float damage       = 10.f;
+    bool  applySlow    = false;
+    float slowPercent  = 0.f; // 0..1
+    float slowDuration = 0.f; // seconds
+
+    // Projectile
+    struct Projectile {
+        float        speed    = 600.f;
+        float        lifetime = 1.0f;
+        sf::Vector2f colliderSize{12.f, 4.f};
+        bool         impactSpawnsAoe = false;
+        float        impactAoeRadius = 0.f;
+    } projectile;
+};
+
+// Spell identifier
+enum class SpellId { IceBolt, Lightning };
+
+// Spell definition
+struct SpellDef {
+    SpellType    type;
+    SpellStats   stats;
+    SpellVisuals visuals;
+};
+
+// Retrieve spell definition by ID
+const SpellDef& getSpellDef(SpellId id);
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/SpellCatalog.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/projectile/Projectile.cpp =====
+#include "Projectile.h"
+
+#include "../../Config.h"
+#include "../../Debug.h"
+#include "../../ResourceManager.h"
+#include "../../entities/Entity.h"
+#include "../../utils/Math.h"
+
+static inline AnimationClip makeClipFromSpell(const std::string& name, const SpellClip& spell) {
+    const sf::Texture& pTex = ResourceManager::getTexture(spell.textureKey);
+    auto clip = Animation::makeClipFromRow(name, pTex, spell.frameSize, spell.frameCount,
+                                           spell.fps, spell.loop);
+    return clip;
+}
+
+Projectile::Projectile(SpellId spellId, Faction faction, const sf::Vector2f& origin,
+                       const sf::Vector2f& direction)
+    : m_spellId(spellId), m_faction(faction), m_def(getSpellDef(spellId)) {
+    // Direction / velocity (normalize; fallback +X)
+    sf::Vector2f dir = direction;
+    const float  len = math::length(dir);
+    if (len > 0.f)
+        dir /= len;
+    else
+        dir = {1.f, 0.f};
+    m_velocity   = dir * m_def.stats.projectile.speed;
+    m_timeToLive = m_def.stats.projectile.lifetime;
+
+    // Sprite + animator
+    const sf::Texture& pStart = ResourceManager::getTexture(m_def.visuals.start.textureKey);
+    m_pSprite                 = std::make_unique<sf::Sprite>(pStart);
+    m_pAnimator               = std::make_unique<SpriteAnimator>(*m_pSprite);
+
+    // Build animation clips
+    buildClips();
+
+    // Initial placement
+    m_pSprite->setPosition(origin);
+    m_pSprite->setOrigin(sf::Vector2f(static_cast<float>(m_def.visuals.loop.frameSize.x) * 0.5f,
+                                      static_cast<float>(m_def.visuals.loop.frameSize.y) * 0.5f));
+    const float ang = std::atan2(dir.y, dir.x) * 180.f / 3.14159265f;
+    m_pSprite->setRotation(sf::degrees(ang));
+    m_pSprite->setScale(sf::Vector2f(2.f, 2.f));
+
+    // Collider
+    setColliderSize(m_def.stats.projectile.colliderSize);
+
+    // Enter START phase
+    enterStart();
+}
+
+void Projectile::buildClips() {
+    // Create and register start/loop/hit clips
+    m_pAnimator->addClip(makeClipFromSpell("start", m_def.visuals.start));
+    m_pAnimator->addClip(makeClipFromSpell("loop", m_def.visuals.loop));
+    m_pAnimator->addClip(makeClipFromSpell("hit", m_def.visuals.hit));
+}
+
+void Projectile::enterStart() {
+    m_phase = Phase::Start;
+
+    m_pAnimator->playClip("start", [this]() { enterLoop(); });
+}
+
+void Projectile::enterLoop() {
+    if (m_phase == Phase::Dead)
+        return;
+    m_phase = Phase::Loop;
+    m_pAnimator->playClip("loop");
+}
+
+void Projectile::enterHit() {
+    if (m_phase == Phase::Dead)
+        return;
+    m_phase = Phase::Hit;
+
+    // Stop moving during the hit
+    m_velocity = {0.f, 0.f};
+
+    // When HIT completes, mark dead
+    m_pAnimator->playClip("hit", [this]() {
+        m_phase = Phase::Dead;
+        setAlive(false);
+    });
+}
+
+void Projectile::requestImpact() {
+    if (!isAlive())
+        return;
+    if (m_phase == Phase::Hit || m_phase == Phase::Dead)
+        return;
+    m_hitRequested = true;
+}
+
+void Projectile::update(float dt) {
+    if (!isAlive())
+        return;
+
+    // Lifetime
+    if (m_phase != Phase::Hit) {
+        m_timeToLive -= dt;
+        if (m_timeToLive <= 0.f) {
+            enterHit();
+            m_pAnimator->update(dt);
+            return;
+        }
+    }
+
+    // Movement only during Start/Loop
+    if (m_phase == Phase::Start || m_phase == Phase::Loop) {
+        if (m_pSprite)
+            m_pSprite->move(m_velocity * dt);
+    }
+
+    // If an impact was requested (by World collision), switch to Hit once
+    if (m_hitRequested) {
+        m_hitRequested = false;
+        enterHit();
+    }
+
+    // Animate
+    m_pAnimator->update(dt);
+}
+
+void Projectile::render(sf::RenderTarget& t) const {
+    if (m_pSprite)
+        t.draw(*m_pSprite);
+    if constexpr (Config::kDebugDraw) {
+        Debug::drawSpriteBounds(t, *m_pSprite, sf::Color::Red, 1.f);
+        Debug::drawColliderBounds(t, getCollider(), sf::Color::Green, 1.f);
+    }
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/projectile/Projectile.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/projectile/Projectile.h =====
+#pragma once
+#include "../../animation/Animation.h"
+#include "../../entities/Entity.h"
+#include "../../faction/Faction.h"
+#include "../../utils/Math.h"
+#include "../SpellCatalog.h"
+
+#include <SFML/Graphics.hpp>
+
+class Projectile final : public Entity {
+  public:
+    Projectile(SpellId spellId, Faction faction, const sf::Vector2f& origin,
+               const sf::Vector2f& direction);
+
+    bool init() override { return true; }
+
+    void update(float dt) override;
+
+    // Trigger the impact sequence (World call this on collision)
+    void requestImpact();
+
+    // Accessors
+    SpellId           getSpellId() const { return m_spellId; }
+    Faction           getFaction() const { return m_faction; }
+    const SpellStats& getStats() const { return m_def.stats; }
+
+    // Hit only one time
+    bool isDamageActive() const { return m_phase == Phase::Start || m_phase == Phase::Loop; }
+
+  private:
+    void render(sf::RenderTarget& t) const override;
+
+    // Bolt state
+    enum class Phase { Start, Loop, Hit, Dead };
+    void enterStart();
+    void enterLoop();
+    void enterHit();
+
+    // Animation setup
+    void buildClips();
+
+  private:
+    // Properties
+    SpellId         m_spellId;
+    Faction         m_faction;
+    const SpellDef& m_def;
+
+    // Movement / life
+    sf::Vector2f m_velocity{0.f, 0.f};
+    float        m_timeToLive = 0.f;
+
+    // Phase
+    Phase m_phase        = Phase::Start;
+    bool  m_hitRequested = false;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/projectile/Projectile.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Geom.h =====
+﻿#pragma once
+#include "Math.h"
+
+#include <SFML/Graphics/Rect.hpp>
+
+namespace geom {
+
+    inline float left(const sf::FloatRect& r) { return r.position.x; }
+    inline float top(const sf::FloatRect& r) { return r.position.y; }
+    inline float width(const sf::FloatRect& r) { return r.size.x; }
+    inline float height(const sf::FloatRect& r) { return r.size.y; }
+
+    inline float right(const sf::FloatRect& r) { return left(r) + width(r); }
+    inline float bottom(const sf::FloatRect& r) { return top(r) + height(r); }
+
+    inline bool overlap1D(float aL, float aR, float bL, float bR) { return (aR > bL) && (aL < bR); }
+
+    inline bool aabbIntersects(const sf::FloatRect& a, const sf::FloatRect& b) {
+        return a.findIntersection(b).has_value();
+    }
+
+    inline bool aabbIntersects(const sf::FloatRect& a, const sf::FloatRect& b, sf::FloatRect& out) {
+        if (auto inter = a.findIntersection(b)) {
+            out = *inter;
+            return true;
+        }
+        return false;
+    }
+
+    inline bool touchTop(const sf::FloatRect& a, const sf::FloatRect& b, float eps = 1.0f) {
+        return math::nearEq(bottom(a), top(b), eps) &&
+               overlap1D(left(a), right(a), left(b), right(b));
+    }
+
+    inline bool touchSide(const sf::FloatRect& a, const sf::FloatRect& b, float eps = 1.0f) {
+        const bool leftTouch  = math::nearEq(right(a), left(b), eps);
+        const bool rightTouch = math::nearEq(left(a), right(b), eps);
+        return (leftTouch || rightTouch) && overlap1D(top(a), bottom(a), top(b), bottom(b));
+    }
+
+} // namespace geom
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Geom.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Math.h =====
+#pragma once
+#include <algorithm> // std::clamp
+#include <cmath>     // std::expm1, std::abs
+#include <cstdint>   // std::uint32_t
+
+namespace math {
+    inline float expSmoothingFactor(float lambda, float dt) {
+        if (dt <= 0.f || lambda <= 0.f)
+            return 0.f;
+        const float a = -std::expm1(-lambda * dt);
+        return std::clamp(a, 0.f, 1.f);
+    }
+
+    inline bool nearEq(float a, float b, float eps = 1e-5f) { return std::abs(a - b) <= eps; }
+
+    template <typename T> inline T saturate(T x) {
+        return std::clamp(x, static_cast<T>(0), static_cast<T>(1));
+    }
+
+    inline float lerp(float a, float b, float t) { return a + (b - a) * t; }
+
+    inline float unlerp(float a, float b, float x) {
+        const float denom = (b - a);
+        if (std::abs(denom) <= 1e-6f)
+            return 0.f;
+        return (x - a) / denom;
+    }
+
+    inline float remap(float x, float inMin, float inMax, float outMin, float outMax) {
+        return lerp(outMin, outMax, saturate(unlerp(inMin, inMax, x)));
+    }
+
+    inline int floorDivInt(int a, int b) {
+        int q = a / b;
+        int r = a % b;
+        if ((r != 0) && ((r > 0) != (b > 0)))
+            --q;
+        return q;
+    }
+
+    inline std::uint32_t mix32(std::uint32_t x) {
+        x ^= x >> 16;
+        x *= 0x7feb352du;
+        x ^= x >> 15;
+        x *= 0x846ca68bu;
+        x ^= x >> 16;
+        return x;
+    }
+
+    inline float length(const sf::Vector2f& vec) {
+        return std::sqrt(vec.x * vec.x + vec.y * vec.y);
+    }
+
+    inline sf::Vector2f normalizeVec(const sf::Vector2f& vec) {
+        float len = length(vec);
+        if (len > 0) {
+            return vec / len;
+        } else {
+            return sf::Vector2f(0, 0);
+        }
+    }
+} // namespace math
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Math.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Palette.h =====
+#pragma once
+
+#include <SFML/Graphics/Color.hpp>
+
+namespace Palette {
+    // UI elements
+    inline const sf::Color kUiBack{24, 24, 24, 255};       // dark gray
+    inline const sf::Color kUiOutline{240, 240, 240, 255}; // light gray
+
+    // Player stats
+    inline const sf::Color kHpFill{220, 68, 64, 255};      // red
+    inline const sf::Color kManaFill{45, 152, 218, 255};   // blue
+    inline const sf::Color kStaminaFill{76, 209, 55, 255}; // green
+} // namespace Palette
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Palette.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Random.h =====
+﻿#pragma once
+
+#include <SFML/System/Vector2.hpp>
+#include <chrono>
+#include <cstdint>
+#include <random>
+#include <vector>
+
+namespace Random {
+
+    using Engine = std::mt19937;
+
+    inline Engine& engine() {
+        static Engine engine{[] {
+            std::random_device rd;
+            return Engine{rd()};
+        }()};
+        return engine;
+    }
+
+    inline void seed(std::uint64_t s) { engine().seed(static_cast<std::uint32_t>(s)); }
+
+    inline std::uint64_t timeSeed() {
+        using namespace std::chrono;
+        return static_cast<std::uint64_t>(
+            duration_cast<nanoseconds>(steady_clock::now().time_since_epoch()).count());
+    }
+
+    inline int rangei(int minInclusive, int maxInclusive) {
+        std::uniform_int_distribution<int> dist(minInclusive, maxInclusive);
+        return dist(engine());
+    }
+
+    inline float rangef(float minInclusive, float maxInclusive) {
+        std::uniform_real_distribution<float> dist(minInclusive, maxInclusive);
+        return dist(engine());
+    }
+
+    inline bool chance(float probability01) {
+        if (probability01 <= 0.f)
+            return false;
+        if (probability01 >= 1.f)
+            return true;
+        std::bernoulli_distribution dist(probability01);
+        return dist(engine());
+    }
+
+    template <typename T> inline const T& pick(const std::vector<T>& v) {
+        return v[static_cast<std::size_t>(rangei(0, static_cast<int>(v.size() - 1)))];
+    }
+
+} // namespace Random
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Random.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Stopwatch.h =====
+#pragma once
+
+#include <algorithm>
+
+class Stopwatch {
+  public:
+    void reset() { m_elapsed = 0.f; }
+    void tick(float dt) {
+        if (!m_paused)
+            m_elapsed += dt * m_scale;
+    }
+    void  setPaused(bool paused) { m_paused = paused; }
+    bool  isPaused() const { return m_paused; }
+    void  setScale(float scale) { m_scale = scale; }
+    float getElapsed() const { return m_elapsed; }
+
+  private:
+    float m_elapsed = 0.f;
+    float m_scale   = 1.f;
+    bool  m_paused  = false;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Stopwatch.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/utils.h =====
+#pragma once
+
+#include <string>
+
+static inline std::string formatMMSS(float seconds) {
+    int  totalSeconds = static_cast<int>(seconds);
+    int  minutes      = totalSeconds / 60;
+    int  secs         = totalSeconds % 60;
+    char buffer[14];
+    std::snprintf(buffer, sizeof(buffer), "%02d:%02d", minutes, secs);
+    return std::string(buffer);
+}
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/utils.h =====
+

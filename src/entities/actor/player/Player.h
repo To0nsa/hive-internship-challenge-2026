@@ -48,33 +48,33 @@ class Player final : public Actor {
     static inline const sf::Vector2f kPlayerScale{1.5f, 1.5f};
 
     // Configuration
-    static inline constexpr float kMaxSpeed     = 500.f;
-    static inline constexpr float kAcceleration = 1200.f;
-    static inline constexpr float kDeceleration = 800.f;
-    static inline constexpr float kMinSpeed     = 5.f;
-    static inline constexpr float kGravity      = 2400.f;
+    static constexpr float kMaxSpeed     = 500.f;
+    static constexpr float kAcceleration = 1200.f;
+    static constexpr float kDeceleration = 800.f;
+    static constexpr float kMinSpeed     = 5.f;
+    static constexpr float kGravity      = 2400.f;
 
     // Stats
-    static inline constexpr float kPlayerHpMax            = 100.f;
-    static inline constexpr float kPlayerHpRegenRate      = 1.f;
-    static inline constexpr float kPlayerManaMax          = 100.f;
-    static inline constexpr float kPlayerManaRegenRate    = 3.f;
-    static inline constexpr float kPlayerStaminaMax       = 100.f;
-    static inline constexpr float kPlayerStaminaRegenRate = 1.f;
-    static inline constexpr float kJumpStaminaCost        = 2.f;
-    static inline constexpr float kDashStaminaCost        = 2.f;
+    static constexpr float kPlayerHpMax            = 100.f;
+    static constexpr float kPlayerHpRegenRate      = 1.f;
+    static constexpr float kPlayerManaMax          = 100.f;
+    static constexpr float kPlayerManaRegenRate    = 3.f;
+    static constexpr float kPlayerStaminaMax       = 100.f;
+    static constexpr float kPlayerStaminaRegenRate = 1.f;
+    static constexpr float kJumpStaminaCost        = 2.f;
+    static constexpr float kDashStaminaCost        = 2.f;
 
     // Jumping
-    static inline constexpr float kJumpSpeed       = 1200.f;
-    static inline constexpr float kCoyoteTime      = 0.10f;
-    static inline constexpr float kJumpBufferTime  = 0.12f;
+    static constexpr float kJumpSpeed       = 1200.f;
+    static constexpr float kCoyoteTime      = 0.10f;
+    static constexpr float kJumpBufferTime  = 0.12f;
     float                         m_coyoteTimer    = 0.f;
     float                         m_jumpBufferLeft = 0.f;
 
     // Dash
-    static inline constexpr float kDashSpeed         = 1100.f;
-    static inline constexpr float kDashDuration      = 0.20f;
-    static inline constexpr float kDashCooldown      = 3.f;
+    static constexpr float kDashSpeed         = 1100.f;
+    static constexpr float kDashDuration      = 0.20f;
+    static constexpr float kDashCooldown      = 3.f;
     bool                          m_dashRequested    = false;
     float                         m_dashTimer        = 0.f;
     float                         m_dashCooldownLeft = 0.f;

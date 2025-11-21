@@ -14,7 +14,7 @@ class RedSquare final : public Entity {
     void update(float dt) override;
 
     // Size used for collider and visuals (square).
-    static inline constexpr float kSize = 24.f;
+    static constexpr float kSize = 24.f;
 
   private:
     void render(sf::RenderTarget& target) const override;
@@ -24,5 +24,5 @@ class RedSquare final : public Entity {
     sf::Vector2f       m_startCenter{0.f, 0.f};
 
     // Rotation
-    static inline constexpr float kRotateDps = 90.f; // degrees per second
+    static constexpr float kRotateDps = 90.f; // degrees per second
 };
