@@ -32,8 +32,6 @@ int main(int argc, char* argv[]) try {
         sf::Time elapsedTime = clock.restart();
 
         IState* pState = gamestates.getCurrentState();
-        if (!pState)
-            return EXIT_FAILURE;
 
         while (const std::optional<sf::Event> event = window.pollEvent()) {
             if (event->is<sf::Event::Closed>()) {
