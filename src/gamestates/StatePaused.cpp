@@ -24,12 +24,16 @@ bool StatePaused::init() {
     return true;
 }
 
+void StatePaused::handleEvent(const sf::Event& event) {
+    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+        if (pKeyEvent->scancode == sf::Keyboard::Scan::Escape) {
+            m_stateStack.requestPop();
+        }
+    }
+}
+
 void StatePaused::update(float dt) {
     (void)dt;
-    bool isPauseKeyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape);
-    m_hasPauseKeyBeenReleased |= !isPauseKeyPressed;
-    if (m_hasPauseKeyBeenReleased && isPauseKeyPressed)
-        m_stateStack.requestPop();
 }
 
 void StatePaused::render(sf::RenderTarget& target) const {

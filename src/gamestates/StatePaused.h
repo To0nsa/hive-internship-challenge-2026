@@ -14,6 +14,7 @@ class StatePaused : public IState {
     ~StatePaused() = default;
 
     bool init() override;
+    void handleEvent(const sf::Event& event) override;
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
 
@@ -21,5 +22,4 @@ class StatePaused : public IState {
     StateStack&               m_stateStack;
     const IState*             m_pPrevState = nullptr;
     std::unique_ptr<sf::Text> m_pText;
-    bool                      m_hasPauseKeyBeenReleased = false;
 };
