@@ -10,9 +10,7 @@
 #include "../../../spell/projectile/Projectile.h"
 #include "../../../utils/Geom.h"
 
-#include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Sprite.hpp>
-#include <SFML/Window/Mouse.hpp>
 #include <cmath>
 
 namespace {
@@ -121,26 +119,8 @@ void Player::update(float dt) {
 
     updateActorBase(dt);
 
-    // Edge-triggered input for jump/dash
-    const bool leftDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Left) ||
-                          sf::Keyboard::isKeyPressed(sf::Keyboard::Key::A);
-    const bool rightDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Right) ||
-                           sf::Keyboard::isKeyPressed(sf::Keyboard::Key::D);
-    const bool jumpDown = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Space);
-    const bool dashDown = sf::Mouse::isButtonPressed(sf::Mouse::Button::Middle);
-    const bool castDown = sf::Mouse::isButtonPressed(sf::Mouse::Button::Left);
-
-    const bool jumpPressed = jumpDown && !m_prevJumpDown;
-    const bool dashPressed = dashDown && !m_prevDashDown;
-    const bool castPressed = castDown && !m_prevCastDown;
-    m_prevJumpDown         = jumpDown;
-    m_prevDashDown         = dashDown;
-    m_prevCastDown         = castDown;
-
-    // Snapshot input
-    m_input.m_movingLeft  = leftDown;
-    m_input.m_movingRight = rightDown;
-    if (jumpPressed) {
+    // Consume input supplied by the state
+    if (m_input.jumpPressed) {
         // Disable jump buffering: only accept if currently grounded or within coyote window
         if (isGrounded() || m_coyoteTimer > 0.f)
             m_jumpRequested = true;
@@ -148,7 +128,7 @@ void Player::update(float dt) {
             m_jumpRequested = false;
         m_jumpBufferLeft = 0.f; // no queued jump
     }
-    if (dashPressed) {
+    if (m_input.dashPressed) {
         m_dashRequested = true;
     }
 
@@ -173,18 +153,18 @@ void Player::update(float dt) {
 
     // Horizontal direction
     sf::Vector2f dir{0.f, 0.f};
-    if (m_input.m_movingLeft)
+    if (m_input.moveLeft)
         dir.x -= 1.f;
-    if (m_input.m_movingRight)
+    if (m_input.moveRight)
         dir.x += 1.f;
     if (dir.x != 0.f)
         dir.x = (dir.x > 0.f) ? 1.f : -1.f;
 
     // Facing updates only during normal movement
     if (m_state == State::Move) {
-        if (m_input.m_movingLeft)
+        if (m_input.moveLeft)
             setFacing(Entity::Facing::Left);
-        else if (m_input.m_movingRight)
+        else if (m_input.moveRight)
             setFacing(Entity::Facing::Right);
     }
 
@@ -193,7 +173,7 @@ void Player::update(float dt) {
         tryApplyDash();
 
     // Try cast
-    if (castPressed && m_state != State::Dash && m_state != State::Death)
+    if (m_input.castPressed && m_state != State::Dash && m_state != State::Death)
         enterCast();
 
     // Apply horizontal movement
@@ -255,9 +235,9 @@ void Player::tryApplyDash() {
         return;
 
     float dirX = 0.f;
-    if (m_input.m_movingLeft)
+    if (m_input.moveLeft)
         dirX = -1.f;
-    else if (m_input.m_movingRight)
+    else if (m_input.moveRight)
         dirX = +1.f;
     else
         dirX = (m_facing == Facing::Right) ? +1.f : -1.f;

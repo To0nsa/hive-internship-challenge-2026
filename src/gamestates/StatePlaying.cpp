@@ -23,6 +23,7 @@
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Window/Mouse.hpp>
 #include <algorithm>
 #include <cmath>
 #include <iostream>
@@ -83,15 +84,52 @@ bool StatePlaying::init() {
 }
 
 void StatePlaying::handleEvent(const sf::Event& event) {
-    (void)event;
-    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+    if (const auto* pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
         if (pKeyEvent->scancode == sf::Keyboard::Scan::Escape) {
             m_stateStack.push<StatePaused>();
+        }
+        switch (pKeyEvent->scancode) {
+        case sf::Keyboard::Scan::A:
+        case sf::Keyboard::Scan::Left:
+            m_input.moveLeft = true;
+            break;
+        case sf::Keyboard::Scan::D:
+        case sf::Keyboard::Scan::Right:
+            m_input.moveRight = true;
+            break;
+        case sf::Keyboard::Scan::Space:
+            m_input.jumpPressed = true;
+            break;
+        default:
+            break;
+        }
+    } else if (const auto* pKeyReleased = event.getIf<sf::Event::KeyReleased>()) {
+        switch (pKeyReleased->scancode) {
+        case sf::Keyboard::Scan::A:
+        case sf::Keyboard::Scan::Left:
+            m_input.moveLeft = false;
+            break;
+        case sf::Keyboard::Scan::D:
+        case sf::Keyboard::Scan::Right:
+            m_input.moveRight = false;
+            break;
+        default:
+            break;
+        }
+    } else if (const auto* pMouseEvent = event.getIf<sf::Event::MouseButtonPressed>()) {
+        if (pMouseEvent->button == sf::Mouse::Button::Middle) {
+            m_input.dashPressed = true;
+        } else if (pMouseEvent->button == sf::Mouse::Button::Left) {
+            m_input.castPressed = true;
         }
     }
 }
 
 void StatePlaying::update(float dt) {
+
+    if (m_pPlayer && m_pPlayer->isAlive()) {
+        m_pPlayer->setInput(m_input);
+    }
 
     // Update background anim
     if (m_bgAnim)
@@ -103,6 +141,11 @@ void StatePlaying::update(float dt) {
         if (e && e->isAlive())
             e->update(dt);
     }
+
+    // One-shot actions get cleared once consumed by update
+    m_input.jumpPressed = false;
+    m_input.dashPressed = false;
+    m_input.castPressed = false;
 
     // Tick game clock and update HUD
     m_gameClock.tick(dt);

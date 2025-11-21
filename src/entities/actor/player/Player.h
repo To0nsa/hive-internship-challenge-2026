@@ -2,8 +2,13 @@
 
 #include "../Actor.h"
 
-#include <SFML/System/Angle.hpp>
-#include <SFML/Window/Keyboard.hpp>
+struct PlayerInput {
+    bool moveLeft    = false;
+    bool moveRight   = false;
+    bool jumpPressed = false; // edge-triggered
+    bool dashPressed = false; // edge-triggered
+    bool castPressed = false; // edge-triggered
+};
 
 class Player final : public Actor {
   public:
@@ -12,6 +17,7 @@ class Player final : public Actor {
 
     bool init() override;
     void update(float dt) override;
+    void setInput(const PlayerInput& input) { m_input = input; }
 
   private:
     // State machine
@@ -34,13 +40,7 @@ class Player final : public Actor {
     void updateMoveAnimation();
 
     // Input state
-    struct Input {
-        bool m_movingLeft  = false;
-        bool m_movingRight = false;
-    } m_input;
-    bool m_prevJumpDown  = false;
-    bool m_prevDashDown  = false;
-    bool m_prevCastDown  = false;
+    PlayerInput m_input;
     bool m_jumpRequested = false;
 
     // Rendering

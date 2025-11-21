@@ -81,6 +81,7 @@ class StatePlaying : public IState {
 
     // Player reference
     Player* m_pPlayer = nullptr;
+    PlayerInput m_input;
 
     // Entities
     std::vector<std::unique_ptr<Entity>> m_entities;
