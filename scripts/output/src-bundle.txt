@@ -2188,6 +2188,12 @@ void StatePlaying::handleEvent(const sf::Event& event) {
 
 void StatePlaying::update(float dt) {
 
+    // Tick game clock and update HUD
+    m_gameClock.tick(dt);
+    m_hud.update(dt);
+    m_hud.setElapsedSeconds(m_gameClock.getElapsed());
+
+    // Update player input
     if (m_pPlayer && m_pPlayer->isAlive()) {
         m_pPlayer->setInput(m_input);
     }
@@ -2207,11 +2213,6 @@ void StatePlaying::update(float dt) {
     m_input.jumpPressed = false;
     m_input.dashPressed = false;
     m_input.castPressed = false;
-
-    // Tick game clock and update HUD
-    m_gameClock.tick(dt);
-    m_hud.update(dt);
-    m_hud.setElapsedSeconds(m_gameClock.getElapsed());
 
     // Score: +10 per second
     m_scoreSecondAccum += dt;
@@ -2993,16 +2994,12 @@ class GroundStream : public sf::Drawable {
     void ensureLavaClipExists() const {
         if (m_lavaAnimator)
             return;
+
         sf::Texture& tex = ResourceManager::getTexture("lava.png");
-        if (&tex) {
-            m_lavaClip =
-                Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
-            m_pLavaSprite = std::make_unique<sf::Sprite>(tex);
-        } else {
-            // Texture missing; create an empty sprite to keep animator construction safe
-            static sf::Texture dummy;
-            m_pLavaSprite = std::make_unique<sf::Sprite>(dummy);
-        }
+
+        m_lavaClip =
+            Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
+        m_pLavaSprite = std::make_unique<sf::Sprite>(tex);
         m_lavaAnimator = std::make_unique<SpriteAnimator>(*m_pLavaSprite);
         m_lavaAnimator->addClip(m_lavaClip);
         m_lavaAnimator->playClip("lava");

@@ -4,7 +4,7 @@
 #include "../../../animation/Animation.h"
 #include "../../../entities/actor/player/Player.h"
 #include "../../../faction/Faction.h"
-#include "../../../gamestates/StatePlaying.h"
+#include "../../../World.h"
 #include "../../../spell/SpellCatalog.h"
 #include "../../../spell/projectile/Projectile.h"
 

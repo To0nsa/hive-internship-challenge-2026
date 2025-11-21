@@ -20,12 +20,11 @@ int main(int argc, char* argv[]) try {
 
     sf::RenderWindow window(sf::VideoMode({Config::windowWidth, Config::windowHeight}),
                             Config::windowTitle);
-    Config::gWindow = &window;
     window.setKeyRepeatEnabled(false);
     window.setVerticalSyncEnabled(true);
 
     StateStack gamestates;
-    gamestates.push<StateMenu>();
+    gamestates.push<StateMenu>(window);
 
     sf::Clock clock;
     while (window.isOpen()) {

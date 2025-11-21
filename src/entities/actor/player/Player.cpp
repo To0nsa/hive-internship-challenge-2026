@@ -4,7 +4,7 @@
 #include "../../../animation/Animation.h"
 #include "../../../collision/RectCollider.h"
 #include "../../../faction/Faction.h"
-#include "../../../gamestates/StatePlaying.h"
+#include "../../../World.h"
 #include "../../../spell/CastRequest.h"
 #include "../../../spell/SpellCatalog.h"
 #include "../../../spell/projectile/Projectile.h"
@@ -285,7 +285,7 @@ void Player::enterDeath() {
     m_state = State::Death;
     if (m_pAnimator) {
         // When the non-looping death animation finishes, return to the menu.
-        StatePlaying* world = m_world;
+        World* world = m_world;
         m_pAnimator->playClip(kDeath, [world]() {
             if (world)
                 world->requestExitToMenu();

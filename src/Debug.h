@@ -1,4 +1,6 @@
 #pragma once
+#include "collision/Collider.h"
+
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>

@@ -4,7 +4,7 @@
 #include "../../Debug.h"
 #include "../../ResourceManager.h"
 #include "../../entities/actor/player/Player.h"
-#include "../../gamestates/StatePlaying.h"
+#include "../../World.h"
 #include "../../utils/Geom.h"
 
 bool RedSquare::init() {

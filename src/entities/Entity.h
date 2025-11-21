@@ -8,7 +8,7 @@
 #include <cmath>
 #include <memory>
 
-class StatePlaying;
+class World;
 
 namespace sf {
     class RenderTarget;
@@ -29,9 +29,9 @@ class Entity {
     const sf::Vector2f& getPosition() const { return m_position; }
     void                setPosition(const sf::Vector2f& position) { m_position = position; };
 
-    // back-reference to owning world (StatePlaying)
-    void          setWorld(StatePlaying* world) { m_world = world; }
-    StatePlaying* getWorld() const { return m_world; }
+    // back-reference to owning world
+    void   setWorld(World* world) { m_world = world; }
+    World* getWorld() const { return m_world; }
 
     // Collision helper
     const sf::Transformable& getColliderTransformable() const { return *m_pSprite; }
@@ -85,5 +85,5 @@ class Entity {
 
   public:
     // State playing is my world <3
-    StatePlaying* m_world = nullptr;
+    World* m_world = nullptr;
 };

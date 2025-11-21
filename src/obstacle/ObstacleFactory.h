@@ -3,10 +3,10 @@
 #include "Obstacle.h"
 #include "ObstacleTypes.h"
 
-class StatePlaying;
+class World;
 
 // Tiny, inline spawn helper that hides the registry lookup
-inline Obstacle* spawnObstacle(StatePlaying& world, ObstacleKind kind, const sf::Vector2f& pos) {
+inline Obstacle* spawnObstacle(World& world, ObstacleKind kind, const sf::Vector2f& pos) {
     const ObstacleDesc& desc = getObstacleDesc(kind);
     auto*               obs  = world.createEntity<Obstacle>(desc);
     if (!obs || !obs->init())

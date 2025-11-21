@@ -10,7 +10,8 @@
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Text.hpp>
 
-StateMenu::StateMenu(StateStack& stateStack) : m_stateStack(stateStack) {}
+StateMenu::StateMenu(StateStack& stateStack, sf::RenderWindow& window)
+    : m_stateStack(stateStack), m_window(window) {}
 
 bool StateMenu::init() {
     const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
@@ -38,7 +39,7 @@ bool StateMenu::init() {
 void StateMenu::handleEvent(const sf::Event& event) {
     if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
         if (pKeyEvent->scancode == sf::Keyboard::Scan::Enter) {
-            m_stateStack.push<StatePlaying>();
+            m_stateStack.push<StatePlaying>(m_window);
         }
     }
 }
