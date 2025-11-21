@@ -1767,8 +1767,8 @@ class Player final : public Actor {
 
 bool RedSquare::init() {
     // Hidden sprite used only for collider transform (not rendered)
-    const sf::Texture& pTex = ResourceManager::getTexture("ice_boltstart.png");
-    m_pSprite = std::make_unique<sf::Sprite>(pTex);
+    const sf::Texture& tex = ResourceManager::getTexture("ice_boltstart.png");
+    m_pSprite = std::make_unique<sf::Sprite>(tex);
     m_pSprite->setOrigin({kSize * 0.5f, kSize * 0.5f});
     m_pSprite->setPosition(m_startCenter);
 
@@ -1908,16 +1908,16 @@ class IState {
 StateMenu::StateMenu(StateStack& stateStack) : m_stateStack(stateStack) {}
 
 bool StateMenu::init() {
-    const sf::Font& pFont = ResourceManager::getFont("Lavigne.ttf");
+    const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
 
-    m_pText = std::make_unique<sf::Text>(pFont);
+    m_pText = std::make_unique<sf::Text>(font);
 
     m_pText->setString("PRESS <ENTER> TO PLAY");
     m_pText->setStyle(sf::Text::Bold);
     sf::FloatRect localBounds = m_pText->getLocalBounds();
     m_pText->setOrigin({localBounds.size.x / 2.0f, localBounds.size.y / 2.0f});
 
-    m_pSubText = std::make_unique<sf::Text>(pFont);
+    m_pSubText = std::make_unique<sf::Text>(font);
 
     m_pSubText->setString("Use WASD to move\n SPACE to jump\n Mouse left click to cast a spell\n "
                           "Aim with the mouse\n Dash with mouse wheel click button\n Avoid demons "
@@ -1995,9 +1995,9 @@ StatePaused::StatePaused(StateStack& stateStack) : m_stateStack(stateStack) {}
 bool StatePaused::init() {
     m_pPrevState = m_stateStack.getCurrentState();
 
-    const sf::Font& pFont = ResourceManager::getFont("Lavigne.ttf");
+    const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
 
-    m_pText = std::make_unique<sf::Text>(pFont);
+    m_pText = std::make_unique<sf::Text>(font);
 
     m_pText->setString("PRESS <ESC> TO UNPAUSE");
     m_pText->setStyle(sf::Text::Bold);
@@ -2818,10 +2818,10 @@ class AnimatedParallaxStrip : public sf::Drawable {
             return;
         const std::size_t idx  = static_cast<std::size_t>(m_time * m_fps) % m_frames.size();
         const std::string file = bgassets::keyToFilename(m_frames[idx]);
-        sf::Texture& pTex = ResourceManager::getTexture(file);
+        sf::Texture& tex = ResourceManager::getTexture(file);
         // Ensure horizontal repeating for scrolling
-        pTex.setRepeated(true);
-        strip::drawStrip(t, view, pTex, m_factor);
+        tex.setRepeated(true);
+        strip::drawStrip(t, view, tex, m_factor);
     }
 
   private:
@@ -2936,10 +2936,10 @@ class GroundStream : public sf::Drawable {
     // Draws the textured ground strip + lava inside gaps + debug AABBs.
     void drawForView(sf::RenderTarget& target, const sf::View& view) const {
         const std::string file = bgassets::keyToFilename(m_layer.key);
-        sf::Texture& pTex = ResourceManager::getTexture(file);
+        sf::Texture& tex = ResourceManager::getTexture(file);
         // Ensure horizontal repeating for scrolling
-        pTex.setRepeated(true);
-        strip::drawStrip(target, view, pTex, m_layer.factor);
+        tex.setRepeated(true);
+        strip::drawStrip(target, view, tex, m_layer.factor);
         drawLavaGaps(target, view);
 
         if constexpr (Config::kDebugDraw) {
@@ -2993,11 +2993,11 @@ class GroundStream : public sf::Drawable {
     void ensureLavaClipExists() const {
         if (m_lavaAnimator)
             return;
-        sf::Texture& pTex = ResourceManager::getTexture("lava.png");
-        if (&pTex) {
+        sf::Texture& tex = ResourceManager::getTexture("lava.png");
+        if (&tex) {
             m_lavaClip =
-                Animation::makeClipFromSheet("lava", pTex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
-            m_pLavaSprite = std::make_unique<sf::Sprite>(pTex);
+                Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
+            m_pLavaSprite = std::make_unique<sf::Sprite>(tex);
         } else {
             // Texture missing; create an empty sprite to keep animator construction safe
             static sf::Texture dummy;
@@ -3149,10 +3149,10 @@ class ParallaxBackground : public sf::Drawable {
         for (std::size_t i = first; i <= lastClamped; ++i) {
             const auto& layer = m_layers[i];
             const auto  file  = bgassets::keyToFilename(layer.key);
-            sf::Texture& pTex = ResourceManager::getTexture(file);
+            sf::Texture& tex = ResourceManager::getTexture(file);
             // Ensure horizontal repeating for scrolling
-            pTex.setRepeated(true);
-            strip::drawStrip(t, view, pTex, layer.factor);
+            tex.setRepeated(true);
+            strip::drawStrip(t, view, tex, layer.factor);
         }
     }
 
@@ -3316,9 +3316,9 @@ class Obstacle final : public Entity {
     explicit Obstacle(const ObstacleDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const sf::Texture& pTex = ResourceManager::getTexture(m_desc.textureKey);
+        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
 
-        m_pSprite     = std::make_unique<sf::Sprite>(pTex);
+        m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;
         applyFacingScale();
 
@@ -3334,7 +3334,7 @@ class Obstacle final : public Entity {
         if (m_desc.animated) {
             m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
             auto clip =
-                Animation::makeClipFromSheet("main", pTex, m_desc.frameSize, m_desc.startCell,
+                Animation::makeClipFromSheet("main", tex, m_desc.frameSize, m_desc.startCell,
                                              m_desc.endCell, m_desc.fps, m_desc.loop);
             m_pAnimator->addClip(std::move(clip));
             m_pAnimator->playClip("main");
@@ -3490,9 +3490,9 @@ class Platform final : public Entity {
     explicit Platform(const PlatformDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const sf::Texture& pTex = ResourceManager::getTexture(m_desc.textureKey);
+        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
 
-        m_pSprite     = std::make_unique<sf::Sprite>(pTex);
+        m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;
         applyFacingScale();
 
@@ -3735,8 +3735,8 @@ const SpellDef& getSpellDef(SpellId id);
 #include "../../utils/Math.h"
 
 static inline AnimationClip makeClipFromSpell(const std::string& name, const SpellClip& spell) {
-    const sf::Texture& pTex = ResourceManager::getTexture(spell.textureKey);
-    auto clip = Animation::makeClipFromRow(name, pTex, spell.frameSize, spell.frameCount,
+    const sf::Texture& tex = ResourceManager::getTexture(spell.textureKey);
+    auto clip = Animation::makeClipFromRow(name, tex, spell.frameSize, spell.frameCount,
                                            spell.fps, spell.loop);
     return clip;
 }

@@ -15,9 +15,9 @@ class Obstacle final : public Entity {
     explicit Obstacle(const ObstacleDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const sf::Texture& pTex = ResourceManager::getTexture(m_desc.textureKey);
+        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
 
-        m_pSprite     = std::make_unique<sf::Sprite>(pTex);
+        m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;
         applyFacingScale();
 
@@ -33,7 +33,7 @@ class Obstacle final : public Entity {
         if (m_desc.animated) {
             m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
             auto clip =
-                Animation::makeClipFromSheet("main", pTex, m_desc.frameSize, m_desc.startCell,
+                Animation::makeClipFromSheet("main", tex, m_desc.frameSize, m_desc.startCell,
                                              m_desc.endCell, m_desc.fps, m_desc.loop);
             m_pAnimator->addClip(std::move(clip));
             m_pAnimator->playClip("main");

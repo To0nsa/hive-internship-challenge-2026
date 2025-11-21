@@ -13,16 +13,16 @@
 StateMenu::StateMenu(StateStack& stateStack) : m_stateStack(stateStack) {}
 
 bool StateMenu::init() {
-    const sf::Font& pFont = ResourceManager::getFont("Lavigne.ttf");
+    const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
 
-    m_pText = std::make_unique<sf::Text>(pFont);
+    m_pText = std::make_unique<sf::Text>(font);
 
     m_pText->setString("PRESS <ENTER> TO PLAY");
     m_pText->setStyle(sf::Text::Bold);
     sf::FloatRect localBounds = m_pText->getLocalBounds();
     m_pText->setOrigin({localBounds.size.x / 2.0f, localBounds.size.y / 2.0f});
 
-    m_pSubText = std::make_unique<sf::Text>(pFont);
+    m_pSubText = std::make_unique<sf::Text>(font);
 
     m_pSubText->setString("Use WASD to move\n SPACE to jump\n Mouse left click to cast a spell\n "
                           "Aim with the mouse\n Dash with mouse wheel click button\n Avoid demons "

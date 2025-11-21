@@ -20,10 +20,10 @@ class AnimatedParallaxStrip : public sf::Drawable {
             return;
         const std::size_t idx  = static_cast<std::size_t>(m_time * m_fps) % m_frames.size();
         const std::string file = bgassets::keyToFilename(m_frames[idx]);
-        sf::Texture& pTex = ResourceManager::getTexture(file);
+        sf::Texture& tex = ResourceManager::getTexture(file);
         // Ensure horizontal repeating for scrolling
-        pTex.setRepeated(true);
-        strip::drawStrip(t, view, pTex, m_factor);
+        tex.setRepeated(true);
+        strip::drawStrip(t, view, tex, m_factor);
     }
 
   private:

@@ -7,8 +7,8 @@
 #include "../../utils/Math.h"
 
 static inline AnimationClip makeClipFromSpell(const std::string& name, const SpellClip& spell) {
-    const sf::Texture& pTex = ResourceManager::getTexture(spell.textureKey);
-    auto clip = Animation::makeClipFromRow(name, pTex, spell.frameSize, spell.frameCount,
+    const sf::Texture& tex = ResourceManager::getTexture(spell.textureKey);
+    auto clip = Animation::makeClipFromRow(name, tex, spell.frameSize, spell.frameCount,
                                            spell.fps, spell.loop);
     return clip;
 }

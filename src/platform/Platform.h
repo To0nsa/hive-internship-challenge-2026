@@ -12,9 +12,9 @@ class Platform final : public Entity {
     explicit Platform(const PlatformDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const sf::Texture& pTex = ResourceManager::getTexture(m_desc.textureKey);
+        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
 
-        m_pSprite     = std::make_unique<sf::Sprite>(pTex);
+        m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;
         applyFacingScale();
 

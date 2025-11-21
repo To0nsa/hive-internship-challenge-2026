@@ -127,6 +127,12 @@ void StatePlaying::handleEvent(const sf::Event& event) {
 
 void StatePlaying::update(float dt) {
 
+    // Tick game clock and update HUD
+    m_gameClock.tick(dt);
+    m_hud.update(dt);
+    m_hud.setElapsedSeconds(m_gameClock.getElapsed());
+
+    // Update player input
     if (m_pPlayer && m_pPlayer->isAlive()) {
         m_pPlayer->setInput(m_input);
     }
@@ -146,11 +152,6 @@ void StatePlaying::update(float dt) {
     m_input.jumpPressed = false;
     m_input.dashPressed = false;
     m_input.castPressed = false;
-
-    // Tick game clock and update HUD
-    m_gameClock.tick(dt);
-    m_hud.update(dt);
-    m_hud.setElapsedSeconds(m_gameClock.getElapsed());
 
     // Score: +10 per second
     m_scoreSecondAccum += dt;

@@ -24,10 +24,10 @@ class ParallaxBackground : public sf::Drawable {
         for (std::size_t i = first; i <= lastClamped; ++i) {
             const auto& layer = m_layers[i];
             const auto  file  = bgassets::keyToFilename(layer.key);
-            sf::Texture& pTex = ResourceManager::getTexture(file);
+            sf::Texture& tex = ResourceManager::getTexture(file);
             // Ensure horizontal repeating for scrolling
-            pTex.setRepeated(true);
-            strip::drawStrip(t, view, pTex, layer.factor);
+            tex.setRepeated(true);
+            strip::drawStrip(t, view, tex, layer.factor);
         }
     }
 

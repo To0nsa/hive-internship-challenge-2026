@@ -59,10 +59,10 @@ class GroundStream : public sf::Drawable {
     // Draws the textured ground strip + lava inside gaps + debug AABBs.
     void drawForView(sf::RenderTarget& target, const sf::View& view) const {
         const std::string file = bgassets::keyToFilename(m_layer.key);
-        sf::Texture& pTex = ResourceManager::getTexture(file);
+        sf::Texture& tex = ResourceManager::getTexture(file);
         // Ensure horizontal repeating for scrolling
-        pTex.setRepeated(true);
-        strip::drawStrip(target, view, pTex, m_layer.factor);
+        tex.setRepeated(true);
+        strip::drawStrip(target, view, tex, m_layer.factor);
         drawLavaGaps(target, view);
 
         if constexpr (Config::kDebugDraw) {
@@ -116,16 +116,12 @@ class GroundStream : public sf::Drawable {
     void ensureLavaClipExists() const {
         if (m_lavaAnimator)
             return;
-        sf::Texture& pTex = ResourceManager::getTexture("lava.png");
-        if (&pTex) {
-            m_lavaClip =
-                Animation::makeClipFromSheet("lava", pTex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
-            m_pLavaSprite = std::make_unique<sf::Sprite>(pTex);
-        } else {
-            // Texture missing; create an empty sprite to keep animator construction safe
-            static sf::Texture dummy;
-            m_pLavaSprite = std::make_unique<sf::Sprite>(dummy);
-        }
+
+        sf::Texture& tex = ResourceManager::getTexture("lava.png");
+
+        m_lavaClip =
+            Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
+        m_pLavaSprite = std::make_unique<sf::Sprite>(tex);
         m_lavaAnimator = std::make_unique<SpriteAnimator>(*m_pLavaSprite);
         m_lavaAnimator->addClip(m_lavaClip);
         m_lavaAnimator->playClip("lava");

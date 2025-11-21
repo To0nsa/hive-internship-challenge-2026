@@ -9,8 +9,8 @@
 
 bool RedSquare::init() {
     // Hidden sprite used only for collider transform (not rendered)
-    const sf::Texture& pTex = ResourceManager::getTexture("ice_boltstart.png");
-    m_pSprite = std::make_unique<sf::Sprite>(pTex);
+    const sf::Texture& tex = ResourceManager::getTexture("ice_boltstart.png");
+    m_pSprite = std::make_unique<sf::Sprite>(tex);
     m_pSprite->setOrigin({kSize * 0.5f, kSize * 0.5f});
     m_pSprite->setPosition(m_startCenter);
 
