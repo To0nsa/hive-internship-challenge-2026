@@ -20,6 +20,7 @@ class StatePlaying : public IState {
     ~StatePlaying() = default;
 
     bool init() override;
+    void handleEvent(const sf::Event& event) override;
     void update(float dt) override;
     void render(sf::RenderTarget& target) const override;
 

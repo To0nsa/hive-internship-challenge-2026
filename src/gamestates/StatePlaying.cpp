@@ -82,13 +82,16 @@ bool StatePlaying::init() {
     return true;
 }
 
-void StatePlaying::update(float dt) {
-    bool isPauseKeyPressed = sf::Keyboard::isKeyPressed(sf::Keyboard::Key::Escape);
-    m_hasPauseKeyBeenReleased |= !isPauseKeyPressed;
-    if (m_hasPauseKeyBeenReleased && isPauseKeyPressed) {
-        m_hasPauseKeyBeenReleased = false;
-        m_stateStack.push<StatePaused>();
+void StatePlaying::handleEvent(const sf::Event& event) {
+    (void)event;
+    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+        if (pKeyEvent->scancode == sf::Keyboard::Scan::Escape) {
+            m_stateStack.push<StatePaused>();
+        }
     }
+}
+
+void StatePlaying::update(float dt) {
 
     // Update background anim
     if (m_bgAnim)
