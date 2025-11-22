@@ -4,64 +4,64 @@
 ├── CMakeLists.txt
 ├── README.md
 ├── assets
-│   ├── DemonDeathAnimation.png
-│   ├── DemonFlyAnimation.png
-│   ├── DemonHitAnimation.png
-│   ├── Lavigne.ttf
-│   ├── PlayerCastAnimation.png
-│   ├── PlayerDashAnimation.png
-│   ├── PlayerDeathAnimation.png
-│   ├── PlayerFallAnimation.png
-│   ├── PlayerHitAnimation.png
-│   ├── PlayerIdleAnimation.png
-│   ├── PlayerJumpAnimation.png
-│   ├── PlayerMoveAnimation.png
-│   ├── Volcano Layer 01.png
-│   ├── Volcano Layer 02.png
-│   ├── Volcano Layer 03.png
-│   ├── Volcano Layer 04.png
-│   ├── Volcano Layer 05.png
-│   ├── Volcano Layer 06.png
-│   ├── Volcano Layer 07.png
-│   ├── Volcano Layer 08.png
-│   ├── Volcano anim. 01.png
-│   ├── Volcano anim. 02.png
-│   ├── Volcano anim. 03.png
-│   ├── altar1.png
-│   ├── altar2.png
-│   ├── flash.frag
-│   ├── ice_boltstart.png
-│   ├── icebolt_hit.png
-│   ├── icebolt_loop.png
-│   ├── lava.png
-│   ├── lich.png
-│   ├── lightning_hit.png
-│   ├── lightning_loop.png
-│   ├── lightning_start.png
-│   ├── platform1.png
-│   ├── platform2.png
-│   ├── skull_pile.png
-│   └── tree.png
+│   ├── font
+│   │   └── Lavigne.ttf
+│   ├── image
+│   │   ├── enemies
+│   │   │   ├── DemonDeathAnimation.png
+│   │   │   ├── DemonFlyAnimation.png
+│   │   │   └── DemonHitAnimation.png
+│   │   ├── environment
+│   │   │   ├── Volcano Layer 01.png
+│   │   │   ├── Volcano Layer 02.png
+│   │   │   ├── Volcano Layer 03.png
+│   │   │   ├── Volcano Layer 04.png
+│   │   │   ├── Volcano Layer 05.png
+│   │   │   ├── Volcano Layer 06.png
+│   │   │   ├── Volcano Layer 07.png
+│   │   │   ├── Volcano Layer 08.png
+│   │   │   ├── Volcano anim. 01.png
+│   │   │   ├── Volcano anim. 02.png
+│   │   │   ├── Volcano anim. 03.png
+│   │   │   └── lava.png
+│   │   ├── obstacles
+│   │   │   ├── altar1.png
+│   │   │   ├── altar2.png
+│   │   │   ├── lich.png
+│   │   │   ├── skull_pile.png
+│   │   │   └── tree.png
+│   │   ├── platform
+│   │   │   ├── platform1.png
+│   │   │   └── platform2.png
+│   │   ├── player
+│   │   │   ├── PlayerCastAnimation.png
+│   │   │   ├── PlayerDashAnimation.png
+│   │   │   ├── PlayerDeathAnimation.png
+│   │   │   ├── PlayerFallAnimation.png
+│   │   │   ├── PlayerHitAnimation.png
+│   │   │   ├── PlayerIdleAnimation.png
+│   │   │   ├── PlayerJumpAnimation.png
+│   │   │   └── PlayerMoveAnimation.png
+│   │   └── spells
+│   │       ├── ice_boltstart.png
+│   │       ├── icebolt_hit.png
+│   │       ├── icebolt_loop.png
+│   │       ├── lightning_hit.png
+│   │       ├── lightning_loop.png
+│   │       └── lightning_start.png
+│   ├── music
+│   ├── sfx
+│   └── shader
+│       └── flash.frag
 ├── scripts
+│   ├── clang-format-all.sh
+│   ├── execute-all-scripts.sh
 │   ├── export-all.sh
 │   ├── export-tree.sh
 │   └── output
 │       ├── src-bundle.txt
 │       └── tree.txt
 └── src
-    ├── Application.cpp
-    ├── Application.h
-    ├── Config.h
-    ├── Debug.h
-    ├── HUD
-    │   ├── GameHUD.cpp
-    │   ├── GameHUD.h
-    │   ├── StatBar.cpp
-    │   └── StatBar.h
-    ├── ResourceManager.cpp
-    ├── ResourceManager.h
-    ├── World.cpp
-    ├── World.h
     ├── animation
     │   ├── Animation.cpp
     │   └── Animation.h
@@ -71,6 +71,16 @@
     │   ├── MultiRectCollider.h
     │   ├── RectCollider.cpp
     │   └── RectCollider.h
+    ├── core
+    │   ├── Application.cpp
+    │   ├── Application.h
+    │   ├── Config.h
+    │   ├── Debug.h
+    │   ├── ResourceManager.cpp
+    │   ├── ResourceManager.h
+    │   ├── World.cpp
+    │   ├── World.h
+    │   └── main.cpp
     ├── entities
     │   ├── Entity.h
     │   ├── actor
@@ -86,8 +96,6 @@
     │   ├── collectible
     │   │   ├── RedSquare.cpp
     │   │   └── RedSquare.h
-    │   ├── faction
-    │   │   └── Faction.h
     │   ├── obstacle
     │   │   ├── Obstacle.h
     │   │   ├── ObstacleFactory.h
@@ -102,17 +110,8 @@
     │   ├── GroundStream.h
     │   ├── ParallaxBackground.h
     │   └── StripUtil.h
-    ├── gamestates
-    │   ├── IState.h
-    │   ├── StateMenu.cpp
-    │   ├── StateMenu.h
-    │   ├── StatePaused.cpp
-    │   ├── StatePaused.h
-    │   ├── StatePlaying.cpp
-    │   ├── StatePlaying.h
-    │   └── StateStack.h
-    ├── main.cpp
-    ├── session
+    ├── gameplay
+    │   ├── Faction.h
     │   ├── GameSession.cpp
     │   └── GameSession.h
     ├── spell
@@ -122,6 +121,21 @@
     │   └── projectile
     │       ├── Projectile.cpp
     │       └── Projectile.h
+    ├── states
+    │   ├── IState.h
+    │   ├── StateMenu.cpp
+    │   ├── StateMenu.h
+    │   ├── StatePaused.cpp
+    │   ├── StatePaused.h
+    │   ├── StatePlaying.cpp
+    │   ├── StatePlaying.h
+    │   └── StateStack.h
+    ├── ui
+    │   └── game
+    │       ├── GameHUD.cpp
+    │       ├── GameHUD.h
+    │       ├── StatBar.cpp
+    │       └── StatBar.h
     └── utils
         ├── Geom.h
         ├── Math.h
@@ -130,4 +144,4 @@
         ├── Stopwatch.h
         └── utils.h
 
-22 directories, 109 files
+34 directories, 111 files
