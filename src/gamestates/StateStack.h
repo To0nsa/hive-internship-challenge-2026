@@ -10,11 +10,7 @@
 class StateStack {
   public:
 
-    IState* getCurrentState() {
-        if (m_states.empty())
-            throw std::runtime_error("StateStack is empty; no current state available");
-        return m_states.back().get();
-    }
+    IState* getCurrentState() { return m_states.empty() ? nullptr : m_states.back().get(); }
 
     template <typename T, typename... Args>
     void push(Args&&... args) {

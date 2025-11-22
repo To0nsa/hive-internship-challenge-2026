@@ -3,6 +3,7 @@
 #include "IState.h"
 
 #include <SFML/Graphics/RenderWindow.hpp>
+#include <SFML/Graphics/Text.hpp>
 #include <memory>
 
 namespace sf {

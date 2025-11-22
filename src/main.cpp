@@ -1,15 +1,6 @@
-#include "Config.h"
+#include "Application.h"
 #include "ResourceManager.h"
-#include "gamestates/IState.h"
-#include "gamestates/StateMenu.h"
-#include "gamestates/StateStack.h"
 
-#include <SFML/Graphics.hpp>
-#include <SFML/System/Clock.hpp>
-#include <SFML/System/Time.hpp>
-#include <memory>
-#include <optional>
-#include <stack>
 #include <iostream>
 
 int main(int argc, char* argv[]) try {
@@ -18,39 +9,8 @@ int main(int argc, char* argv[]) try {
     // ResourceManager must be instantiated here -- DO NOT CHANGE
     ResourceManager::init(argv[0]);
 
-    sf::RenderWindow window(sf::VideoMode({Config::windowWidth, Config::windowHeight}),
-                            Config::windowTitle);
-    window.setKeyRepeatEnabled(false);
-    window.setVerticalSyncEnabled(true);
-
-    StateStack gamestates;
-    gamestates.push<StateMenu>(window);
-
-    sf::Clock clock;
-    while (window.isOpen()) {
-        sf::Time elapsedTime = clock.restart();
-
-        IState* pState = gamestates.getCurrentState();
-
-        while (const std::optional<sf::Event> event = window.pollEvent()) {
-            if (event->is<sf::Event::Closed>()) {
-                window.close();
-            }
-
-            // Dispatch event to current state
-            pState->handleEvent(event.value());
-        }
-
-        pState->update(elapsedTime.asSeconds());
-
-        window.clear();
-        pState->render(window);
-        window.display();
-
-        gamestates.performPendingPops();
-    }
-
-    return EXIT_SUCCESS;
+    Application app;
+    return app.run();
 
 } catch (const std::exception& e) {
     std::cerr << "Fatal error: " << e.what() << std::endl;
