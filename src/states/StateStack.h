@@ -9,16 +9,13 @@
 
 class StateStack {
   public:
-
     IState* getCurrentState() { return m_states.empty() ? nullptr : m_states.back().get(); }
 
-    template <typename T, typename... Args>
-    void push(Args&&... args) {
+    template <typename T, typename... Args> void push(Args&&... args) {
         std::unique_ptr<IState> state = std::make_unique<T>(*this, std::forward<Args>(args)...);
         if (!state->init())
-            throw std::runtime_error(
-                std::string("Failed to initialize state: ") + typeid(T).name()
-            );
+            throw std::runtime_error(std::string("Failed to initialize state: ") +
+                                     typeid(T).name());
 
         m_states.push_back(std::move(state));
     }

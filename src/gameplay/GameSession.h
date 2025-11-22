@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../utils/Stopwatch.h"
+#include "Stopwatch.h"
 
 class GameSession {
   public:

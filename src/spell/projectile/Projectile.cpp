@@ -1,15 +1,15 @@
 #include "Projectile.h"
 
-#include "../../Config.h"
-#include "../../Debug.h"
-#include "../../ResourceManager.h"
-#include "../../entities/Entity.h"
-#include "../../utils/Math.h"
+#include "../../core/Debug.h"
+#include "Config.h"
+#include "Entity.h"
+#include "Math.h"
+#include "ResourceManager.h"
 
 static inline AnimationClip makeClipFromSpell(const std::string& name, const SpellClip& spell) {
     const sf::Texture& tex = ResourceManager::getTexture(spell.textureKey);
-    auto clip = Animation::makeClipFromRow(name, tex, spell.frameSize, spell.frameCount,
-                                           spell.fps, spell.loop);
+    auto clip = Animation::makeClipFromRow(name, tex, spell.frameSize, spell.frameCount, spell.fps,
+                                           spell.loop);
     return clip;
 }
 

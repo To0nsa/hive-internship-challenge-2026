@@ -1,11 +1,11 @@
 ﻿#pragma once
 
-#include "../Config.h"
-#include "../Debug.h"
-#include "../ResourceManager.h"
-#include "../animation/Animation.h"
-#include "../entities/Entity.h"
+#include "../../core/Debug.h"
+#include "Animation.h"
+#include "Config.h"
+#include "Entity.h"
 #include "ObstacleTypes.h"
+#include "ResourceManager.h"
 
 #include <SFML/Graphics/Sprite.hpp>
 

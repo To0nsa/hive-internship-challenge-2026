@@ -1,10 +1,10 @@
 #pragma once
 
-#include "../HUD/GameHUD.h"
-#include "../World.h"
-#include "../entities/actor/player/Player.h"
-#include "../session/GameSession.h"
+#include "GameHUD.h"
 #include "IState.h"
+#include "World.h"
+#include "entities/actor/player/Player.h"
+#include "session/GameSession.h"
 
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/View.hpp>
@@ -23,10 +23,10 @@ class StatePlaying : public IState {
     void requestExitToMenu();
 
   private:
-    StateStack&        m_stateStack;
-    sf::RenderWindow&  m_window;
-    GameSession        m_session;
-    World              m_world;
-    PlayerInput        m_input;
-    GameHUD            m_hud;
+    StateStack&       m_stateStack;
+    sf::RenderWindow& m_window;
+    GameSession       m_session;
+    World             m_world;
+    PlayerInput       m_input;
+    GameHUD           m_hud;
 };

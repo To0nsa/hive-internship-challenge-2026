@@ -1,14 +1,14 @@
 ﻿#include "Player.h"
 
-#include "../../../ResourceManager.h"
-#include "../../../animation/Animation.h"
-#include "../../../collision/RectCollider.h"
-#include "../../../faction/Faction.h"
-#include "../../../World.h"
-#include "../../../spell/CastRequest.h"
-#include "../../../spell/SpellCatalog.h"
-#include "../../../spell/projectile/Projectile.h"
-#include "../../../utils/Geom.h"
+#include "../../../gameplay/Faction.h"
+#include "Animation.h"
+#include "CastRequest.h"
+#include "Geom.h"
+#include "Projectile.h"
+#include "RectCollider.h"
+#include "ResourceManager.h"
+#include "SpellCatalog.h"
+#include "World.h"
 
 #include <SFML/Graphics/Sprite.hpp>
 #include <cmath>

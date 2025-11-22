@@ -1,5 +1,5 @@
 #pragma once
-#include "collision/Collider.h"
+#include "Collider.h"
 
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>

@@ -1,16 +1,16 @@
 #include "RedSquare.h"
 
-#include "../../Config.h"
-#include "../../Debug.h"
-#include "../../ResourceManager.h"
-#include "../../entities/actor/player/Player.h"
-#include "../../World.h"
-#include "../../utils/Geom.h"
+#include "../../core/Debug.h"
+#include "Config.h"
+#include "Geom.h"
+#include "Player.h"
+#include "ResourceManager.h"
+#include "World.h"
 
 bool RedSquare::init() {
     // Hidden sprite used only for collider transform (not rendered)
     const sf::Texture& tex = ResourceManager::getTexture("ice_boltstart.png");
-    m_pSprite = std::make_unique<sf::Sprite>(tex);
+    m_pSprite              = std::make_unique<sf::Sprite>(tex);
     m_pSprite->setOrigin({kSize * 0.5f, kSize * 0.5f});
     m_pSprite->setPosition(m_startCenter);
 

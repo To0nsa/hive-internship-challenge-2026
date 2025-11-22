@@ -1,11 +1,11 @@
 // src/game/Actor.cpp
 #include "Actor.h"
 
-#include "../../Config.h"
-#include "../../Debug.h"
-#include "../../ResourceManager.h"
-#include "../../collision/MultiRectCollider.h"
-#include "../../utils/Geom.h"
+#include "../../core/Debug.h"
+#include "Config.h"
+#include "Geom.h"
+#include "MultiRectCollider.h"
+#include "ResourceManager.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <algorithm>

@@ -1,14 +1,14 @@
 #include "StateMenu.h"
 
-#include "../ResourceManager.h"
+#include "ResourceManager.h"
 #include "StatePlaying.h"
 #include "StateStack.h"
 
-#include <SFML/Window/Event.hpp>
-#include <SFML/Window/Keyboard.hpp>
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/Text.hpp>
+#include <SFML/Window/Event.hpp>
+#include <SFML/Window/Keyboard.hpp>
 
 StateMenu::StateMenu(StateStack& stateStack, sf::RenderWindow& window)
     : m_stateStack(stateStack), m_window(window) {}
@@ -37,16 +37,14 @@ bool StateMenu::init() {
 }
 
 void StateMenu::handleEvent(const sf::Event& event) {
-    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+    if (const auto* pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
         if (pKeyEvent->scancode == sf::Keyboard::Scan::Enter) {
             m_stateStack.push<StatePlaying>(m_window);
         }
     }
 }
 
-void StateMenu::update(float dt) {
-    (void)dt;
-}
+void StateMenu::update(float dt) { (void)dt; }
 
 void StateMenu::render(sf::RenderTarget& target) const {
     m_pText->setPosition({target.getSize().x * 0.5f, target.getSize().y * 0.8f});

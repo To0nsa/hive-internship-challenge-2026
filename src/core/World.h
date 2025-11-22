@@ -5,7 +5,6 @@
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/View.hpp>
 #include <SFML/System/Vector2.hpp>
-
 #include <memory>
 #include <vector>
 
@@ -57,8 +56,8 @@ class World {
     }
 
   private:
-    StatePlaying&   m_owner;
-    GameSession&    m_session;
+    StatePlaying&     m_owner;
+    GameSession&      m_session;
     sf::RenderWindow& m_window;
 
     Player* m_pPlayer = nullptr;

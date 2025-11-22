@@ -26,7 +26,7 @@ class Demon final : public Enemy {
 
     // Casting
     static constexpr float kCastCooldown      = 2.0f;
-    float                         m_castCooldownLeft = 0.f;
+    float                  m_castCooldownLeft = 0.f;
 
     // Movement goal: hover around desired range from player
     static constexpr float kDesiredRange = 300.f;

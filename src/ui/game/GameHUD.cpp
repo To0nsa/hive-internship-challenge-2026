@@ -1,11 +1,11 @@
 // GameHUD.cpp
 #include "GameHUD.h"
 
-#include "../Config.h"
-#include "../ResourceManager.h"
-#include "../entities/actor/player/Player.h"
-#include "../utils/Palette.h"
-#include "../utils/utils.h"
+#include "Config.h"
+#include "Palette.h"
+#include "Player.h"
+#include "ResourceManager.h"
+#include "utils.h"
 
 GameHUD::GameHUD() {
     // Stats Bars
@@ -24,7 +24,7 @@ GameHUD::GameHUD() {
 
     // Timer text
     const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
-    m_pTimerText = std::make_unique<sf::Text>(font, "00:00", 28);
+    m_pTimerText         = std::make_unique<sf::Text>(font, "00:00", 28);
     m_pTimerText->setFillColor(Palette::kUiOutline);
     m_pTimerText->setOutlineColor(Palette::kUiBack);
     m_pTimerText->setOutlineThickness(2.f);

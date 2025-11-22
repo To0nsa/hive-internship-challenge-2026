@@ -1,9 +1,9 @@
 #pragma once
-#include "../../animation/Animation.h"
-#include "../../entities/Entity.h"
-#include "../../faction/Faction.h"
-#include "../../utils/Math.h"
-#include "../SpellCatalog.h"
+#include "../../gameplay/Faction.h"
+#include "Animation.h"
+#include "Entity.h"
+#include "SpellCatalog.h"
+#include "uMath.h"
 
 #include <SFML/Graphics.hpp>
 

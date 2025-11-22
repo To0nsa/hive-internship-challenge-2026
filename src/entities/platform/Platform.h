@@ -1,10 +1,10 @@
 ﻿#pragma once
 
-#include "../Config.h"
-#include "../Debug.h"
-#include "../ResourceManager.h"
-#include "../entities/Entity.h"
+#include "../../core/Debug.h"
+#include "Config.h"
+#include "Entity.h"
 #include "PlatformTypes.h"
+#include "ResourceManager.h"
 
 // Minimal static-image platform entity. No animation.
 class Platform final : public Entity {

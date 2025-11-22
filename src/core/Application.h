@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Config.h"
-#include "gamestates/StateStack.h"
+#include "StateStack.h"
 
 #include <SFML/Graphics/RenderWindow.hpp>
 

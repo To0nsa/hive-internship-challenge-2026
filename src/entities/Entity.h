@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../animation/Animation.h"
-#include "../collision/RectCollider.h"
+#include "Animation.h"
+#include "RectCollider.h"
 
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -84,6 +84,6 @@ class Entity {
     sf::Vector2f m_colliderOffset;
 
   public:
-    // State playing is my world <3
+    // World reference
     World* m_world = nullptr;
 };

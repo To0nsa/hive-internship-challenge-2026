@@ -1,33 +1,32 @@
 #include "World.h"
 
+#include "../gameplay/Faction.h"
+#include "../states/StatePlaying.h"
+#include "Actor.h"
 #include "Config.h"
 #include "Debug.h"
-#include "ResourceManager.h"
-#include "MultiRectCollider.h"
-#include "Actor.h"
 #include "Demon.h"
 #include "Enemy.h"
-#include "Player.h"
-#include "RedSquare.h"
-#include "Faction.h"
-#include "StatePlaying.h"
-#include "AnimatedParallaxStrip.h"
-#include "GroundStream.h"
-#include "ParallaxBackground.h"
-#include "Obstacle.h"
-#include "ObstacleFactory.h"
-#include "ObstacleTypes.h"
-#include "Platform.h"
-#include "PlatformFactory.h"
-#include "Projectile.h"
 #include "Geom.h"
 #include "Math.h"
+#include "MultiRectCollider.h"
+#include "Player.h"
+#include "Projectile.h"
 #include "Random.h"
+#include "RedSquare.h"
+#include "ResourceManager.h"
+#include "entities/obstacle/Obstacle.h"
+#include "entities/obstacle/ObstacleFactory.h"
+#include "entities/obstacle/ObstacleTypes.h"
+#include "entities/platform/Platform.h"
+#include "entities/platform/PlatformFactory.h"
+#include "environment/AnimatedParallaxStrip.h"
+#include "environment/GroundStream.h"
+#include "environment/ParallaxBackground.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Window/Mouse.hpp>
-
 #include <algorithm>
 #include <cmath>
 #include <initializer_list>
@@ -453,9 +452,7 @@ void World::render(sf::RenderTarget& target) const {
     target.setView(oldView);
 }
 
-float World::getCameraLeft() const {
-    return m_view.getCenter().x - 0.5f * m_view.getSize().x;
-}
+float World::getCameraLeft() const { return m_view.getCenter().x - 0.5f * m_view.getSize().x; }
 
 float World::getCameraCatchupX() const { return getCameraLeft() + kCatchupMarginLeft; }
 

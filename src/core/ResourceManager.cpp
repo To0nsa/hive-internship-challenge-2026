@@ -18,21 +18,21 @@ const sf::Font& ResourceManager::getFont(const std::string& filename) {
 
     auto [it, inserted] = m_loadedFonts.emplace(filename, sf::Font{});
     if (!inserted) {
-        throw std::runtime_error(
-            "ResourceManager::getFont: failed to emplace font entry for '" + filename + "'");
+        throw std::runtime_error("ResourceManager::getFont: failed to emplace font entry for '" +
+                                 filename + "'");
     }
 
-    sf::Font& font = it->second;
+    sf::Font&  font     = it->second;
     const auto fullPath = getAssetPath(filename);
     if (!font.openFromFile(fullPath)) {
-        throw std::runtime_error(
-            "ResourceManager::getFont: could not load font from '" + fullPath.string() + "'");
+        throw std::runtime_error("ResourceManager::getFont: could not load font from '" +
+                                 fullPath.string() + "'");
     }
 
     return font;
 }
 
-sf::Texture& ResourceManager::getTexture(const std::string&filename) {
+sf::Texture& ResourceManager::getTexture(const std::string& filename) {
     if (auto it = m_loadedTextures.find(filename); it != m_loadedTextures.end())
         return it->second;
 
@@ -42,11 +42,11 @@ sf::Texture& ResourceManager::getTexture(const std::string&filename) {
             "ResourceManager::getTexture: failed to emplace texture entry for '" + filename + "'");
     }
 
-    sf::Texture& texture = it->second;
-    const auto fullPath = getAssetPath(filename);
+    sf::Texture& texture  = it->second;
+    const auto   fullPath = getAssetPath(filename);
     if (!texture.loadFromFile(fullPath)) {
-        throw std::runtime_error(
-            "ResourceManager::getTexture: could not load texture from '" + fullPath.string() + "'");
+        throw std::runtime_error("ResourceManager::getTexture: could not load texture from '" +
+                                 fullPath.string() + "'");
     }
 
     return texture;
@@ -63,8 +63,8 @@ const sf::SoundBuffer& ResourceManager::getSoundBuffer(const std::string& filena
             filename + "'");
     }
 
-    sf::SoundBuffer& buffer = it->second;
-    const auto fullPath = getAssetPath(filename);
+    sf::SoundBuffer& buffer   = it->second;
+    const auto       fullPath = getAssetPath(filename);
     if (!buffer.loadFromFile(fullPath)) {
         throw std::runtime_error(
             "ResourceManager::getSoundBuffer: could not load sound buffer from '" +

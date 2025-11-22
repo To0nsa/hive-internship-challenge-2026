@@ -1,13 +1,13 @@
 #pragma once
 
-#include "../Config.h"
-#include "../Debug.h"
-#include "../ResourceManager.h"
-#include "../animation/Animation.h"
-#include "../collision/MultiRectCollider.h"
-#include "../utils/Geom.h"
-#include "../utils/Math.h"
+#include "../core/Debug.h"
+#include "Animation.h"
 #include "BackgroundAssets.h"
+#include "Config.h"
+#include "Geom.h"
+#include "Math.h"
+#include "MultiRectCollider.h"
+#include "ResourceManager.h"
 #include "StripUtil.h"
 
 #include <SFML/Graphics.hpp>
@@ -59,7 +59,7 @@ class GroundStream : public sf::Drawable {
     // Draws the textured ground strip + lava inside gaps + debug AABBs.
     void drawForView(sf::RenderTarget& target, const sf::View& view) const {
         const std::string file = bgassets::keyToFilename(m_layer.key);
-        sf::Texture& tex = ResourceManager::getTexture(file);
+        sf::Texture&      tex  = ResourceManager::getTexture(file);
         // Ensure horizontal repeating for scrolling
         tex.setRepeated(true);
         strip::drawStrip(target, view, tex, m_layer.factor);
@@ -119,9 +119,8 @@ class GroundStream : public sf::Drawable {
 
         sf::Texture& tex = ResourceManager::getTexture("lava.png");
 
-        m_lavaClip =
-            Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
-        m_pLavaSprite = std::make_unique<sf::Sprite>(tex);
+        m_lavaClip = Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
+        m_pLavaSprite  = std::make_unique<sf::Sprite>(tex);
         m_lavaAnimator = std::make_unique<SpriteAnimator>(*m_pLavaSprite);
         m_lavaAnimator->addClip(m_lavaClip);
         m_lavaAnimator->playClip("lava");

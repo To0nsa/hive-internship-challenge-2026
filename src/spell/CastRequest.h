@@ -1,5 +1,5 @@
 #pragma once
-#include "../faction/Faction.h"
+#include "../gameplay/Faction.h"
 #include "SpellCatalog.h"
 
 #include <SFML/Graphics.hpp>

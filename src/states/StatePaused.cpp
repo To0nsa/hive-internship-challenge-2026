@@ -1,6 +1,6 @@
 #include "StatePaused.h"
 
-#include "../ResourceManager.h"
+#include "ResourceManager.h"
 #include "StateStack.h"
 
 #include <SFML/Graphics/Font.hpp>
@@ -25,16 +25,14 @@ bool StatePaused::init() {
 }
 
 void StatePaused::handleEvent(const sf::Event& event) {
-    if (const auto *pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
+    if (const auto* pKeyEvent = event.getIf<sf::Event::KeyPressed>()) {
         if (pKeyEvent->scancode == sf::Keyboard::Scan::Escape) {
             m_stateStack.requestPop();
         }
     }
 }
 
-void StatePaused::update(float dt) {
-    (void)dt;
-}
+void StatePaused::update(float dt) { (void)dt; }
 
 void StatePaused::render(sf::RenderTarget& target) const {
     if (m_pPrevState != nullptr)

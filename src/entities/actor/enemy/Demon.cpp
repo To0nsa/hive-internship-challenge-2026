@@ -1,12 +1,12 @@
 #include "Demon.h"
 
-#include "../../../ResourceManager.h"
-#include "../../../animation/Animation.h"
-#include "../../../entities/actor/player/Player.h"
-#include "../../../faction/Faction.h"
-#include "../../../World.h"
-#include "../../../spell/SpellCatalog.h"
-#include "../../../spell/projectile/Projectile.h"
+#include "../../../gameplay/Faction.h"
+#include "Animation.h"
+#include "Player.h"
+#include "Projectile.h"
+#include "ResourceManager.h"
+#include "SpellCatalog.h"
+#include "World.h"
 
 namespace {
     constexpr const char* kFly   = "demon_fly";

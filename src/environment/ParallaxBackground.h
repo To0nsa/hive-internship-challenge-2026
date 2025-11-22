@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../ResourceManager.h"
 #include "BackgroundAssets.h"
+#include "ResourceManager.h"
 #include "StripUtil.h"
 
 #include <SFML/Graphics.hpp>
@@ -22,9 +22,9 @@ class ParallaxBackground : public sf::Drawable {
             return;
         const std::size_t lastClamped = std::min(last, m_layers.size() - 1);
         for (std::size_t i = first; i <= lastClamped; ++i) {
-            const auto& layer = m_layers[i];
-            const auto  file  = bgassets::keyToFilename(layer.key);
-            sf::Texture& tex = ResourceManager::getTexture(file);
+            const auto&  layer = m_layers[i];
+            const auto   file  = bgassets::keyToFilename(layer.key);
+            sf::Texture& tex   = ResourceManager::getTexture(file);
             // Ensure horizontal repeating for scrolling
             tex.setRepeated(true);
             strip::drawStrip(t, view, tex, layer.factor);

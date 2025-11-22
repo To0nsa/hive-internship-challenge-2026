@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../Actor.h"
+#include "Actor.h"
 
 struct PlayerInput {
     bool moveLeft    = false;
@@ -41,7 +41,7 @@ class Player final : public Actor {
 
     // Input state
     PlayerInput m_input;
-    bool m_jumpRequested = false;
+    bool        m_jumpRequested = false;
 
     // Rendering
     static inline const sf::Vector2i kFrameSize{100, 64};
@@ -68,15 +68,15 @@ class Player final : public Actor {
     static constexpr float kJumpSpeed       = 1200.f;
     static constexpr float kCoyoteTime      = 0.10f;
     static constexpr float kJumpBufferTime  = 0.12f;
-    float                         m_coyoteTimer    = 0.f;
-    float                         m_jumpBufferLeft = 0.f;
+    float                  m_coyoteTimer    = 0.f;
+    float                  m_jumpBufferLeft = 0.f;
 
     // Dash
     static constexpr float kDashSpeed         = 1100.f;
     static constexpr float kDashDuration      = 0.20f;
     static constexpr float kDashCooldown      = 3.f;
-    bool                          m_dashRequested    = false;
-    float                         m_dashTimer        = 0.f;
-    float                         m_dashCooldownLeft = 0.f;
-    float                         m_dashDirX         = 0.f; // -1 left, +1 right
+    bool                   m_dashRequested    = false;
+    float                  m_dashTimer        = 0.f;
+    float                  m_dashCooldownLeft = 0.f;
+    float                  m_dashDirX         = 0.f; // -1 left, +1 right
 };

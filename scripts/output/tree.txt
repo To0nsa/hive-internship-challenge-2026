@@ -1,0 +1,133 @@
+/home/toonsa/myProjects/hive-internship-challenge-2026
+├── .clang-format
+├── .gitignore
+├── CMakeLists.txt
+├── README.md
+├── assets
+│   ├── DemonDeathAnimation.png
+│   ├── DemonFlyAnimation.png
+│   ├── DemonHitAnimation.png
+│   ├── Lavigne.ttf
+│   ├── PlayerCastAnimation.png
+│   ├── PlayerDashAnimation.png
+│   ├── PlayerDeathAnimation.png
+│   ├── PlayerFallAnimation.png
+│   ├── PlayerHitAnimation.png
+│   ├── PlayerIdleAnimation.png
+│   ├── PlayerJumpAnimation.png
+│   ├── PlayerMoveAnimation.png
+│   ├── Volcano Layer 01.png
+│   ├── Volcano Layer 02.png
+│   ├── Volcano Layer 03.png
+│   ├── Volcano Layer 04.png
+│   ├── Volcano Layer 05.png
+│   ├── Volcano Layer 06.png
+│   ├── Volcano Layer 07.png
+│   ├── Volcano Layer 08.png
+│   ├── Volcano anim. 01.png
+│   ├── Volcano anim. 02.png
+│   ├── Volcano anim. 03.png
+│   ├── altar1.png
+│   ├── altar2.png
+│   ├── flash.frag
+│   ├── ice_boltstart.png
+│   ├── icebolt_hit.png
+│   ├── icebolt_loop.png
+│   ├── lava.png
+│   ├── lich.png
+│   ├── lightning_hit.png
+│   ├── lightning_loop.png
+│   ├── lightning_start.png
+│   ├── platform1.png
+│   ├── platform2.png
+│   ├── skull_pile.png
+│   └── tree.png
+├── scripts
+│   ├── export-all.sh
+│   ├── export-tree.sh
+│   └── output
+│       ├── src-bundle.txt
+│       └── tree.txt
+└── src
+    ├── Application.cpp
+    ├── Application.h
+    ├── Config.h
+    ├── Debug.h
+    ├── HUD
+    │   ├── GameHUD.cpp
+    │   ├── GameHUD.h
+    │   ├── StatBar.cpp
+    │   └── StatBar.h
+    ├── ResourceManager.cpp
+    ├── ResourceManager.h
+    ├── World.cpp
+    ├── World.h
+    ├── animation
+    │   ├── Animation.cpp
+    │   └── Animation.h
+    ├── collision
+    │   ├── Collider.h
+    │   ├── Collision.h
+    │   ├── MultiRectCollider.h
+    │   ├── RectCollider.cpp
+    │   └── RectCollider.h
+    ├── entities
+    │   ├── Entity.h
+    │   ├── actor
+    │   │   ├── Actor.cpp
+    │   │   ├── Actor.h
+    │   │   ├── enemy
+    │   │   │   ├── Demon.cpp
+    │   │   │   ├── Demon.h
+    │   │   │   └── Enemy.h
+    │   │   └── player
+    │   │       ├── Player.cpp
+    │   │       └── Player.h
+    │   ├── collectible
+    │   │   ├── RedSquare.cpp
+    │   │   └── RedSquare.h
+    │   ├── faction
+    │   │   └── Faction.h
+    │   ├── obstacle
+    │   │   ├── Obstacle.h
+    │   │   ├── ObstacleFactory.h
+    │   │   └── ObstacleTypes.h
+    │   └── platform
+    │       ├── Platform.h
+    │       ├── PlatformFactory.h
+    │       └── PlatformTypes.h
+    ├── environment
+    │   ├── AnimatedParallaxStrip.h
+    │   ├── BackgroundAssets.h
+    │   ├── GroundStream.h
+    │   ├── ParallaxBackground.h
+    │   └── StripUtil.h
+    ├── gamestates
+    │   ├── IState.h
+    │   ├── StateMenu.cpp
+    │   ├── StateMenu.h
+    │   ├── StatePaused.cpp
+    │   ├── StatePaused.h
+    │   ├── StatePlaying.cpp
+    │   ├── StatePlaying.h
+    │   └── StateStack.h
+    ├── main.cpp
+    ├── session
+    │   ├── GameSession.cpp
+    │   └── GameSession.h
+    ├── spell
+    │   ├── CastRequest.h
+    │   ├── SpellCatalog.cpp
+    │   ├── SpellCatalog.h
+    │   └── projectile
+    │       ├── Projectile.cpp
+    │       └── Projectile.h
+    └── utils
+        ├── Geom.h
+        ├── Math.h
+        ├── Palette.h
+        ├── Random.h
+        ├── Stopwatch.h
+        └── utils.h
+
+22 directories, 109 files
