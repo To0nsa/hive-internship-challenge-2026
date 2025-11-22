@@ -3,12 +3,13 @@
 #include <SFML/Graphics.hpp>
 #include <algorithm>
 #include <cmath>
+#include <string_view>
 
 namespace strip {
 
     struct ParallaxLayerDesc {
-        std::string key;
-        float       factor = 0.f;
+        std::string_view texturePath;
+        float            factor = 0.f;
     };
 
     // Draw a horizontally repeating strip aligned to the view's bottom edge.

@@ -2,6 +2,7 @@
 
 #include "animation/Animation.h"
 #include "collision/RectCollider.h"
+#include "core/Assets.h"
 #include "core/ResourceManager.h"
 #include "core/World.h"
 #include "gameplay/Faction.h"
@@ -13,26 +14,15 @@
 #include <SFML/Graphics/Sprite.hpp>
 #include <cmath>
 
-namespace {
-    // Animation clip names
-    constexpr const char* kIdle  = "player_idle";
-    constexpr const char* kRun   = "player_run";
-    constexpr const char* kJump  = "player_jump";
-    constexpr const char* kFall  = "player_fall";
-    constexpr const char* kDash  = "player_dash";
-    constexpr const char* kDeath = "player_death";
-    constexpr const char* kCast  = "player_cast";
-} // namespace
-
 bool Player::init() {
     // Load animation textures if present
-    const sf::Texture& idleTex  = ResourceManager::getTexture("PlayerIdleAnimation.png");
-    const sf::Texture& runTex   = ResourceManager::getTexture("PlayerMoveAnimation.png");
-    const sf::Texture& jumpTex  = ResourceManager::getTexture("PlayerJumpAnimation.png");
-    const sf::Texture& fallTex  = ResourceManager::getTexture("PlayerFallAnimation.png");
-    const sf::Texture& dashTex  = ResourceManager::getTexture("PlayerDashAnimation.png");
-    const sf::Texture& deathTex = ResourceManager::getTexture("PlayerDeathAnimation.png");
-    const sf::Texture& castTex  = ResourceManager::getTexture("PlayerCastAnimation.png");
+    const sf::Texture& idleTex  = ResourceManager::getTexture(Assets::Tex::Player::Idle);
+    const sf::Texture& runTex   = ResourceManager::getTexture(Assets::Tex::Player::Move);
+    const sf::Texture& jumpTex  = ResourceManager::getTexture(Assets::Tex::Player::Jump);
+    const sf::Texture& fallTex  = ResourceManager::getTexture(Assets::Tex::Player::Fall);
+    const sf::Texture& dashTex  = ResourceManager::getTexture(Assets::Tex::Player::Dash);
+    const sf::Texture& deathTex = ResourceManager::getTexture(Assets::Tex::Player::Death);
+    const sf::Texture& castTex  = ResourceManager::getTexture(Assets::Tex::Player::Cast);
 
     // Setup sprite
     m_pSprite = std::make_unique<sf::Sprite>(idleTex);
@@ -45,20 +35,20 @@ bool Player::init() {
     m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
 
     // Build animation clips
-    auto idleClip = Animation::makeClipFromRow(kIdle, idleTex, kFrameSize, 4, 6.f, true);
-    m_pAnimator->addClip(std::move(idleClip));
-    auto runClip = Animation::makeClipFromRow(kRun, runTex, kFrameSize, 7, 12.f, true);
-    m_pAnimator->addClip(std::move(runClip));
-    auto jumpClip = Animation::makeClipFromRow(kJump, jumpTex, kFrameSize, 6, 12.f, false);
-    m_pAnimator->addClip(std::move(jumpClip));
-    auto fallClip = Animation::makeClipFromRow(kFall, fallTex, kFrameSize, 3, 12.f, true);
-    m_pAnimator->addClip(std::move(fallClip));
-    auto dashClip = Animation::makeClipFromRow(kDash, dashTex, kFrameSize, 4, 20.f, false);
-    m_pAnimator->addClip(std::move(dashClip));
-    auto deathClip = Animation::makeClipFromRow(kDeath, deathTex, kFrameSize, 6, 8.f, false);
-    m_pAnimator->addClip(std::move(deathClip));
-    auto castClip = Animation::makeClipFromRow(kCast, castTex, kFrameSize, 5, 20.f, false);
-    m_pAnimator->addClip(std::move(castClip));
+    m_idleClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("idle", idleTex, kFrameSize, 4, 6.f, true));
+    m_runClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("run", runTex, kFrameSize, 7, 12.f, true));
+    m_jumpClip = m_pAnimator->addClip(
+        Animation::makeClipFromRow("jump", jumpTex, kFrameSize, 6, 12.f, false));
+    m_fallClip = m_pAnimator->addClip(
+        Animation::makeClipFromRow("fall", fallTex, kFrameSize, 3, 12.f, true));
+    m_dashClip = m_pAnimator->addClip(
+        Animation::makeClipFromRow("dash", dashTex, kFrameSize, 4, 20.f, false));
+    m_deathClip = m_pAnimator->addClip(
+        Animation::makeClipFromRow("death", deathTex, kFrameSize, 6, 8.f, false));
+    m_castClip = m_pAnimator->addClip(
+        Animation::makeClipFromRow("cast", castTex, kFrameSize, 5, 20.f, false));
 
     // Setup collider
     setColliderSize(
@@ -109,7 +99,7 @@ void Player::update(float dt) {
     }
     if (m_state == State::Death) {
         if (m_pAnimator) {
-            m_pAnimator->ensureClip(kDeath);
+            m_pAnimator->playClip(m_deathClip);
             m_pAnimator->update(dt);
         }
         if (m_pSprite)
@@ -196,9 +186,9 @@ void Player::update(float dt) {
     // Animation selection
     if (m_pAnimator) {
         if (m_state == State::Dash) {
-            m_pAnimator->ensureClip(kDash);
+            m_pAnimator->playClip(m_dashClip);
         } else if (m_state == State::Cast) {
-            m_pAnimator->ensureClip(kCast);
+            m_pAnimator->playClip(m_castClip);
         } else if (!isGrounded()) {
             updateJumpAnimation();
         } else {
@@ -246,26 +236,24 @@ void Player::tryApplyDash() {
 
 void Player::updateJumpAnimation() {
     if (m_velocity.y < 0.f) {
-        m_pAnimator->ensureClip(kJump);
+        m_pAnimator->playClip(m_jumpClip);
     } else {
-        m_pAnimator->ensureClip(kFall);
+        m_pAnimator->playClip(m_fallClip);
     }
 }
 
 void Player::updateMoveAnimation() {
     const float speed = std::abs(m_velocity.x);
     if (speed > kMinSpeed)
-        m_pAnimator->ensureClip(kRun);
+        m_pAnimator->playClip(m_runClip);
     else
-        m_pAnimator->ensureClip(kIdle);
+        m_pAnimator->playClip(m_idleClip);
 }
 
 void Player::enterMove() {
     m_state = State::Move;
-    if (m_pAnimator) {
-        if (!m_pAnimator->isPlayingClip(kIdle) && !m_pAnimator->isPlayingClip(kRun))
-            m_pAnimator->playClip(kIdle);
-    }
+    if (m_pAnimator)
+        m_pAnimator->playClip(m_idleClip);
 }
 
 void Player::enterDash(float dirX) {
@@ -278,7 +266,7 @@ void Player::enterDash(float dirX) {
         m_stamina -= kDashStaminaCost;
     setFacing(m_dashDirX > 0 ? Facing::Right : Facing::Left);
     if (m_pAnimator)
-        m_pAnimator->playClip(kDash);
+        m_pAnimator->playClip(m_dashClip);
 }
 
 void Player::enterDeath() {
@@ -286,7 +274,7 @@ void Player::enterDeath() {
     if (m_pAnimator) {
         // When the non-looping death animation finishes, return to the menu.
         World* world = m_world;
-        m_pAnimator->playClip(kDeath, [world]() {
+        m_pAnimator->playClip(m_deathClip, [world]() {
             if (world)
                 world->requestExitToMenu();
         });
@@ -324,7 +312,7 @@ void Player::enterCast() {
     // Play cast animation and return to move on completion
     m_state = State::Cast;
     if (m_pAnimator)
-        m_pAnimator->playClip(kCast, [this]() {
+        m_pAnimator->playClip(m_castClip, [this]() {
             if (m_state == State::Cast)
                 enterMove();
         });

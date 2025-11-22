@@ -1,5 +1,6 @@
 #include "states/StateMenu.h"
 
+#include "core/Assets.h"
 #include "core/ResourceManager.h"
 #include "states/StatePlaying.h"
 #include "states/StateStack.h"
@@ -14,7 +15,7 @@ StateMenu::StateMenu(StateStack& stateStack, sf::RenderWindow& window)
     : m_stateStack(stateStack), m_window(window) {}
 
 bool StateMenu::init() {
-    const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
+    const sf::Font& font = ResourceManager::getFont(Assets::Font::Lavigne);
 
     m_pText = std::make_unique<sf::Text>(font);
 

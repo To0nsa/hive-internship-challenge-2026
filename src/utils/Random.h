@@ -11,14 +11,14 @@ namespace Random {
     using Engine = std::mt19937;
 
     inline Engine& engine() {
-        static Engine engine{[] {
+        static Engine eng = [] {
             std::random_device rd;
             return Engine{rd()};
-        }()};
-        return engine;
+        }();
+        return eng;
     }
 
-    inline void seed(std::uint64_t seed) { engine().seed(static_cast<std::uint32_t>(seed)); }
+    inline void seed(std::uint64_t s) { engine().seed(static_cast<std::uint32_t>(s)); }
 
     inline std::uint64_t timeSeed() {
         using namespace std::chrono;

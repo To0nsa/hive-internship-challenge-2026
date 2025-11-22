@@ -1,5 +1,6 @@
 #pragma once
 
+#include "animation/Animation.h"
 #include "entities/actor/enemy/Enemy.h"
 
 #include <SFML/System/Vector2.hpp>
@@ -38,4 +39,7 @@ class Demon final : public Enemy {
     static constexpr float kDemonManaMax       = 80.f;
     static constexpr float kDemonHpRegenRate   = 0.f;
     static constexpr float kDemonManaRegenRate = 5.f;
+
+    SpriteAnimator::ClipId m_flyClip   = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId m_deathClip = SpriteAnimator::kInvalidClip;
 };

@@ -52,4 +52,9 @@ class Projectile final : public Entity {
     // Phase
     Phase m_phase        = Phase::Start;
     bool  m_hitRequested = false;
+
+    // Animation clip ids
+    SpriteAnimator::ClipId m_startClip = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId m_loopClip  = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId m_hitClip   = SpriteAnimator::kInvalidClip;
 };

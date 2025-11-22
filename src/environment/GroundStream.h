@@ -2,10 +2,10 @@
 
 #include "animation/Animation.h"
 #include "collision/MultiRectCollider.h"
+#include "core/Assets.h"
 #include "core/Config.h"
 #include "core/Debug.h"
 #include "core/ResourceManager.h"
-#include "environment/BackgroundAssets.h"
 #include "environment/StripUtil.h"
 #include "utils/Geom.h"
 #include "utils/Math.h"
@@ -58,8 +58,7 @@ class GroundStream : public sf::Drawable {
 
     // Draws the textured ground strip + lava inside gaps + debug AABBs.
     void drawForView(sf::RenderTarget& target, const sf::View& view) const {
-        const std::string file = bgassets::keyToFilename(m_layer.key);
-        sf::Texture&      tex  = ResourceManager::getTexture(file);
+        sf::Texture& tex = ResourceManager::getTexture(m_layer.texturePath);
         // Ensure horizontal repeating for scrolling
         tex.setRepeated(true);
         strip::drawStrip(target, view, tex, m_layer.factor);
@@ -117,13 +116,13 @@ class GroundStream : public sf::Drawable {
         if (m_lavaAnimator)
             return;
 
-        sf::Texture& tex = ResourceManager::getTexture("lava.png");
+        sf::Texture& tex = ResourceManager::getTexture(Assets::Tex::Environment::Ground::Lava);
 
         m_lavaClip = Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
         m_pLavaSprite  = std::make_unique<sf::Sprite>(tex);
         m_lavaAnimator = std::make_unique<SpriteAnimator>(*m_pLavaSprite);
-        m_lavaAnimator->addClip(m_lavaClip);
-        m_lavaAnimator->playClip("lava");
+        m_lavaClipId   = m_lavaAnimator->addClip(m_lavaClip);
+        m_lavaAnimator->playClip(m_lavaClipId);
     }
 
     // Rendering of lava inside gaps
@@ -229,6 +228,7 @@ class GroundStream : public sf::Drawable {
     mutable std::unique_ptr<sf::Sprite>     m_pLavaSprite;
     mutable std::unique_ptr<SpriteAnimator> m_lavaAnimator;
     mutable AnimationClip                   m_lavaClip;
+    mutable SpriteAnimator::ClipId          m_lavaClipId = SpriteAnimator::kInvalidClip;
 
     // Tunables (kept close to original intent)
     static constexpr float kColliderHeightRatio = 0.05f; // fraction of view height

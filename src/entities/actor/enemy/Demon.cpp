@@ -1,6 +1,7 @@
 #include "entities/actor/enemy/Demon.h"
 
 #include "animation/Animation.h"
+#include "core/Assets.h"
 #include "core/ResourceManager.h"
 #include "core/World.h"
 #include "entities/actor/player/Player.h"
@@ -8,15 +9,10 @@
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
 
-namespace {
-    constexpr const char* kFly   = "demon_fly";
-    constexpr const char* kDeath = "demon_death";
-} // namespace
-
 bool Demon::init() {
     // Load textures
-    sf::Texture& flyTex   = ResourceManager::getTexture("DemonFlyAnimation.png");
-    sf::Texture& deathTex = ResourceManager::getTexture("DemonDeathAnimation.png");
+    sf::Texture& flyTex   = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Fly);
+    sf::Texture& deathTex = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Death);
 
     // Sprite
     const sf::Vector2i kFrame{81, 71};
@@ -33,8 +29,10 @@ bool Demon::init() {
     m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
 
     // Clips
-    m_pAnimator->addClip(Animation::makeClipFromRow(kFly, flyTex, kFrame, 4, 10.f, true));
-    m_pAnimator->addClip(Animation::makeClipFromRow(kDeath, deathTex, kFrame, 7, 10.f, false));
+    m_flyClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("fly", flyTex, kFrame, 4, 10.f, true));
+    m_deathClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("death", deathTex, kFrame, 7, 10.f, false));
 
     // Collider
     setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});
@@ -46,13 +44,13 @@ bool Demon::init() {
 void Demon::enterFly() {
     m_state = State::Fly;
     if (m_pAnimator)
-        m_pAnimator->ensureClip(kFly);
+        m_pAnimator->playClip(m_flyClip);
 }
 
 void Demon::enterDeath() {
     m_state = State::Death;
     if (m_pAnimator)
-        m_pAnimator->playClip(kDeath, [this]() { setAlive(false); });
+        m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
 }
 
 void Demon::updateFly(float dt) {

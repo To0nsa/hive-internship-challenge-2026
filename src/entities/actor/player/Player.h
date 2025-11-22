@@ -1,5 +1,6 @@
 #pragma once
 
+#include "animation/Animation.h"
 #include "entities/actor/Actor.h"
 
 struct PlayerInput {
@@ -46,6 +47,13 @@ class Player final : public Actor {
     // Rendering
     static inline const sf::Vector2i kFrameSize{100, 64};
     static inline const sf::Vector2f kPlayerScale{1.5f, 1.5f};
+    SpriteAnimator::ClipId           m_idleClip  = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_runClip   = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_jumpClip  = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_fallClip  = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_dashClip  = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_deathClip = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_castClip  = SpriteAnimator::kInvalidClip;
 
     // Configuration
     static constexpr float kMaxSpeed     = 500.f;

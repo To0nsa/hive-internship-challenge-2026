@@ -51,22 +51,22 @@ Projectile::Projectile(SpellId spellId, Faction faction, const sf::Vector2f& ori
 
 void Projectile::buildClips() {
     // Create and register start/loop/hit clips
-    m_pAnimator->addClip(makeClipFromSpell("start", m_def.visuals.start));
-    m_pAnimator->addClip(makeClipFromSpell("loop", m_def.visuals.loop));
-    m_pAnimator->addClip(makeClipFromSpell("hit", m_def.visuals.hit));
+    m_startClip = m_pAnimator->addClip(makeClipFromSpell("start", m_def.visuals.start));
+    m_loopClip  = m_pAnimator->addClip(makeClipFromSpell("loop", m_def.visuals.loop));
+    m_hitClip   = m_pAnimator->addClip(makeClipFromSpell("hit", m_def.visuals.hit));
 }
 
 void Projectile::enterStart() {
     m_phase = Phase::Start;
 
-    m_pAnimator->playClip("start", [this]() { enterLoop(); });
+    m_pAnimator->playClip(m_startClip, [this]() { enterLoop(); });
 }
 
 void Projectile::enterLoop() {
     if (m_phase == Phase::Dead)
         return;
     m_phase = Phase::Loop;
-    m_pAnimator->playClip("loop");
+    m_pAnimator->playClip(m_loopClip);
 }
 
 void Projectile::enterHit() {
@@ -78,7 +78,7 @@ void Projectile::enterHit() {
     m_velocity = {0.f, 0.f};
 
     // When HIT completes, mark dead
-    m_pAnimator->playClip("hit", [this]() {
+    m_pAnimator->playClip(m_hitClip, [this]() {
         m_phase = Phase::Dead;
         setAlive(false);
     });

@@ -12,8 +12,7 @@ class Platform final : public Entity {
     explicit Platform(const PlatformDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const std::string  textureKey{m_desc.textureKey};
-        const sf::Texture& tex = ResourceManager::getTexture(textureKey);
+        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
 
         m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;

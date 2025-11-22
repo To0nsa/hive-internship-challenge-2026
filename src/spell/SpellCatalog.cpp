@@ -1,5 +1,7 @@
 #include "spell/SpellCatalog.h"
 
+#include "core/Assets.h"
+
 // Ice Bolt
 static SpellDef makeIceBolt() {
     SpellDef def;
@@ -17,9 +19,9 @@ static SpellDef makeIceBolt() {
     def.stats.projectile.colliderSize = {18.f, 8.f};
 
     // Visuals
-    def.visuals.start = {"ice_boltstart.png", {48, 32}, 3, 16.f, false};
-    def.visuals.loop  = {"icebolt_loop.png", {48, 32}, 10, 16.f, true};
-    def.visuals.hit   = {"icebolt_hit.png", {48, 32}, 7, 16.f, false};
+    def.visuals.start = {std::string(Assets::Tex::Spell::Icebolt::Start), {48, 32}, 3, 16.f, false};
+    def.visuals.loop  = {std::string(Assets::Tex::Spell::Icebolt::Loop), {48, 32}, 10, 16.f, true};
+    def.visuals.hit   = {std::string(Assets::Tex::Spell::Icebolt::Hit), {48, 32}, 7, 16.f, false};
     return def;
 }
 
@@ -37,9 +39,10 @@ static SpellDef makeLightning() {
     def.stats.projectile.colliderSize = {16.f, 8.f};
 
     // Visuals
-    def.visuals.start = {"lightning_start.png", {32, 32}, 5, 16.f, false};
-    def.visuals.loop  = {"lightning_loop.png", {32, 32}, 5, 12.f, true};
-    def.visuals.hit   = {"lightning_hit.png", {32, 32}, 6, 16.f, false};
+    def.visuals.start = {
+        std::string(Assets::Tex::Spell::Lightning::Start), {32, 32}, 5, 16.f, false};
+    def.visuals.loop = {std::string(Assets::Tex::Spell::Lightning::Loop), {32, 32}, 5, 12.f, true};
+    def.visuals.hit  = {std::string(Assets::Tex::Spell::Lightning::Hit), {32, 32}, 6, 16.f, false};
     return def;
 }
 

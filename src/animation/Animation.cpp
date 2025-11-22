@@ -6,54 +6,59 @@
 // SpriteAnimator implementation
 SpriteAnimator::SpriteAnimator(sf::Sprite& sprite) : m_sprite(sprite) {}
 
-void SpriteAnimator::addClip(AnimationClip clip) { m_clips.emplace(clip.name, std::move(clip)); }
+SpriteAnimator::ClipId SpriteAnimator::addClip(AnimationClip clip) {
+    const ClipId id = m_clips.size();
+    m_clips.push_back(std::move(clip));
+    return id;
+}
 
-void SpriteAnimator::playClip(const std::string& clipName, std::function<void()> onCompleteOnce) {
-    if (m_activeClipName == clipName && !m_restartRequested)
-        return;
-    auto it = m_clips.find(clipName);
-    if (it == m_clips.end())
+void SpriteAnimator::playClip(ClipId clipId, std::function<void()> onCompleteOnce) {
+    if (clipId == kInvalidClip || clipId >= m_clips.size())
         return;
 
-    m_activeClipName   = clipName;
-    m_activeClip       = &it->second;
+    const bool sameClip = (clipId == m_activeClipId);
+
+    if (sameClip && !m_restartRequested) {
+        if (onCompleteOnce) {
+            m_onCompleteOnce = std::move(onCompleteOnce);
+        }
+        return;
+    }
+    
+    m_activeClipId     = clipId;
     m_onCompleteOnce   = std::move(onCompleteOnce);
     m_timeAccumulator  = 0.f;
     m_frameIndex       = 0;
     m_restartRequested = false;
-    if (m_activeClip->texture)
-        m_sprite.setTexture(*m_activeClip->texture);
+
+    if (const auto& clip = m_clips[m_activeClipId]; clip.texture)
+        m_sprite.setTexture(*clip.texture);
     applyFrameRect();
 }
 
+
 void SpriteAnimator::requestRestart() { m_restartRequested = true; }
 
-bool SpriteAnimator::isPlayingClip(const std::string& clipName) const {
-    return m_activeClipName == clipName;
-}
-
-void SpriteAnimator::ensureClip(const std::string& clipName) {
-    if (!isPlayingClip(clipName))
-        playClip(clipName);
-}
-
 void SpriteAnimator::update(float dt) {
-    if (!m_activeClip)
+    if (m_activeClipId == kInvalidClip || m_activeClipId >= m_clips.size())
         return;
-    if (m_activeClip->frameRects.empty() || m_activeClip->fps <= 0.f)
+
+    AnimationClip& clip = m_clips[m_activeClipId];
+
+    if (clip.frames.empty() || clip.fps <= 0.f)
         return;
 
     m_timeAccumulator += dt;
-    const float frameDuration = 1.f / m_activeClip->fps;
+    const float frameDuration = 1.f / clip.fps;
 
     while (m_timeAccumulator >= frameDuration) {
         m_timeAccumulator -= frameDuration;
-        advanceFrame(*m_activeClip);
+        advanceFrame(clip);
     }
 }
 
 void SpriteAnimator::advanceFrame(const AnimationClip& clip) {
-    if (m_frameIndex + 1 < clip.frameRects.size()) {
+    if (m_frameIndex + 1 < clip.frames.size()) {
         ++m_frameIndex;
         applyFrameRect();
         return;
@@ -73,9 +78,12 @@ void SpriteAnimator::advanceFrame(const AnimationClip& clip) {
 }
 
 void SpriteAnimator::applyFrameRect() {
-    if (!m_activeClip || m_activeClip->frameRects.empty())
+    if (m_activeClipId == kInvalidClip || m_activeClipId >= m_clips.size())
         return;
-    m_sprite.setTextureRect(m_activeClip->frameRects[m_frameIndex]);
+    const AnimationClip& clip = m_clips[m_activeClipId];
+    if (clip.frames.empty())
+        return;
+    m_sprite.setTextureRect(clip.frames[m_frameIndex].rect);
 }
 
 // Animation namespace implementation
@@ -89,10 +97,10 @@ namespace Animation {
         clip.fps     = fps;
         clip.looping = looping;
 
-        clip.frameRects.reserve(frameCount);
+        clip.frames.reserve(frameCount);
         for (int i = 0; i < frameCount; ++i) {
-            clip.frameRects.emplace_back(
-                sf::IntRect{{i * frameSize.x, 0}, {frameSize.x, frameSize.y}});
+            clip.frames.push_back(AnimationClip::Frame{
+                sf::IntRect{{i * frameSize.x, 0}, {frameSize.x, frameSize.y}}});
         }
         return clip;
     }
@@ -126,12 +134,12 @@ namespace Animation {
         if (start > end)
             std::swap(start, end);
 
-        clip.frameRects.reserve(static_cast<std::size_t>(end - start + 1));
+        clip.frames.reserve(static_cast<std::size_t>(end - start + 1));
         for (int i = start; i <= end; ++i) {
             const int c = i % cols;
             const int r = i / cols;
-            clip.frameRects.emplace_back(
-                sf::IntRect{{c * frameSize.x, r * frameSize.y}, {frameSize.x, frameSize.y}});
+            clip.frames.push_back(AnimationClip::Frame{
+                sf::IntRect{{c * frameSize.x, r * frameSize.y}, {frameSize.x, frameSize.y}}});
         }
         return clip;
     }

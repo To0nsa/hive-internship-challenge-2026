@@ -1,5 +1,6 @@
 #include "entities/collectible/RedSquare.h"
 
+#include "core/Assets.h"
 #include "core/Config.h"
 #include "core/Debug.h"
 #include "core/ResourceManager.h"
@@ -9,7 +10,7 @@
 
 bool RedSquare::init() {
     // Hidden sprite used only for collider transform (not rendered)
-    const sf::Texture& tex = ResourceManager::getTexture("ice_boltstart.png");
+    const sf::Texture& tex = ResourceManager::getTexture(Assets::Tex::Spell::Icebolt::Start);
     m_pSprite              = std::make_unique<sf::Sprite>(tex);
     m_pSprite->setOrigin({kSize * 0.5f, kSize * 0.5f});
     m_pSprite->setPosition(m_startCenter);

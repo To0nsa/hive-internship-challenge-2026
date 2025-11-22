@@ -15,8 +15,7 @@ class Obstacle final : public Entity {
     explicit Obstacle(const ObstacleDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const std::string  textureKey{m_desc.textureKey};
-        const sf::Texture& tex = ResourceManager::getTexture(textureKey);
+        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
 
         m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;
@@ -36,8 +35,8 @@ class Obstacle final : public Entity {
             auto clip =
                 Animation::makeClipFromSheet("main", tex, m_desc.frameSize, m_desc.startCell,
                                              m_desc.endCell, m_desc.fps, m_desc.loop);
-            m_pAnimator->addClip(std::move(clip));
-            m_pAnimator->playClip("main");
+            m_mainClip = m_pAnimator->addClip(std::move(clip));
+            m_pAnimator->playClip(m_mainClip);
         }
 
         // Collider setup
@@ -68,5 +67,6 @@ class Obstacle final : public Entity {
     const ObstacleDesc& getDesc() const { return m_desc; }
 
   private:
-    ObstacleDesc m_desc;
+    ObstacleDesc           m_desc;
+    SpriteAnimator::ClipId m_mainClip = SpriteAnimator::kInvalidClip;
 };

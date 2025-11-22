@@ -1,5 +1,6 @@
 #include "states/StatePaused.h"
 
+#include "core/Assets.h"
 #include "core/ResourceManager.h"
 #include "states/StateStack.h"
 
@@ -12,7 +13,7 @@ StatePaused::StatePaused(StateStack& stateStack) : m_stateStack(stateStack) {}
 bool StatePaused::init() {
     m_pPrevState = m_stateStack.getCurrentState();
 
-    const sf::Font& font = ResourceManager::getFont("Lavigne.ttf");
+    const sf::Font& font = ResourceManager::getFont(Assets::Font::Lavigne);
 
     m_pText = std::make_unique<sf::Text>(font);
 

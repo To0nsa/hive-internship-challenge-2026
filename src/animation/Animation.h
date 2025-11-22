@@ -4,46 +4,47 @@
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/Graphics/Texture.hpp>
 #include <SFML/System/Vector2.hpp>
+#include <cstdint>
 #include <functional>
+#include <limits>
 #include <string>
-#include <unordered_map>
 #include <vector>
 
 struct AnimationClip {
-    std::string              name;
-    const sf::Texture*       texture = nullptr;
-    std::vector<sf::IntRect> frameRects; // Rects defining each frame in the animation
-    float                    fps     = 8.f;
-    bool                     looping = true;
+    struct Frame {
+        sf::IntRect rect{};
+    };
+
+    std::string        name;
+    const sf::Texture* texture = nullptr;
+    std::vector<Frame> frames;
+    float              fps     = 8.f;
+    bool               looping = true;
 };
 
 class SpriteAnimator {
   public:
+    using ClipId                         = std::size_t;
+    static constexpr ClipId kInvalidClip = std::numeric_limits<ClipId>::max();
+
     explicit SpriteAnimator(sf::Sprite& sprite);
 
-    void addClip(AnimationClip clip);
+    ClipId addClip(AnimationClip clip);
 
     // Start or switch to a clip. If non-looping, onCompleteOnce fires when the
     // clip finishes.
-    void playClip(const std::string& clipName, std::function<void()> onCompleteOnce = {});
+    void playClip(ClipId clipId, std::function<void()> onCompleteOnce = {});
 
     // Request a restart of the current clip at the next update
     void requestRestart();
 
-    // Check if a specific clip is currently playing
-    bool isPlayingClip(const std::string& clipName) const;
-
-    // Helper: ensure a clip is playing without restarting if already active
-    void ensureClip(const std::string& clipName);
-
     void update(float dt);
 
   private:
-    sf::Sprite&                                    m_sprite;
-    std::unordered_map<std::string, AnimationClip> m_clips;
+    sf::Sprite&                m_sprite;
+    std::vector<AnimationClip> m_clips;
 
-    std::string           m_activeClipName;
-    const AnimationClip*  m_activeClip = nullptr;
+    ClipId                m_activeClipId = kInvalidClip;
     std::function<void()> m_onCompleteOnce;
 
     float       m_timeAccumulator  = 0.f;

@@ -1,6 +1,7 @@
 #include "core/World.h"
 
 #include "collision/MultiRectCollider.h"
+#include "core/Assets.h"
 #include "core/Config.h"
 #include "core/Debug.h"
 #include "core/ResourceManager.h"
@@ -50,20 +51,24 @@ bool World::init() {
 
     // Backgrounds
     m_bg = std::make_unique<ParallaxBackground>(std::initializer_list<strip::ParallaxLayerDesc>{
-        {"bg_01", 0.16f},
-        {"bg_02", 0.22f},
-        {"bg_03", 0.28f},
-        {"bg_04", 0.34f},
-        {"bg_05", 0.50f},
-        {"bg_06", 0.62f},
-        {"bg_08", 0.76f},
+        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer01, 0.16f},
+        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer02, 0.22f},
+        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer03, 0.28f},
+        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer04, 0.34f},
+        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer05, 0.50f},
+        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer06, 0.62f},
+        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer08, 0.76f},
     });
     // Animated background strip
     m_bgAnim = std::make_unique<AnimatedParallaxStrip>(
-        std::vector<std::string>{"bg_anim_01", "bg_anim_02", "bg_anim_03"}, 0.15f, 6.f);
+        std::vector<std::string_view>{Assets::Tex::Environment::Parallax::VolcanoDay::Bg01,
+                                      Assets::Tex::Environment::Parallax::VolcanoDay::Bg02,
+                                      Assets::Tex::Environment::Parallax::VolcanoDay::Bg03},
+        0.15f, 6.f);
 
     // Ground stream with colliders
-    m_ground = std::make_unique<GroundStream>(strip::ParallaxLayerDesc{"bg_07", 1.f});
+    m_ground = std::make_unique<GroundStream>(
+        strip::ParallaxLayerDesc{Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, 1.f});
     m_ground->updateForView(m_view);
 
     // Create player entity
@@ -418,10 +423,9 @@ void World::render(sf::RenderTarget& target) const {
     if (m_bgAnim)
         m_bgAnim->drawForView(target, m_view);
 
-    if (m_bg) {
-        const std::size_t i06  = m_bg->findIndexByKey("bg_06");
-        const std::size_t upto = (i06 < m_bg->size()) ? i06 : (m_bg->size() ? m_bg->size() - 1 : 0);
-        m_bg->drawRangeForView(target, m_view, 0, upto);
+    if (m_bg && m_bg->size() > 0) {
+        const std::size_t lastBack = std::min<std::size_t>(5, m_bg->size() - 1);
+        m_bg->drawRangeForView(target, m_view, 0, lastBack);
     }
 
     for (const std::unique_ptr<Entity>& pEntity : m_entities) {
@@ -438,11 +442,8 @@ void World::render(sf::RenderTarget& target) const {
     }
 
     // Foreground layer 08 after entities
-    if (m_bg) {
-        const std::size_t i08 = m_bg->findIndexByKey("bg_08");
-        if (i08 < m_bg->size())
-            m_bg->drawRangeForView(target, m_view, i08, i08);
-    }
+    if (m_bg && m_bg->size() >= 7)
+        m_bg->drawRangeForView(target, m_view, 6, 6);
 
     // Debug helpers
     if constexpr (Config::kDebugDraw) {

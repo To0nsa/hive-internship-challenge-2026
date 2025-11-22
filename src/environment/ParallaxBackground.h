@@ -1,11 +1,9 @@
 #pragma once
 
 #include "core/ResourceManager.h"
-#include "environment/BackgroundAssets.h"
 #include "environment/StripUtil.h"
 
 #include <SFML/Graphics.hpp>
-#include <string>
 #include <vector>
 
 class ParallaxBackground : public sf::Drawable {
@@ -23,19 +21,11 @@ class ParallaxBackground : public sf::Drawable {
         const std::size_t lastClamped = std::min(last, m_layers.size() - 1);
         for (std::size_t i = first; i <= lastClamped; ++i) {
             const auto&  layer = m_layers[i];
-            const auto   file  = bgassets::keyToFilename(layer.key);
-            sf::Texture& tex   = ResourceManager::getTexture(file);
+            sf::Texture& tex   = ResourceManager::getTexture(layer.texturePath);
             // Ensure horizontal repeating for scrolling
             tex.setRepeated(true);
             strip::drawStrip(t, view, tex, layer.factor);
         }
-    }
-
-    std::size_t findIndexByKey(const std::string& key) const {
-        for (std::size_t i = 0; i < m_layers.size(); ++i)
-            if (m_layers[i].key == key)
-                return i;
-        return m_layers.size();
     }
 
     std::size_t size() const { return m_layers.size(); }
