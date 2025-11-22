@@ -1,4 +1,4 @@
-#include "SpellCatalog.h"
+#include "spell/SpellCatalog.h"
 
 // Ice Bolt
 static SpellDef makeIceBolt() {

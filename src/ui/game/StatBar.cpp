@@ -1,5 +1,5 @@
 // StatBar.cpp
-#include "StatBar.h"
+#include "ui/game/StatBar.h"
 
 #include <algorithm>
 

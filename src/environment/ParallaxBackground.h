@@ -1,8 +1,8 @@
 #pragma once
 
-#include "BackgroundAssets.h"
-#include "ResourceManager.h"
-#include "StripUtil.h"
+#include "core/ResourceManager.h"
+#include "environment/BackgroundAssets.h"
+#include "environment/StripUtil.h"
 
 #include <SFML/Graphics.hpp>
 #include <string>

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IState.h"
+#include "states/IState.h"
 
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/Text.hpp>

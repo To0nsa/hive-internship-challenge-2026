@@ -1,10 +1,10 @@
-#include "Projectile.h"
+#include "spell/projectile/Projectile.h"
 
-#include "../../core/Debug.h"
-#include "Config.h"
-#include "Entity.h"
-#include "Math.h"
-#include "ResourceManager.h"
+#include "core/Config.h"
+#include "core/Debug.h"
+#include "core/ResourceManager.h"
+#include "entities/Entity.h"
+#include "utils/Math.h"
 
 static inline AnimationClip makeClipFromSpell(const std::string& name, const SpellClip& spell) {
     const sf::Texture& tex = ResourceManager::getTexture(spell.textureKey);

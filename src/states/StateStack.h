@@ -1,6 +1,6 @@
 #pragma once
 
-#include "IState.h"
+#include "states/IState.h"
 
 #include <cassert>
 #include <memory>

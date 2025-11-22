@@ -1,6 +1,6 @@
 #pragma once
 
-#include "GameSession.h"
+#include "gameplay/GameSession.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/View.hpp>

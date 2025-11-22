@@ -1,10 +1,10 @@
 ﻿#pragma once
 
-#include "../../core/Debug.h"
-#include "Config.h"
-#include "Entity.h"
-#include "PlatformTypes.h"
-#include "ResourceManager.h"
+#include "core/Config.h"
+#include "core/Debug.h"
+#include "core/ResourceManager.h"
+#include "entities/Entity.h"
+#include "entities/platform/PlatformTypes.h"
 
 // Minimal static-image platform entity. No animation.
 class Platform final : public Entity {
@@ -12,7 +12,8 @@ class Platform final : public Entity {
     explicit Platform(const PlatformDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
+        const std::string  textureKey{m_desc.textureKey};
+        const sf::Texture& tex = ResourceManager::getTexture(textureKey);
 
         m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "GameHUD.h"
-#include "IState.h"
-#include "World.h"
+#include "core/World.h"
 #include "entities/actor/player/Player.h"
-#include "session/GameSession.h"
+#include "gameplay/GameSession.h"
+#include "states/IState.h"
+#include "ui/game/GameHUD.h"
 
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Graphics/View.hpp>

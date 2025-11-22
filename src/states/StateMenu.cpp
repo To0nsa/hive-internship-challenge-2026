@@ -1,8 +1,8 @@
-#include "StateMenu.h"
+#include "states/StateMenu.h"
 
-#include "ResourceManager.h"
-#include "StatePlaying.h"
-#include "StateStack.h"
+#include "core/ResourceManager.h"
+#include "states/StatePlaying.h"
+#include "states/StateStack.h"
 
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>

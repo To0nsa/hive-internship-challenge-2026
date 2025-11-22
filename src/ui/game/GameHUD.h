@@ -1,6 +1,6 @@
 #pragma once
 
-#include "StatBar.h"
+#include "ui/game/StatBar.h"
 
 #include <SFML/Graphics/Drawable.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>

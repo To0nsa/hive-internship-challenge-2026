@@ -1,7 +1,7 @@
 ﻿#pragma once
 
-#include "Platform.h"
-#include "PlatformTypes.h"
+#include "entities/platform/Platform.h"
+#include "entities/platform/PlatformTypes.h"
 
 class World;
 

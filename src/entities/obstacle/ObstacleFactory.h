@@ -1,7 +1,7 @@
 ﻿#pragma once
 
-#include "Obstacle.h"
-#include "ObstacleTypes.h"
+#include "entities/obstacle/Obstacle.h"
+#include "entities/obstacle/ObstacleTypes.h"
 
 class World;
 

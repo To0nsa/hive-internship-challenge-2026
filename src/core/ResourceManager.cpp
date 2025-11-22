@@ -1,4 +1,4 @@
-#include "ResourceManager.h"
+#include "core/ResourceManager.h"
 
 #include <algorithm>
 #include <iostream>
@@ -12,68 +12,74 @@ void ResourceManager::init(std::string executablePath) {
     m_assetPath += "assets/";
 }
 
-const sf::Font& ResourceManager::getFont(const std::string& filename) {
-    if (auto it = m_loadedFonts.find(filename); it != m_loadedFonts.end())
+const sf::Font& ResourceManager::getFont(std::string_view filename) {
+    const std::string key(filename);
+
+    if (auto it = m_loadedFonts.find(key); it != m_loadedFonts.end())
         return it->second;
 
-    auto [it, inserted] = m_loadedFonts.emplace(filename, sf::Font{});
+    auto [it, inserted] = m_loadedFonts.emplace(key, sf::Font{});
     if (!inserted) {
         throw std::runtime_error("ResourceManager::getFont: failed to emplace font entry for '" +
-                                 filename + "'");
+                                 key + "'");
     }
 
     sf::Font&  font     = it->second;
-    const auto fullPath = getAssetPath(filename);
+    const auto fullPath = getAssetPath(key);
     if (!font.openFromFile(fullPath)) {
-        throw std::runtime_error("ResourceManager::getFont: could not load font from '" +
-                                 fullPath.string() + "'");
+        throw std::runtime_error("ResourceManager::getFont: could not load font from '" + key +
+                                 "' at '" + fullPath.string() + "'");
     }
 
     return font;
 }
 
-sf::Texture& ResourceManager::getTexture(const std::string& filename) {
-    if (auto it = m_loadedTextures.find(filename); it != m_loadedTextures.end())
+sf::Texture& ResourceManager::getTexture(std::string_view filename) {
+    const std::string key(filename);
+
+    if (auto it = m_loadedTextures.find(key); it != m_loadedTextures.end())
         return it->second;
 
-    auto [it, inserted] = m_loadedTextures.emplace(filename, sf::Texture{});
+    auto [it, inserted] = m_loadedTextures.emplace(key, sf::Texture{});
     if (!inserted) {
         throw std::runtime_error(
-            "ResourceManager::getTexture: failed to emplace texture entry for '" + filename + "'");
+            "ResourceManager::getTexture: failed to emplace texture entry for '" + key + "'");
     }
 
     sf::Texture& texture  = it->second;
-    const auto   fullPath = getAssetPath(filename);
+    const auto   fullPath = getAssetPath(key);
     if (!texture.loadFromFile(fullPath)) {
         throw std::runtime_error("ResourceManager::getTexture: could not load texture from '" +
-                                 fullPath.string() + "'");
+                                 key + "' at '" + fullPath.string() + "'");
     }
 
     return texture;
 }
 
-const sf::SoundBuffer& ResourceManager::getSoundBuffer(const std::string& filename) {
-    if (auto it = m_loadedSoundBuffers.find(filename); it != m_loadedSoundBuffers.end())
+const sf::SoundBuffer& ResourceManager::getSoundBuffer(std::string_view filename) {
+    const std::string key(filename);
+
+    if (auto it = m_loadedSoundBuffers.find(key); it != m_loadedSoundBuffers.end())
         return it->second;
 
-    auto [it, inserted] = m_loadedSoundBuffers.emplace(filename, sf::SoundBuffer{});
+    auto [it, inserted] = m_loadedSoundBuffers.emplace(key, sf::SoundBuffer{});
     if (!inserted) {
         throw std::runtime_error(
-            "ResourceManager::getSoundBuffer: failed to emplace sound buffer entry for '" +
-            filename + "'");
+            "ResourceManager::getSoundBuffer: failed to emplace sound buffer entry for '" + key +
+            "'");
     }
 
     sf::SoundBuffer& buffer   = it->second;
-    const auto       fullPath = getAssetPath(filename);
+    const auto       fullPath = getAssetPath(key);
     if (!buffer.loadFromFile(fullPath)) {
         throw std::runtime_error(
-            "ResourceManager::getSoundBuffer: could not load sound buffer from '" +
+            "ResourceManager::getSoundBuffer: could not load sound buffer from '" + key + "' at '" +
             fullPath.string() + "'");
     }
 
     return buffer;
 }
 
-std::filesystem::path ResourceManager::getAssetPath(const std::string& filename) {
-    return std::filesystem::path(m_assetPath) / filename;
+std::filesystem::path ResourceManager::getAssetPath(std::string_view filename) {
+    return std::filesystem::path(m_assetPath) / std::string(filename);
 }

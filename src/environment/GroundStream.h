@@ -1,14 +1,14 @@
 #pragma once
 
-#include "../core/Debug.h"
-#include "Animation.h"
-#include "BackgroundAssets.h"
-#include "Config.h"
-#include "Geom.h"
-#include "Math.h"
-#include "MultiRectCollider.h"
-#include "ResourceManager.h"
-#include "StripUtil.h"
+#include "animation/Animation.h"
+#include "collision/MultiRectCollider.h"
+#include "core/Config.h"
+#include "core/Debug.h"
+#include "core/ResourceManager.h"
+#include "environment/BackgroundAssets.h"
+#include "environment/StripUtil.h"
+#include "utils/Geom.h"
+#include "utils/Math.h"
 
 #include <SFML/Graphics.hpp>
 #include <algorithm>

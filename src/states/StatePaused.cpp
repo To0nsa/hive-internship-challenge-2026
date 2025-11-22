@@ -1,7 +1,7 @@
-#include "StatePaused.h"
+#include "states/StatePaused.h"
 
-#include "ResourceManager.h"
-#include "StateStack.h"
+#include "core/ResourceManager.h"
+#include "states/StateStack.h"
 
 #include <SFML/Graphics/Font.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>

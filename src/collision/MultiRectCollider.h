@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Collider.h"
+#include "collision/Collider.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <algorithm>

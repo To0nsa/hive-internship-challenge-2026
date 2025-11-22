@@ -1,5 +1,5 @@
-#include "Application.h"
-#include "ResourceManager.h"
+#include "core/Application.h"
+#include "core/ResourceManager.h"
 
 #include <iostream>
 

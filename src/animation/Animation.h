@@ -27,8 +27,10 @@ class SpriteAnimator {
     // clip finishes.
     void playClip(const std::string& clipName, std::function<void()> onCompleteOnce = {});
 
+    // Request a restart of the current clip at the next update
     void requestRestart();
 
+    // Check if a specific clip is currently playing
     bool isPlayingClip(const std::string& clipName) const;
 
     // Helper: ensure a clip is playing without restarting if already active

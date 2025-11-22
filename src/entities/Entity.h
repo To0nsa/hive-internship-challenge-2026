@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Animation.h"
-#include "RectCollider.h"
+#include "animation/Animation.h"
+#include "collision/RectCollider.h"
 
 #include <SFML/Graphics/Sprite.hpp>
 #include <SFML/System/Vector2.hpp>

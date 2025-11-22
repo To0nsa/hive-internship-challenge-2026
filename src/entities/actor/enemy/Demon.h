@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Enemy.h"
+#include "entities/actor/enemy/Enemy.h"
 
 #include <SFML/System/Vector2.hpp>
 

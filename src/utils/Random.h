@@ -18,7 +18,7 @@ namespace Random {
         return engine;
     }
 
-    inline void seed(std::uint64_t s) { engine().seed(static_cast<std::uint32_t>(s)); }
+    inline void seed(std::uint64_t seed) { engine().seed(static_cast<std::uint32_t>(seed)); }
 
     inline std::uint64_t timeSeed() {
         using namespace std::chrono;

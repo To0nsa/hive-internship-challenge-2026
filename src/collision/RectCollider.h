@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Collider.h"
+#include "collision/Collider.h"
 
 class Entity;
 

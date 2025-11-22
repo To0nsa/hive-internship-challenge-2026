@@ -1,11 +1,11 @@
 // GameHUD.cpp
-#include "GameHUD.h"
+#include "ui/game/GameHUD.h"
 
-#include "Config.h"
-#include "Palette.h"
-#include "Player.h"
-#include "ResourceManager.h"
-#include "utils.h"
+#include "core/Config.h"
+#include "core/ResourceManager.h"
+#include "entities/actor/player/Player.h"
+#include "utils/Palette.h"
+#include "utils/utils.h"
 
 GameHUD::GameHUD() {
     // Stats Bars

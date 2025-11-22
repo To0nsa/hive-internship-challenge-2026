@@ -1,11 +1,11 @@
-#include "RedSquare.h"
+#include "entities/collectible/RedSquare.h"
 
-#include "../../core/Debug.h"
-#include "Config.h"
-#include "Geom.h"
-#include "Player.h"
-#include "ResourceManager.h"
-#include "World.h"
+#include "core/Config.h"
+#include "core/Debug.h"
+#include "core/ResourceManager.h"
+#include "core/World.h"
+#include "entities/actor/player/Player.h"
+#include "utils/Geom.h"
 
 bool RedSquare::init() {
     // Hidden sprite used only for collider transform (not rendered)

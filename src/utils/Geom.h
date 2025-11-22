@@ -1,5 +1,5 @@
 ﻿#pragma once
-#include "Math.h"
+#include "utils/Math.h"
 
 #include <SFML/Graphics/Rect.hpp>
 

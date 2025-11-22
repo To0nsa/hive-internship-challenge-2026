@@ -1,6 +1,6 @@
-#include "RectCollider.h"
+#include "collision/RectCollider.h"
 
-#include "Entity.h"
+#include "entities/Entity.h"
 
 #include <SFML/Graphics/Transformable.hpp>
 #include <cmath>

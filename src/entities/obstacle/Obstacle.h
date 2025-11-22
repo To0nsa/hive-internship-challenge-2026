@@ -1,11 +1,11 @@
 ﻿#pragma once
 
-#include "../../core/Debug.h"
-#include "Animation.h"
-#include "Config.h"
-#include "Entity.h"
-#include "ObstacleTypes.h"
-#include "ResourceManager.h"
+#include "animation/Animation.h"
+#include "core/Config.h"
+#include "core/Debug.h"
+#include "core/ResourceManager.h"
+#include "entities/Entity.h"
+#include "entities/obstacle/ObstacleTypes.h"
 
 #include <SFML/Graphics/Sprite.hpp>
 
@@ -15,7 +15,8 @@ class Obstacle final : public Entity {
     explicit Obstacle(const ObstacleDesc& desc) : m_desc(desc) {}
 
     bool init() override {
-        const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
+        const std::string  textureKey{m_desc.textureKey};
+        const sf::Texture& tex = ResourceManager::getTexture(textureKey);
 
         m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;

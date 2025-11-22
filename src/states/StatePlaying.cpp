@@ -1,7 +1,7 @@
-#include "StatePlaying.h"
+#include "states/StatePlaying.h"
 
-#include "StatePaused.h"
-#include "StateStack.h"
+#include "states/StatePaused.h"
+#include "states/StateStack.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <SFML/Window/Mouse.hpp>

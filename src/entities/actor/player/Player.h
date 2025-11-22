@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Actor.h"
+#include "entities/actor/Actor.h"
 
 struct PlayerInput {
     bool moveLeft    = false;

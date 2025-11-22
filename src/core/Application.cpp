@@ -1,7 +1,7 @@
-#include "Application.h"
+#include "core/Application.h"
 
-#include "IState.h"
-#include "StateMenu.h"
+#include "states/IState.h"
+#include "states/StateMenu.h"
 
 #include <SFML/System/Clock.hpp>
 #include <optional>
