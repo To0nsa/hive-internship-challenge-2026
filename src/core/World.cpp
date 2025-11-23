@@ -78,7 +78,8 @@ bool World::init() {
     m_pPlayer->setPosition(sf::Vector2f(Config::windowWidth * 0.5f, Config::windowHeight * 0.5f));
 
     // Seed RNG and schedule first obstacle spawn a bit ahead of view
-    Random::seed(Random::timeSeed());
+    // Random::seed(Random::timeSeed()); // uncomment for non-deterministic runs
+
     const float viewRight = getCameraLeft() + m_view.getSize().x * 2.f;
     m_nextObstacleX       = viewRight + Random::rangef(880.f, 1680.f);
     m_nextPlatformX       = viewRight + Random::rangef(680.f, 980.f);
