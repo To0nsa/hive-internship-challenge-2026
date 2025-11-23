@@ -24,9 +24,14 @@ void SpriteAnimator::playClip(ClipId clipId, std::function<void()> onCompleteOnc
         }
         return;
     }
-    
+
+    // When restarting the same clip without providing a new callback, preserve the existing one.
+    std::function<void()> cb = std::move(onCompleteOnce);
+    if (!cb && sameClip)
+        cb = m_onCompleteOnce;
+
     m_activeClipId     = clipId;
-    m_onCompleteOnce   = std::move(onCompleteOnce);
+    m_onCompleteOnce   = std::move(cb);
     m_timeAccumulator  = 0.f;
     m_frameIndex       = 0;
     m_restartRequested = false;
