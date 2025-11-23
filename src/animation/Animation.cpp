@@ -41,7 +41,6 @@ void SpriteAnimator::playClip(ClipId clipId, std::function<void()> onCompleteOnc
     applyFrameRect();
 }
 
-
 void SpriteAnimator::requestRestart() { m_restartRequested = true; }
 
 void SpriteAnimator::update(float dt) {

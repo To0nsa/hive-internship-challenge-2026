@@ -1,7 +1,5 @@
 #pragma once
 
-#include <algorithm>
-
 class Stopwatch {
   public:
     void reset() { m_elapsed = 0.f; }
@@ -12,10 +10,12 @@ class Stopwatch {
     void  setPaused(bool paused) { m_paused = paused; }
     bool  isPaused() const { return m_paused; }
     void  setScale(float scale) { m_scale = scale; }
+    void  resetScale() { m_scale = m_defaultScale; }
     float getElapsed() const { return m_elapsed; }
 
   private:
-    float m_elapsed = 0.f;
-    float m_scale   = 1.f;
-    bool  m_paused  = false;
+    float m_elapsed      = 0.f;
+    float m_scale        = 1.f;
+    float m_defaultScale = 1.f;
+    bool  m_paused       = false;
 };

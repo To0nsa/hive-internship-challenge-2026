@@ -83,9 +83,9 @@ class World {
     mutable std::vector<sf::FloatRect> m_cachedPlatformRects;
     mutable std::vector<sf::FloatRect> m_cachedSolidTopRects;
 
-    static inline constexpr float kCameraAccel          = 1200.f;
-    static inline constexpr float kCatchupMarginLeft    = 60.f;
-    static inline constexpr float kFollowThresholdRatio = 0.80f; // 80% from left
-    static inline constexpr float kCatchupLerp          = 8.f;   // view center smoothing
-    static inline constexpr float kTargetCatchupLerp    = 2.5f;  // target center smoothing
+    static constexpr float kCameraAccel          = 1200.f;
+    static constexpr float kCatchupMarginLeft    = 60.f;
+    static constexpr float kFollowThresholdRatio = 0.80f; // 80% from left
+    static constexpr float kCatchupLerp          = 8.f;   // view center smoothing
+    static constexpr float kTargetCatchupLerp    = 2.5f;  // target center smoothing
 };
