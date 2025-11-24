@@ -1,10 +1,10 @@
 #pragma once
 
+#include "core/Camera.h"
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
 
 #include <SFML/Graphics/Rect.hpp>
-#include <SFML/Graphics/View.hpp>
 #include <SFML/System/Vector2.hpp>
 #include <memory>
 #include <vector>
@@ -33,7 +33,7 @@ class World {
     float getCameraLeft() const;
     float getCameraCatchupX() const;
     float getFollowThresholdX() const;
-    float getViewBottomY() const { return m_view.getCenter().y + 0.5f * m_view.getSize().y; }
+    float getViewBottomY() const { return m_camera.bottom(); }
 
     const std::vector<sf::FloatRect>& getGroundRects() const;
     const std::vector<sf::FloatRect>& getObstacleRects() const;
@@ -67,21 +67,11 @@ class World {
     float m_nextObstacleX = 0.f;
     float m_nextPlatformX = 0.f;
 
-    sf::View m_view;
-    float    m_cameraX           = 0.f;
-    float    m_cameraTargetX     = 0.f; // smoothed target center X
-    float    m_cameraSpeed       = 0.f;
-    float    m_cameraTargetSpeed = 450.f;
+    Camera m_camera;
 
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
     mutable std::vector<sf::FloatRect> m_cachedObstacleRects;
     mutable std::vector<sf::FloatRect> m_cachedPlatformRects;
     mutable std::vector<sf::FloatRect> m_cachedSolidTopRects;
-
-    static constexpr float kCameraAccel          = 1200.f;
-    static constexpr float kCatchupMarginLeft    = 60.f;
-    static constexpr float kFollowThresholdRatio = 0.80f; // 80% from left
-    static constexpr float kCatchupLerp          = 8.f;   // view center smoothing
-    static constexpr float kTargetCatchupLerp    = 2.5f;  // target center smoothing
 };

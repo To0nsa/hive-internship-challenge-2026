@@ -17,7 +17,6 @@
 #include "spell/projectile/Projectile.h"
 #include "states/StatePlaying.h"
 #include "utils/Geom.h"
-#include "utils/Math.h"
 #include "utils/Random.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
@@ -33,18 +32,13 @@ World::World(StatePlaying& owner, GameSession& session, sf::RenderWindow& window
 World::~World() = default;
 
 bool World::init() {
-    // View set to window size
-    m_view.setSize(
-        {static_cast<float>(Config::windowWidth), static_cast<float>(Config::windowHeight)});
-    m_view.setCenter({m_view.getSize().x * 0.5f, m_view.getSize().y * 0.5f});
-    // Camera state
-    m_cameraX       = m_view.getCenter().x;
-    m_cameraTargetX = m_cameraX;
-    m_cameraSpeed   = 0.f; // ease-in
+    const sf::Vector2f viewSize{static_cast<float>(Config::windowWidth),
+                                static_cast<float>(Config::windowHeight)};
+    m_camera = Camera(viewSize);
 
     if (!m_environment.initVolcanoDay())
         return false;
-    m_environment.update(0.f, m_view);
+    m_environment.update(0.f, m_camera.getView());
 
     // Create player entity
     m_pPlayer = createEntity<Player>();
@@ -55,7 +49,7 @@ bool World::init() {
     // Seed RNG and schedule first obstacle spawn a bit ahead of view
     // Random::seed(Random::timeSeed()); // uncomment for non-deterministic runs
 
-    const float viewRight = getCameraLeft() + m_view.getSize().x * 2.f;
+    const float viewRight = m_camera.right();
     m_nextObstacleX       = viewRight + Random::rangef(880.f, 1680.f);
     m_nextPlatformX       = viewRight + Random::rangef(680.f, 980.f);
 
@@ -70,38 +64,16 @@ void World::update(float dt) {
             e->update(dt);
     }
 
-    // CAMERA UPDATE
-    // Camera auto-scroll baseline (advance target; center eases toward it)
-    if (m_cameraSpeed < m_cameraTargetSpeed) {
-        m_cameraSpeed = std::min(m_cameraTargetSpeed, m_cameraSpeed + kCameraAccel * dt);
-    } else if (m_cameraSpeed > m_cameraTargetSpeed) {
-        m_cameraSpeed = std::max(m_cameraTargetSpeed, m_cameraSpeed - kCameraAccel * dt);
-    }
-    m_cameraTargetX += m_cameraSpeed * dt;
-    // If player passes the follow threshold, let the target drift toward player smoothly.
-    if (m_pPlayer && m_pPlayer->isAlive()) {
-        const float playerX         = m_pPlayer->getPosition().x;
-        const float followThreshold = getFollowThresholdX();
-        if (playerX > followThreshold) {
-            const float alphaT    = math::expSmoothingFactor(kTargetCatchupLerp, dt);
-            const float desired   = playerX; // player centered
-            const float newTarget = m_cameraTargetX + (desired - m_cameraTargetX) * alphaT;
-            m_cameraTargetX       = std::max(m_cameraTargetX, newTarget);
-        }
-    }
-    // Ease camera center toward target
-    const float alpha = math::expSmoothingFactor(kCatchupLerp, dt);
-    m_cameraX += (m_cameraTargetX - m_cameraX) * alpha;
-    m_view.setCenter({m_cameraX, m_view.getSize().y * 0.5f});
+    m_camera.update(dt, (m_pPlayer && m_pPlayer->isAlive()) ? m_pPlayer : nullptr);
 
-    m_environment.update(dt, m_view);
+    m_environment.update(dt, m_camera.getView());
     const MultiRectCollider* groundCollider = m_environment.getGroundCollider();
 
     // Timed Demon spawns: every 10 seconds at y=400, just off the right edge of the view
     m_demonSpawnTimer -= dt;
     if (m_demonSpawnTimer <= 0.f) {
         m_demonSpawnTimer += 10.f;
-        const float rightX = getCameraLeft() + m_view.getSize().x + 60.f;
+        const float rightX = getCameraLeft() + m_camera.getView().getSize().x + 60.f;
         const float y      = 400.f;
         if (auto* demon = createEntity<Demon>()) {
             if (demon->init()) {
@@ -232,7 +204,7 @@ void World::update(float dt) {
     // Kill if player falls into a lava gap
     if (m_pPlayer && m_pPlayer->isAlive()) {
         const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
-        if (m_environment.intersectsLavaGap(pb, m_view)) {
+        if (m_environment.intersectsLavaGap(pb, m_camera.getView())) {
             m_pPlayer->applyDamage(10000.f);
         }
     }
@@ -248,10 +220,9 @@ void World::update(float dt) {
 
     // Stream simple random obstacles ahead of camera
     {
-        const float viewLeft  = getCameraLeft();
-        const float viewRight = viewLeft + m_view.getSize().x * 2.f;
+        const float viewRight = m_camera.right();
         if (groundCollider) {
-            const float groundTop = m_environment.getGroundTopY(m_view);
+            const float groundTop = m_environment.getGroundTopY(m_camera.getView());
             while (viewRight + 50.f >= m_nextObstacleX) {
                 const int   kindIdx = Random::rangei(0, static_cast<int>(ObstacleKind::Count) - 1);
                 const auto  kind    = static_cast<ObstacleKind>(kindIdx);
@@ -266,10 +237,9 @@ void World::update(float dt) {
 
     // Stream simple random platforms ahead of camera
     {
-        const float viewLeft  = getCameraLeft();
-        const float viewRight = viewLeft + m_view.getSize().x * 2.f;
+        const float viewRight = m_camera.right();
         if (groundCollider) {
-            const float groundTop = m_environment.getGroundTopY(m_view);
+            const float groundTop = m_environment.getGroundTopY(m_camera.getView());
             while (viewRight + 50.f >= m_nextPlatformX) {
                 const int   kindIdx = Random::rangei(0, static_cast<int>(PlatformKind::Count) - 1);
                 const auto  kind    = static_cast<PlatformKind>(kindIdx);
@@ -293,7 +263,7 @@ void World::update(float dt) {
     // Lifetime culling: remove platforms behind the camera
     {
         const float viewLeft   = getCameraLeft();
-        const float cullBefore = viewLeft - m_view.getSize().x;
+        const float cullBefore = viewLeft - m_camera.getView().getSize().x;
 
         for (auto& entity : m_entities) {
             if (!entity->isAlive())
@@ -314,7 +284,7 @@ void World::update(float dt) {
     // Lifetime culling: remove obstacles behind the camera
     {
         const float viewLeft   = getCameraLeft();
-        const float cullBefore = viewLeft - m_view.getSize().x;
+        const float cullBefore = viewLeft - m_camera.getView().getSize().x;
 
         for (auto& entity : m_entities) {
             if (!entity->isAlive())
@@ -386,16 +356,16 @@ const std::vector<sf::FloatRect>& World::getSolidTopRects() const {
 
 void World::render(sf::RenderTarget& target) const {
     const sf::View oldView = target.getView();
-    target.setView(m_view);
+    m_camera.apply(target);
 
-    m_environment.renderBackground(target, m_view);
+    m_environment.renderBackground(target, m_camera.getView());
 
     for (const std::unique_ptr<Entity>& pEntity : m_entities) {
         if (dynamic_cast<Actor*>(pEntity.get()))
             pEntity->render(target);
     }
 
-    m_environment.renderForeground(target, m_view);
+    m_environment.renderForeground(target, m_camera.getView());
 
     for (const std::unique_ptr<Entity>& pEntity : m_entities) {
         if (!dynamic_cast<Actor*>(pEntity.get()))
@@ -404,23 +374,22 @@ void World::render(sf::RenderTarget& target) const {
 
     // Debug helpers
     if constexpr (Config::kDebugDraw) {
-        Debug::drawCameraGuides(target, m_view, getCameraCatchupX(), getFollowThresholdX());
+        Debug::drawCameraGuides(target, m_camera.getView(), getCameraCatchupX(),
+                                getFollowThresholdX());
     }
 
     target.setView(oldView);
 }
 
-float World::getCameraLeft() const { return m_view.getCenter().x - 0.5f * m_view.getSize().x; }
+float World::getCameraLeft() const { return m_camera.left(); }
 
-float World::getCameraCatchupX() const { return getCameraLeft() + kCatchupMarginLeft; }
+float World::getCameraCatchupX() const { return m_camera.catchupX(); }
 
-float World::getFollowThresholdX() const {
-    return getCameraLeft() + kFollowThresholdRatio * m_view.getSize().x;
-}
+float World::getFollowThresholdX() const { return m_camera.followThresholdX(); }
 
 sf::Vector2f World::getMouseWorld() const {
     const sf::Vector2i pixel = sf::Mouse::getPosition(m_window);
-    return m_window.mapPixelToCoords(pixel, m_view);
+    return m_camera.mapPixelToWorld(m_window, pixel);
 }
 
 void World::addScore(int points) { m_session.addScore(points); }
