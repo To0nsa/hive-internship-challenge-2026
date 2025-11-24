@@ -4,7 +4,7 @@
 #include <algorithm>
 
 StatBar::StatBar() {
-    m_back.setFillColor(sf::Color(32, 32, 32));
+    m_back.setFillColor(sf::Color::Black);
     m_back.setOutlineColor(sf::Color::White);
     m_back.setOutlineThickness(kDefaultOutline);
 

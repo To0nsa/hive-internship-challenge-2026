@@ -8,7 +8,6 @@ class StatBar : public sf::Drawable {
     void setValue(float current, float max);
     void setFraction(float fraction);
 
-    // Style & layout
     void setColors(const sf::Color& fill, const sf::Color& back, const sf::Color& outline);
     void setSize(sf::Vector2f size);
     void setPosition(sf::Vector2f pos);

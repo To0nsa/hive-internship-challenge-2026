@@ -15,7 +15,6 @@ class GameHUD final : public sf::Drawable {
     void setPlayer(const Player* player);
 
     void update(float dt);
-    void setTopLeft(sf::Vector2f topLeft);
 
     // Timer text API
     void setElapsedSeconds(float seconds);

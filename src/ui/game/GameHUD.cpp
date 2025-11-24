@@ -60,13 +60,6 @@ void GameHUD::update(float dt) {
     m_staminaBar.setValue(m_pPlayer->getStamina(), m_pPlayer->getStaminaMax());
 }
 
-void GameHUD::setTopLeft(sf::Vector2f topLeft) {
-    if (topLeft == m_topLeft)
-        return;
-    m_topLeft = topLeft;
-    layout();
-}
-
 void GameHUD::layout() {
     const float x = m_topLeft.x;
     float       y = m_topLeft.y;
