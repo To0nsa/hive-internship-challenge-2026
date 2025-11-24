@@ -21,9 +21,7 @@ class ParallaxBackground : public sf::Drawable {
         const std::size_t lastClamped = std::min(last, m_layers.size() - 1);
         for (std::size_t i = first; i <= lastClamped; ++i) {
             const auto&  layer = m_layers[i];
-            sf::Texture& tex   = ResourceManager::getTexture(layer.texturePath);
-            // Ensure horizontal repeating for scrolling
-            tex.setRepeated(true);
+            sf::Texture& tex   = ResourceManager::getRepeatedTexture(layer.texturePath);
             strip::drawStrip(t, view, tex, layer.factor);
         }
     }

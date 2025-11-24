@@ -1,10 +1,8 @@
 #include "core/World.h"
 
 #include "collision/MultiRectCollider.h"
-#include "core/Assets.h"
 #include "core/Config.h"
 #include "core/Debug.h"
-#include "core/ResourceManager.h"
 #include "entities/actor/Actor.h"
 #include "entities/actor/enemy/Demon.h"
 #include "entities/actor/enemy/Enemy.h"
@@ -15,9 +13,6 @@
 #include "entities/obstacle/ObstacleTypes.h"
 #include "entities/platform/Platform.h"
 #include "entities/platform/PlatformFactory.h"
-#include "environment/AnimatedParallaxStrip.h"
-#include "environment/GroundStream.h"
-#include "environment/ParallaxBackground.h"
 #include "gameplay/Faction.h"
 #include "spell/projectile/Projectile.h"
 #include "states/StatePlaying.h"
@@ -29,8 +24,6 @@
 #include <SFML/Graphics/RenderWindow.hpp>
 #include <SFML/Window/Mouse.hpp>
 #include <algorithm>
-#include <cmath>
-#include <initializer_list>
 #include <memory>
 #include <vector>
 
@@ -49,27 +42,9 @@ bool World::init() {
     m_cameraTargetX = m_cameraX;
     m_cameraSpeed   = 0.f; // ease-in
 
-    // Backgrounds
-    m_bg = std::make_unique<ParallaxBackground>(std::initializer_list<strip::ParallaxLayerDesc>{
-        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer01, 0.16f},
-        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer02, 0.22f},
-        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer03, 0.28f},
-        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer04, 0.34f},
-        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer05, 0.50f},
-        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer06, 0.62f},
-        {Assets::Tex::Environment::Parallax::VolcanoDay::Layer08, 0.76f},
-    });
-    // Animated background strip
-    m_bgAnim = std::make_unique<AnimatedParallaxStrip>(
-        std::vector<std::string_view>{Assets::Tex::Environment::Parallax::VolcanoDay::Bg01,
-                                      Assets::Tex::Environment::Parallax::VolcanoDay::Bg02,
-                                      Assets::Tex::Environment::Parallax::VolcanoDay::Bg03},
-        0.15f, 6.f);
-
-    // Ground stream with colliders
-    m_ground = std::make_unique<GroundStream>(
-        strip::ParallaxLayerDesc{Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, 1.f});
-    m_ground->updateForView(m_view);
+    if (!m_environment.initVolcanoDay())
+        return false;
+    m_environment.update(0.f, m_view);
 
     // Create player entity
     m_pPlayer = createEntity<Player>();
@@ -88,10 +63,6 @@ bool World::init() {
 }
 
 void World::update(float dt) {
-    // Update background anim
-    if (m_bgAnim)
-        m_bgAnim->update(dt);
-
     // Update all entities
     for (std::size_t i = 0; i < m_entities.size(); ++i) {
         Entity* e = m_entities[i].get();
@@ -123,9 +94,8 @@ void World::update(float dt) {
     m_cameraX += (m_cameraTargetX - m_cameraX) * alpha;
     m_view.setCenter({m_cameraX, m_view.getSize().y * 0.5f});
 
-    // Update ground colliders for current view
-    if (m_ground)
-        m_ground->updateForView(m_view);
+    m_environment.update(dt, m_view);
+    const MultiRectCollider* groundCollider = m_environment.getGroundCollider();
 
     // Timed Demon spawns: every 10 seconds at y=400, just off the right edge of the view
     m_demonSpawnTimer -= dt;
@@ -166,8 +136,8 @@ void World::update(float dt) {
 
     // Apply physics to actors using combined ground + obstacle colliders (walk on them)
     MultiRectCollider combined;
-    if (m_ground) {
-        std::vector<sf::FloatRect> solids = m_ground->getCollider().getRectColliders();
+    if (groundCollider) {
+        std::vector<sf::FloatRect> solids = groundCollider->getRectColliders();
         solids.reserve(solids.size() + m_entities.size());
         for (auto& entity : m_entities) {
             if (!entity->isAlive())
@@ -184,8 +154,8 @@ void World::update(float dt) {
         if (!entity->isAlive())
             continue;
         if (auto* actor = dynamic_cast<Actor*>(entity.get())) {
-            const Collider* col = m_ground ? static_cast<const Collider*>(&combined)
-                                           : static_cast<const Collider*>(nullptr);
+            const Collider* col = groundCollider ? static_cast<const Collider*>(&combined)
+                                                 : static_cast<const Collider*>(nullptr);
             actor->applyPhysics(dt, col);
         }
     }
@@ -260,9 +230,9 @@ void World::update(float dt) {
     }
 
     // Kill if player falls into a lava gap
-    if (m_pPlayer && m_pPlayer->isAlive() && m_ground) {
+    if (m_pPlayer && m_pPlayer->isAlive()) {
         const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
-        if (m_ground->intersectsLavaGap(pb, m_view)) {
+        if (m_environment.intersectsLavaGap(pb, m_view)) {
             m_pPlayer->applyDamage(10000.f);
         }
     }
@@ -280,8 +250,8 @@ void World::update(float dt) {
     {
         const float viewLeft  = getCameraLeft();
         const float viewRight = viewLeft + m_view.getSize().x * 2.f;
-        if (m_ground) {
-            const float groundTop = m_ground->getTopYForView(m_view);
+        if (groundCollider) {
+            const float groundTop = m_environment.getGroundTopY(m_view);
             while (viewRight + 50.f >= m_nextObstacleX) {
                 const int   kindIdx = Random::rangei(0, static_cast<int>(ObstacleKind::Count) - 1);
                 const auto  kind    = static_cast<ObstacleKind>(kindIdx);
@@ -298,8 +268,8 @@ void World::update(float dt) {
     {
         const float viewLeft  = getCameraLeft();
         const float viewRight = viewLeft + m_view.getSize().x * 2.f;
-        if (m_ground) {
-            const float groundTop = m_ground->getTopYForView(m_view);
+        if (groundCollider) {
+            const float groundTop = m_environment.getGroundTopY(m_view);
             while (viewRight + 50.f >= m_nextPlatformX) {
                 const int   kindIdx = Random::rangei(0, static_cast<int>(PlatformKind::Count) - 1);
                 const auto  kind    = static_cast<PlatformKind>(kindIdx);
@@ -361,14 +331,11 @@ void World::update(float dt) {
                                         [](auto& e) { return !e->isAlive(); }),
                          m_entities.end());
     }
-
-    if (m_ground)
-        m_ground->updateForView(m_view);
 }
 
 const std::vector<sf::FloatRect>& World::getGroundRects() const {
-    if (m_ground)
-        return m_ground->getCollider().getRectColliders();
+    if (const auto* collider = m_environment.getGroundCollider())
+        return collider->getRectColliders();
     static const std::vector<sf::FloatRect> kEmpty;
     return kEmpty;
 }
@@ -421,30 +388,19 @@ void World::render(sf::RenderTarget& target) const {
     const sf::View oldView = target.getView();
     target.setView(m_view);
 
-    if (m_bgAnim)
-        m_bgAnim->drawForView(target, m_view);
-
-    if (m_bg && m_bg->size() > 0) {
-        const std::size_t lastBack = std::min<std::size_t>(5, m_bg->size() - 1);
-        m_bg->drawRangeForView(target, m_view, 0, lastBack);
-    }
+    m_environment.renderBackground(target, m_view);
 
     for (const std::unique_ptr<Entity>& pEntity : m_entities) {
         if (dynamic_cast<Actor*>(pEntity.get()))
             pEntity->render(target);
     }
 
-    if (m_ground)
-        m_ground->drawForView(target, m_view);
+    m_environment.renderForeground(target, m_view);
 
     for (const std::unique_ptr<Entity>& pEntity : m_entities) {
         if (!dynamic_cast<Actor*>(pEntity.get()))
             pEntity->render(target);
     }
-
-    // Foreground layer 08 after entities
-    if (m_bg && m_bg->size() >= 7)
-        m_bg->drawRangeForView(target, m_view, 6, 6);
 
     // Debug helpers
     if constexpr (Config::kDebugDraw) {

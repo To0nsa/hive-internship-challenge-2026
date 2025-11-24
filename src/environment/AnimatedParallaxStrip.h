@@ -14,14 +14,12 @@ class AnimatedParallaxStrip : public sf::Drawable {
 
     void update(float dt) { m_time += dt; }
 
-    void drawForView(sf::RenderTarget& t, const sf::View& view) const {
+    void drawForView(sf::RenderTarget& target, const sf::View& view) const {
         if (m_frames.empty())
             return;
         const std::size_t idx = static_cast<std::size_t>(m_time * m_fps) % m_frames.size();
-        sf::Texture&      tex = ResourceManager::getTexture(m_frames[idx]);
-        // Ensure horizontal repeating for scrolling
-        tex.setRepeated(true);
-        strip::drawStrip(t, view, tex, m_factor);
+        sf::Texture&      tex = ResourceManager::getRepeatedTexture(m_frames[idx]);
+        strip::drawStrip(target, view, tex, m_factor);
     }
 
   private:
@@ -29,6 +27,6 @@ class AnimatedParallaxStrip : public sf::Drawable {
 
     std::vector<std::string_view> m_frames;
     float                         m_factor = 0.15f;
-    float                         m_fps    = 2.f;
+    float                         m_fps    = 6.f;
     float                         m_time   = 0.f;
 };

@@ -58,9 +58,7 @@ class GroundStream : public sf::Drawable {
 
     // Draws the textured ground strip + lava inside gaps + debug AABBs.
     void drawForView(sf::RenderTarget& target, const sf::View& view) const {
-        sf::Texture& tex = ResourceManager::getTexture(m_layer.texturePath);
-        // Ensure horizontal repeating for scrolling
-        tex.setRepeated(true);
+        sf::Texture& tex = ResourceManager::getRepeatedTexture(m_layer.texturePath);
         strip::drawStrip(target, view, tex, m_layer.factor);
         drawLavaGaps(target, view);
 

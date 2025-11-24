@@ -56,6 +56,16 @@ sf::Texture& ResourceManager::getTexture(std::string_view filename) {
     return texture;
 }
 
+sf::Texture& ResourceManager::getRepeatedTexture(std::string_view filename) {
+    sf::Texture& texture = getTexture(filename);
+
+    if (texture.isRepeated())
+        return texture;
+
+    texture.setRepeated(true);
+    return texture;
+}
+
 const sf::SoundBuffer& ResourceManager::getSoundBuffer(std::string_view filename) {
     const std::string key(filename);
 

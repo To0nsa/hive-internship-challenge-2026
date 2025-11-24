@@ -1,5 +1,6 @@
 #pragma once
 
+#include "environment/Environment.h"
 #include "gameplay/GameSession.h"
 
 #include <SFML/Graphics/Rect.hpp>
@@ -8,11 +9,8 @@
 #include <memory>
 #include <vector>
 
-class AnimatedParallaxStrip;
 class Entity;
 class GameSession;
-class GroundStream;
-class ParallaxBackground;
 class Player;
 class StatePlaying;
 
@@ -64,9 +62,7 @@ class World {
 
     std::vector<std::unique_ptr<Entity>> m_entities;
 
-    std::unique_ptr<ParallaxBackground>    m_bg;
-    std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
-    std::unique_ptr<GroundStream>          m_ground;
+    Environment m_environment;
 
     float m_nextObstacleX = 0.f;
     float m_nextPlatformX = 0.f;
