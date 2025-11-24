@@ -81,10 +81,7 @@ namespace math {
 
     // Remap x from [inMin, inMax] to [outMin, outMax], with clamping.
     //
-    // Usage in this project:
-    // - Not currently used directly, but available as a generic utility.
-    //
-    // Typical use cases (if used):
+    // Typical use cases:
     // - Mapping world distances to UI progress bars.
     // - Turning raw stat ranges into 0..1 parameters for shaders / effects.
     inline float remap(float x, float inMin, float inMax, float outMin, float outMax) {
@@ -132,30 +129,11 @@ namespace math {
     }
 
     // Vector length (Euclidean norm) for sf::Vector2f.
-    //
-    // Usage in this project:
-    // - spell/projectile/Projectile.cpp:
-    //   * Projectile ctor normalizes the input direction to get a unit
-    //     direction before scaling by projectile speed.
-    //
-    // Purpose:
-    // - Core helper for any direction / distance logic, especially when
-    //   turning arbitrary vectors into unit directions.
     inline float length(const sf::Vector2f& vec) {
         return std::sqrt(vec.x * vec.x + vec.y * vec.y);
     }
 
     // Return a normalized vector; (0,0) if the input has zero length.
-    //
-    // Usage in this project:
-    // - Currently not used directly, but it is the safe, reusable version
-    //   of the "manual normalize with sqrt" pattern you use e.g. in:
-    //   * Player::enterCast(): manual aimDir normalization from player
-    //     to mouse.
-    //
-    // Purpose:
-    // - Centralize normalization logic and handle the zero-length case
-    //   robustly; drop-in replacement for repeated custom normalization.
     inline sf::Vector2f normalizeVec(const sf::Vector2f& vec) {
         float len = length(vec);
         if (len > 0) {
