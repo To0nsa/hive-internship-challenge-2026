@@ -31,6 +31,7 @@ class World {
     Player* getPlayer() const { return m_pPlayer; }
 
     float getCameraLeft() const;
+    float getCameraRight() const;
     float getCameraCatchupX() const;
     float getFollowThresholdX() const;
     float getViewBottomY() const { return m_camera.bottom(); }

@@ -49,7 +49,7 @@ bool World::init() {
     // Seed RNG and schedule first obstacle spawn a bit ahead of view
     // Random::seed(Random::timeSeed()); // uncomment for non-deterministic runs
 
-    const float viewRight = m_camera.right();
+    const float viewRight = getCameraRight();
     m_nextObstacleX       = viewRight + Random::rangef(880.f, 1680.f);
     m_nextPlatformX       = viewRight + Random::rangef(680.f, 980.f);
 
@@ -73,7 +73,7 @@ void World::update(float dt) {
     m_demonSpawnTimer -= dt;
     if (m_demonSpawnTimer <= 0.f) {
         m_demonSpawnTimer += 10.f;
-        const float rightX = getCameraLeft() + m_camera.getView().getSize().x + 60.f;
+        const float rightX = getCameraRight() + 60.f;
         const float y      = 400.f;
         if (auto* demon = createEntity<Demon>()) {
             if (demon->init()) {
@@ -382,6 +382,8 @@ void World::render(sf::RenderTarget& target) const {
 }
 
 float World::getCameraLeft() const { return m_camera.left(); }
+
+float World::getCameraRight() const { return m_camera.right(); }
 
 float World::getCameraCatchupX() const { return m_camera.catchupX(); }
 
