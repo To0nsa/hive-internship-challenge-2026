@@ -14,7 +14,7 @@ class ResourceManager {
     static void                   init(std::string executablePath);
     static const sf::Font&        getFont(std::string_view filename);
     static sf::Texture&           getTexture(std::string_view filename);
-    static sf::Texture&     getRepeatedTexture(std::string_view filename);
+    static sf::Texture&           getRepeatedTexture(std::string_view filename);
     static const sf::SoundBuffer& getSoundBuffer(std::string_view filename);
 
   private:
