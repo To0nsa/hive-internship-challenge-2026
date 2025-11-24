@@ -17,11 +17,8 @@ Projectile::Projectile(SpellId spellId, Faction faction, const sf::Vector2f& ori
                        const sf::Vector2f& direction)
     : m_spellId(spellId), m_faction(faction), m_def(getSpellDef(spellId)) {
     // Direction / velocity (normalize; fallback +X)
-    sf::Vector2f dir = direction;
-    const float  len = math::length(dir);
-    if (len > 0.f)
-        dir /= len;
-    else
+    sf::Vector2f dir = math::normalizeVec(direction);
+    if (dir.x == 0.f && dir.y == 0.f)
         dir = {1.f, 0.f};
     m_velocity   = dir * m_def.stats.projectile.speed;
     m_timeToLive = m_def.stats.projectile.lifetime;

@@ -61,11 +61,11 @@ void Demon::updateFly(float dt) {
         return;
 
     const sf::Vector2f toPlayer = player->getPosition() - m_position;
-    const float        dist     = std::sqrt(toPlayer.x * toPlayer.x + toPlayer.y * toPlayer.y);
+    const float        dist     = math::length(toPlayer);
 
     sf::Vector2f dir{0.f, 0.f};
     if (dist > 0.001f) {
-        const sf::Vector2f n = {toPlayer.x / dist, toPlayer.y / dist};
+        const sf::Vector2f n = math::normalizeVec(toPlayer);
         if (dist > kDesiredRange + kHoldSlack) {
             dir = n; // move toward
         } else if (dist < kDesiredRange - kHoldSlack) {
@@ -104,11 +104,8 @@ void Demon::update(float dt) {
     if (m_world && m_castCooldownLeft <= 0.f) {
         if (auto* player = m_world->getPlayer()) {
             const sf::Vector2f selfPos = m_position;
-            sf::Vector2f       dir     = player->getPosition() - selfPos;
-            const float        len     = std::sqrt(dir.x * dir.x + dir.y * dir.y);
-            if (len > 0.001f)
-                dir = {dir.x / len, dir.y / len};
-            else
+            sf::Vector2f       dir     = math::normalizeVec(player->getPosition() - selfPos);
+            if (dir.x == 0.f && dir.y == 0.f)
                 dir = {1.f, 0.f};
 
             // Spawn lightning bolt

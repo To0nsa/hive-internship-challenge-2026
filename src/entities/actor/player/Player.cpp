@@ -293,9 +293,9 @@ void Player::enterCast() {
     if (m_world) {
         const sf::Vector2f mouseWorld = m_world->getMouseWorld();
         sf::Vector2f       v          = mouseWorld - m_position;
-        const float        len        = std::sqrt(v.x * v.x + v.y * v.y);
-        if (len > 0.001f)
-            aimDir = {v.x / len, v.y / len};
+        sf::Vector2f       n          = math::normalizeVec(v);
+        if (n.x != 0.f || n.y != 0.f)
+            aimDir = n;
     }
 
     // Origin slightly in front along aim

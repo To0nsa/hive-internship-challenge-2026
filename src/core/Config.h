@@ -5,8 +5,8 @@ namespace sf {
 }
 
 namespace Config {
-    constexpr int  windowWidth   = 1200;
-    constexpr int  windowHeight  = 900;
-    constexpr char windowTitle[] = "SFML Game";
-    constexpr bool kDebugDraw    = false;
+    inline constexpr int  windowWidth   = 1200;
+    inline constexpr int  windowHeight  = 900;
+    inline constexpr char windowTitle[] = "SFML Game";
+    inline constexpr bool kDebugDraw    = false;
 } // namespace Config
