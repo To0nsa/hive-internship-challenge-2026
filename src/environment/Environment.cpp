@@ -1,7 +1,9 @@
 #include "environment/Environment.h"
 
 #include "core/Assets.h"
+#include "core/ResourceManager.h"
 #include "environment/EnvConfig.h"
+#include "environment/StripUtil.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -29,8 +31,20 @@ bool Environment::initVolcanoDay() {
         },
         kBgAnimFactor, kBgAnimFps);
 
-    m_ground = std::make_unique<GroundStream>(strip::ParallaxLayerDesc{
-        Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, kLayerFactors[6]});
+    m_groundLayer = strip::ParallaxLayerDesc{
+        Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, kLayerFactors[6]};
+
+    HazardConfig hazardCfg;
+    hazardCfg.type        = HazardType::Lava;
+    hazardCfg.texturePath = Assets::Tex::Environment::Ground::Lava;
+    hazardCfg.scale       = 6.f;
+    hazardCfg.yOffset     = 85.f;
+
+    GroundStreamConfig groundCfg = GroundPresets::gapsWithHazard(m_groundLayer, hazardCfg);
+    m_ground = std::make_unique<GroundBand>(groundCfg.bandHeightRatio, groundCfg.cellWidth,
+                                            groundCfg.cellsPerBlock, groundCfg.hasGaps,
+                                            groundCfg.gapPattern);
+    m_hazard = std::make_unique<HazardLayer>(groundCfg.hazard);
 
     return true;
 }
@@ -38,10 +52,10 @@ bool Environment::initVolcanoDay() {
 void Environment::update(float dt, const sf::View& view) {
     if (m_bgAnim)
         m_bgAnim->update(dt);
-    if (m_ground) {
-        m_ground->update(dt);
+    if (m_hazard)
+        m_hazard->update(dt);
+    if (m_ground)
         m_ground->updateForView(view);
-    }
 }
 
 void Environment::renderBackground(sf::RenderTarget& target, const sf::View& view) const {
@@ -55,8 +69,18 @@ void Environment::renderBackground(sf::RenderTarget& target, const sf::View& vie
 }
 
 void Environment::renderForeground(sf::RenderTarget& target, const sf::View& view) const {
-    if (m_ground)
-        m_ground->drawForView(target, view);
+    // Ground visual strip (independent of gameplay colliders)
+    if (!m_groundLayer.texturePath.empty()) {
+        sf::Texture& tex = ResourceManager::getRepeatedTexture(m_groundLayer.texturePath);
+        strip::drawStrip(target, view, tex, m_groundLayer.factor);
+    }
+
+    // Hazard visuals occupying the gaps
+    if (m_ground && m_hazard && m_hazard->hasHazard()) {
+        std::vector<sf::FloatRect> gaps;
+        m_ground->gapsForView(view, gaps);
+        m_hazard->drawForView(target, view, gaps);
+    }
 
     if (m_bg && m_bg->size() >= 7)
         m_bg->drawRangeForView(target, view, 6, 6);
@@ -70,6 +94,11 @@ float Environment::getGroundTopY(const sf::View& view) const {
     return m_ground ? m_ground->getTopYForView(view) : 0.f;
 }
 
-bool Environment::intersectsLavaGap(const sf::FloatRect& aabb, const sf::View& view) const {
-    return m_ground ? m_ground->intersectsLavaGap(aabb, view) : false;
+bool Environment::intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const {
+    if (!m_ground || !m_hazard || !m_hazard->hasHazard())
+        return false;
+
+    std::vector<sf::FloatRect> gaps;
+    m_ground->gapsForView(view, gaps);
+    return m_hazard->intersectsHazard(aabb, gaps);
 }

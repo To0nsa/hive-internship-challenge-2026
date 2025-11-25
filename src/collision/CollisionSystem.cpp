@@ -185,7 +185,7 @@ namespace {
 
         const sf::FloatRect playerBounds = player->getCollider().worldAabb();
         if (ctx.environment && ctx.cameraView) {
-            if (ctx.environment->intersectsLavaGap(playerBounds, *ctx.cameraView))
+            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView))
                 player->applyDamage(10000.f);
         }
 

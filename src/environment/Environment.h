@@ -21,10 +21,12 @@ class Environment {
 
     const MultiRectCollider* getGroundCollider() const;
     float                    getGroundTopY(const sf::View& view) const;
-    bool intersectsLavaGap(const sf::FloatRect& aabb, const sf::View& view) const;
+    bool intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const;
 
   private:
     std::unique_ptr<ParallaxBackground>    m_bg;
     std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
-    std::unique_ptr<GroundStream>          m_ground;
+    std::unique_ptr<GroundBand>            m_ground;
+    std::unique_ptr<HazardLayer>           m_hazard;
+    strip::ParallaxLayerDesc               m_groundLayer{};
 };
