@@ -33,10 +33,12 @@ World::World(StatePlaying& owner, GameSession& session, sf::RenderWindow& window
 World::~World() = default;
 
 bool World::init() {
+    // Initialize camera with window size
     const sf::Vector2f viewSize{static_cast<float>(Config::windowWidth),
                                 static_cast<float>(Config::windowHeight)};
     m_camera = Camera(viewSize);
 
+    // Initialize environment
     if (!m_environment.initVolcanoDay())
         return false;
     m_environment.update(0.f, m_camera.getView());
@@ -50,6 +52,7 @@ bool World::init() {
     // Seed RNG and schedule first obstacle spawn a bit ahead of view
     // Random::seed(Random::timeSeed()); // uncomment for non-deterministic runs
 
+    // Schedule first obstacle and platform
     const float viewRight = getCameraRight();
     m_nextObstacleX       = viewRight + Random::rangef(880.f, 1680.f);
     m_nextPlatformX       = viewRight + Random::rangef(680.f, 980.f);
@@ -76,6 +79,7 @@ void World::update(float dt) {
     CollisionContext collisionCtx = buildCollisionContext(dt, groundCollider);
     collision::resolve(collisionCtx);
 
+    // TO-DO build enemy spawn system
     // Timed Demon spawns: every 10 seconds at y=400, just off the right edge of the view
     m_demonSpawnTimer -= dt;
     if (m_demonSpawnTimer <= 0.f) {
@@ -90,6 +94,7 @@ void World::update(float dt) {
         }
     }
 
+    // TO-DO build level generation system
     // Stream simple random obstacles ahead of camera
     {
         const float viewRight = m_camera.right();
@@ -106,7 +111,6 @@ void World::update(float dt) {
             }
         }
     }
-
     // Stream simple random platforms ahead of camera
     {
         const float viewRight = m_camera.right();
