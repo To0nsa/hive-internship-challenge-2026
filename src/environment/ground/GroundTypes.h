@@ -1,8 +1,10 @@
 #pragma once
 
 #include "environment/StripUtil.h"
+#include "utils/Math.h"
 
 #include <SFML/Graphics/Rect.hpp>
+#include <cstdint>
 #include <functional>
 #include <optional>
 #include <string_view>
@@ -16,16 +18,50 @@ enum class HazardType {
 };
 
 struct HazardConfig {
-    HazardType      type        = HazardType::None;
+    HazardType       type = HazardType::None;
     std::string_view texturePath{};
-    float           scale       = 1.f;
-    float           yOffset     = 0.f;
+    float            scale   = 1.f;
+    float            yOffset = 0.f;
 };
 
 // Function type used to customize how gaps are placed inside blocks.
 // Returning std::nullopt means "no gap for this block".
 using GapPatternFn = std::function<std::optional<sf::FloatRect>(
     int blockIdx, float y, float h, float cellWidth, int cellsPerBlock)>;
+
+// --- Standard gap patterns --------------------------------------------------
+
+// "No gaps anywhere" => continuous solid ground.
+inline GapPatternFn makeNoGapPattern() {
+    return [](int /*blockIdx*/, float /*y*/, float /*h*/, float /*cellWidth*/,
+              int /*cellsPerBlock*/) -> std::optional<sf::FloatRect> { return std::nullopt; };
+}
+
+// Default deterministic pseudo-random "one gap per block" pattern.
+// - Gap width = 1 cell
+// - Uses block index as seed, so layout is stable across runs.
+inline GapPatternFn makeDefaultRandomGapPattern() {
+    return [](int blockIdx, float y, float h, float cellWidth,
+              int cellsPerBlock) -> std::optional<sf::FloatRect> {
+        if (cellsPerBlock <= 1)
+            return std::nullopt;
+
+        const int anchor = blockIdx * cellsPerBlock;
+
+        // Hash the anchor so gaps are pseudo-random but deterministic
+        const std::uint32_t random = math::mix32(static_cast<std::uint32_t>(anchor));
+
+        // Choose an offset in [1..cellsPerBlock-1] -> keeps gap away from anchor cell
+        const int positions = cellsPerBlock - 1;
+        const int gapOffset = 1 + static_cast<int>(random % positions);
+
+        // X coordinate of gap's left edge (cell-based)
+        const float left = (anchor + gapOffset) * cellWidth;
+
+        // Rect representing the whole vertical band in that gap cell
+        return sf::FloatRect{{left, y}, {cellWidth, h}};
+    };
+}
 
 struct GroundStreamConfig {
     strip::ParallaxLayerDesc visualLayer;
@@ -34,48 +70,33 @@ struct GroundStreamConfig {
     float cellWidth       = 220.f; // world units per "cell"
     int   cellsPerBlock   = 5;     // cells per block (potentially 1 gap per block)
 
-    bool hasGaps = true; // false => continuous solid ground, no holes
-
-    GapPatternFn gapPattern; // optional custom gap layout; default pattern if empty
+    // Always-present pattern. Default: "no gaps".
+    GapPatternFn gapPattern = makeNoGapPattern();
 
     HazardConfig hazard; // what fills the gaps visually / as a hazard
 };
 
 namespace GroundPresets {
 
-    inline GroundStreamConfig solidFloor(const strip::ParallaxLayerDesc& visualLayer,
-                                         float bandHeightRatio = 0.05f, float cellWidth = 220.f,
-                                         int cellsPerBlock = 5) {
+    inline GroundStreamConfig solidFloor(const strip::ParallaxLayerDesc& visualLayer) {
         GroundStreamConfig cfg;
-        cfg.visualLayer     = visualLayer;
-        cfg.bandHeightRatio = bandHeightRatio;
-        cfg.cellWidth       = cellWidth;
-        cfg.cellsPerBlock   = cellsPerBlock;
-        cfg.hasGaps         = false;
-        cfg.hazard          = HazardConfig{};
+        cfg.visualLayer = visualLayer;
+        cfg.gapPattern  = makeNoGapPattern(); // explicit: continuous floor
+        cfg.hazard      = HazardConfig{};
         return cfg;
     }
 
-    inline GroundStreamConfig gapsWithoutHazard(const strip::ParallaxLayerDesc& visualLayer,
-                                                float bandHeightRatio = 0.05f,
-                                                float cellWidth       = 220.f,
-                                                int   cellsPerBlock   = 5) {
-        GroundStreamConfig cfg =
-            solidFloor(visualLayer, bandHeightRatio, cellWidth, cellsPerBlock);
-        cfg.hasGaps = true;
+    inline GroundStreamConfig gapsWithoutHazard(const strip::ParallaxLayerDesc& visualLayer) {
+        GroundStreamConfig cfg = solidFloor(visualLayer);
+        cfg.gapPattern         = makeDefaultRandomGapPattern(); // now actually has gaps
         return cfg;
     }
 
     inline GroundStreamConfig gapsWithHazard(const strip::ParallaxLayerDesc& visualLayer,
-                                             const HazardConfig&             hazard,
-                                             float bandHeightRatio = 0.05f,
-                                             float cellWidth       = 220.f,
-                                             int   cellsPerBlock   = 5) {
-        GroundStreamConfig cfg =
-            gapsWithoutHazard(visualLayer, bandHeightRatio, cellWidth, cellsPerBlock);
-        cfg.hazard = hazard;
+                                             const HazardConfig&             hazard) {
+        GroundStreamConfig cfg = gapsWithoutHazard(visualLayer);
+        cfg.hazard             = hazard;
         return cfg;
     }
 
 } // namespace GroundPresets
-

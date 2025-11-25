@@ -12,53 +12,24 @@
 #include <optional>
 #include <vector>
 
-// Collision-only representation of the ground band at the bottom of the view.
-// Responsible for building the walkable collider and exposing gap rectangles.
 class GroundBand {
   public:
-    GroundBand(float bandHeightRatio, float cellWidth, int cellsPerBlock, bool hasGaps,
-               GapPatternFn gapPattern = {})
-        : m_bandHeightRatio(bandHeightRatio), m_cellWidth(cellWidth),
-          m_cellsPerBlock(cellsPerBlock), m_hasGaps(hasGaps), m_gapPattern(gapPattern) {}
+    explicit GroundBand(const GroundStreamConfig& cfg)
+        : m_bandHeightRatio(cfg.bandHeightRatio), m_cellWidth(cfg.cellWidth),
+          m_cellsPerBlock(cfg.cellsPerBlock), m_gapPattern(cfg.gapPattern) {}
 
     // Rebuild the set of collidable ground rectangles for the current camera view.
     void updateForView(const sf::View& view) {
-        // --- View geometry (world space) ---
-        const sf::Vector2f viewSize = view.getSize();
-        const sf::Vector2f center   = view.getCenter();
+        const ViewBandInfo info = computeViewBandInfo(view);
 
-        // Left/right edges in world coords
-        const float viewLeft  = center.x - 0.5f * viewSize.x;
-        const float viewRight = viewLeft + viewSize.x;
-
-        // Ground collision band height = fixed fraction of view height
-        const float height = viewSize.y * m_bandHeightRatio;
-
-        // Y of the top of the band, stuck against bottom of view
-        const float y =
-            (center.y - 0.5f * viewSize.y) + (viewSize.y - height); // bottom-anchored band
-
-        // --- Convert visible range to blocks ---
-
-        // First / last cell indices covering the view horizontally
-        const int firstCell = static_cast<int>(std::floor(viewLeft / m_cellWidth));
-        const int lastCell  = static_cast<int>(std::ceil(viewRight / m_cellWidth));
-
-        // Extend one block on each side to avoid visual/collision popping at edges
-        const int firstBlock = blockIndexForCell(firstCell) - 1;
-        const int lastBlock  = blockIndexForCell(lastCell) + 1;
-
-        // Build solid rects for all blocks intersecting the view
         std::vector<sf::FloatRect> solids;
-        // Each block can contribute up to 2 rects if we have gaps (left + right of the gap)
-        // or 1 rect per block if we have continuous ground.
-        const int rectsPerBlock = m_hasGaps ? 2 : 1;
-        solids.reserve(std::max(0, (lastBlock - firstBlock + 1)) * rectsPerBlock);
+        const int                  blockCount = std::max(0, info.lastBlock - info.firstBlock + 1);
+        // Worst case: 2 solids per block (left + right of gap).
+        solids.reserve(blockCount * 2);
 
-        for (int block = firstBlock; block <= lastBlock; ++block)
-            appendSolidsForBlock(block, y, height, viewLeft, viewRight, solids);
+        for (int block = info.firstBlock; block <= info.lastBlock; ++block)
+            appendSolidsForBlock(block, info, solids);
 
-        // Upload result into MultiRectCollider (takes ownership of the vector)
         m_collider.setRectColliders(std::move(solids));
     }
 
@@ -66,48 +37,26 @@ class GroundBand {
     const MultiRectCollider& getCollider() const { return m_collider; }
 
     // Top Y of the collidable band for a given view.
-    // This is used by other systems (e.g., spawning obstacles on top of ground).
-    float getTopYForView(const sf::View& view) const {
-        const sf::Vector2f viewSize = view.getSize();
-        const sf::Vector2f center   = view.getCenter();
-        const float        bandH    = viewSize.y * m_bandHeightRatio;
-
-        // Same computation as in updateForView() to keep everything consistent.
-        const float y = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH);
-        return y;
-    }
+    float getTopYForView(const sf::View& view) const { return computeViewBandInfo(view).y; }
 
     // Computes gap rectangles for the given view in world space.
     void gapsForView(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const {
         outGaps.clear();
 
-        if (!m_hasGaps)
-            return;
+        const ViewBandInfo info = computeViewBandInfo(view);
 
-        // --- View geometry (world space) ---
-        const sf::Vector2f viewSize = view.getSize();
-        const sf::Vector2f center   = view.getCenter();
-
-        const float viewL = center.x - 0.5f * viewSize.x;
-        const float viewR = viewL + viewSize.x;
-
-        const float bandH = viewSize.y * m_bandHeightRatio;
-        const float y     = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH);
-
-        const int firstCell  = static_cast<int>(std::floor(viewL / m_cellWidth));
-        const int lastCell   = static_cast<int>(std::ceil(viewR / m_cellWidth));
-        const int firstBlock = blockIndexForCell(firstCell) - 1;
-        const int lastBlock  = blockIndexForCell(lastCell) + 1;
-
-        for (int block = firstBlock; block <= lastBlock; ++block) {
-            const std::optional<sf::FloatRect> gapOpt = computeGapForBlock(block, y, bandH);
+        for (int block = info.firstBlock; block <= info.lastBlock; ++block) {
+            const std::optional<sf::FloatRect> gapOpt =
+                computeGapForBlock(block, info.y, info.height);
             if (!gapOpt)
                 continue;
 
-            const sf::FloatRect& gap = *gapOpt;
-
-            // Skip if gap is completely off-screen
-            if (geom::left(gap) + geom::width(gap) < viewL || geom::left(gap) > viewR)
+            const sf::FloatRect& gap              = *gapOpt;
+            const float          gapL             = geom::left(gap);
+            const float          gapR             = gapL + geom::width(gap);
+            const bool           gapIsLeftOfView  = gapR < info.viewLeft;
+            const bool           gapIsRightOfView = gapL > info.viewRight;
+            if (gapIsLeftOfView || gapIsRightOfView)
                 continue;
 
             outGaps.push_back(gap);
@@ -115,90 +64,81 @@ class GroundBand {
     }
 
   private:
-    // Converts a cell index to its containing block index.
-    // Each block is m_cellsPerBlock cells wide.
-    int blockIndexForCell(int cell) const { return math::floorDivInt(cell, m_cellsPerBlock); }
+    struct ViewBandInfo {
+        float y          = 0.f;
+        float height     = 0.f;
+        float viewLeft   = 0.f;
+        float viewRight  = 0.f;
+        int   firstBlock = 0;
+        int   lastBlock  = -1;
+    };
 
-    // Returns the "anchor" cell index for this block (leftmost cell).
-    int blockAnchor(int blockIdx) const { return blockIdx * m_cellsPerBlock; }
+    ViewBandInfo computeViewBandInfo(const sf::View& view) const {
+        ViewBandInfo info;
+
+        const sf::Vector2f viewSize   = view.getSize();
+        const sf::Vector2f viewCenter = view.getCenter();
+
+        info.viewLeft  = viewCenter.x - 0.5f * viewSize.x;
+        info.viewRight = info.viewLeft + viewSize.x;
+
+        info.height = viewSize.y * m_bandHeightRatio;
+        info.y      = (viewCenter.y - 0.5f * viewSize.y) + (viewSize.y - info.height);
+
+        const int firstCell = static_cast<int>(std::floor(info.viewLeft / m_cellWidth));
+        const int lastCell  = static_cast<int>(std::ceil(info.viewRight / m_cellWidth));
+
+        info.firstBlock = math::floorDivInt(firstCell, m_cellsPerBlock) - 1;
+        info.lastBlock  = math::floorDivInt(lastCell, m_cellsPerBlock) + 1;
+
+        return info;
+    }
 
     // Returns the world-space rectangle of the gap within this block, if any.
-    // - Exactly one gap per block when m_hasGaps is true and gapPattern does not override
-    // - Gap width = one cell (m_cellWidth) by default
-    // - Gap position inside the block is deterministic pseudo-random based on block index
+    // - Gap width/position is fully decided by m_gapPattern
+    // - Pattern can decide per-block to have or not have a gap (nullopt).
     std::optional<sf::FloatRect> computeGapForBlock(int blockIdx, float y, float h) const {
-        if (!m_hasGaps)
-            return std::nullopt;
-
-        // Degenerate case: a "block" of a single cell can't host an in-block gap,
-        // treat it as solid.
         if (m_cellsPerBlock <= 1)
             return std::nullopt;
 
-        if (m_gapPattern) {
-            return m_gapPattern(blockIdx, y, h, m_cellWidth, m_cellsPerBlock);
-        }
-
-        const int anchor = blockAnchor(blockIdx);
-
-        // Hash the anchor so gaps are pseudo-random but deterministic
-        const std::uint32_t random = math::mix32(static_cast<std::uint32_t>(anchor));
-
-        // Choose an offset in [1..cellsPerBlock-1] -> keeps gap away from anchor cell
-        const int positions = m_cellsPerBlock - 1;
-        const int gapOffset = 1 + static_cast<int>(random % positions);
-
-        // X coordinate of gap's left edge (cell-based)
-        const float left = (anchor + gapOffset) * m_cellWidth;
-
-        // Rect representing the whole vertical band in that gap cell
-        return sf::FloatRect{{left, y}, {m_cellWidth, h}};
+        // By design, m_gapPattern is always set (defaults to "no gaps").
+        return m_gapPattern(blockIdx, y, h, m_cellWidth, m_cellsPerBlock);
     }
 
-    // Appends solid segments of a block, clipped to [viewL, viewR].
-    // If there is a gap, produces 2 rects (left & right of gap).
-    // Otherwise, produces 1 rect covering the entire block width.
-    void appendSolidsForBlock(int blockIdx, float y, float h, float viewL, float viewR,
+    // Appends solid segments of a block, clipped to [viewLeft, viewRight].
+    void appendSolidsForBlock(int blockIdx, const ViewBandInfo& info,
                               std::vector<sf::FloatRect>& out) const {
-        // --- Block horizontal bounds in world space ---
-        const int   anchor = blockAnchor(blockIdx);
+        const int   anchor = blockIdx * m_cellsPerBlock;
         const float blockL = anchor * m_cellWidth;
         const float blockR = (anchor + m_cellsPerBlock) * m_cellWidth;
 
-        // Helper to emit a solid rect, clipped to the visible [viewL, viewR] range
         auto clipPush = [&](float L, float R) {
-            const float left  = std::max(L, viewL);
-            const float right = std::min(R, viewR);
+            const float left  = std::max(L, info.viewLeft);
+            const float right = std::min(R, info.viewRight);
             if (right > left)
-                out.emplace_back(sf::FloatRect{{left, y}, {right - left, h}});
+                out.emplace_back(sf::FloatRect{{left, info.y}, {right - left, info.height}});
         };
 
-        const std::optional<sf::FloatRect> gapOpt = computeGapForBlock(blockIdx, y, h);
+        const std::optional<sf::FloatRect> gapOpt =
+            computeGapForBlock(blockIdx, info.y, info.height);
 
         if (gapOpt) {
             const sf::FloatRect& gap  = *gapOpt;
             const float          gapL = geom::left(gap);
-            const float          gapR = geom::left(gap) + geom::width(gap);
+            const float          gapR = gapL + geom::width(gap);
 
-            // Left solid: from start of block to start of gap
-            clipPush(blockL, gapL);
-            // Right solid: from end of gap to end of block
-            clipPush(gapR, blockR);
+            clipPush(blockL, gapL); // left solid
+            clipPush(gapR, blockR); // right solid
         } else {
-            // Continuous ground: single solid segment for entire block
-            clipPush(blockL, blockR);
+            clipPush(blockL, blockR); // full block solid
         }
     }
 
   private:
-    float m_bandHeightRatio = 0.05f;
-    float m_cellWidth       = 220.f;
-    int   m_cellsPerBlock   = 5;
-    bool  m_hasGaps         = true;
-
+    float        m_bandHeightRatio;
+    float        m_cellWidth;
+    int          m_cellsPerBlock;
     GapPatternFn m_gapPattern;
 
-    // Aggregated AABBs that represent all solid ground segments under the current view
     MultiRectCollider m_collider;
 };
-

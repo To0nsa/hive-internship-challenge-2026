@@ -121,9 +121,12 @@
     │   ├── EnvConfig.h
     │   ├── Environment.cpp
     │   ├── Environment.h
-    │   ├── GroundStream.h
     │   ├── ParallaxBackground.h
-    │   └── StripUtil.h
+    │   ├── StripUtil.h
+    │   └── ground
+    │       ├── GroundBand.h
+    │       ├── GroundTypes.h
+    │       └── HazardLayer.h
     ├── gameplay
     │   ├── Faction.h
     │   └── GameSession.h
@@ -157,4 +160,4 @@
         ├── Stopwatch.h
         └── utils.h
 
-40 directories, 118 files
+41 directories, 120 files

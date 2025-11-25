@@ -478,7 +478,7 @@ namespace {
 
         const sf::FloatRect playerBounds = player->getCollider().worldAabb();
         if (ctx.environment && ctx.cameraView) {
-            if (ctx.environment->intersectsLavaGap(playerBounds, *ctx.cameraView))
+            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView))
                 player->applyDamage(10000.f);
         }
 
@@ -2922,7 +2922,9 @@ namespace EnvConfig {
 #include "environment/Environment.h"
 
 #include "core/Assets.h"
+#include "core/ResourceManager.h"
 #include "environment/EnvConfig.h"
+#include "environment/StripUtil.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -2950,34 +2952,47 @@ bool Environment::initVolcanoDay() {
         },
         kBgAnimFactor, kBgAnimFps);
 
-    m_ground = std::make_unique<GroundStream>(strip::ParallaxLayerDesc{
-        Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, kLayerFactors[6]});
+    m_groundLayer = strip::ParallaxLayerDesc{
+        Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, kLayerFactors[6]};
+
+    HazardConfig hazardCfg;
+    hazardCfg.type        = HazardType::Lava;
+    hazardCfg.texturePath = Assets::Tex::Environment::Ground::Lava;
+    hazardCfg.scale       = 6.f;
+    hazardCfg.yOffset     = 85.f;
+
+    GroundStreamConfig groundCfg = GroundPresets::gapsWithHazard(m_groundLayer, hazardCfg);
+    m_ground                     = std::make_unique<GroundBand>(groundCfg);
+    m_hazard                     = std::make_unique<HazardLayer>(groundCfg.hazard);
 
     return true;
 }
 
 void Environment::update(float dt, const sf::View& view) {
-    if (m_bgAnim)
-        m_bgAnim->update(dt);
-    if (m_ground) {
-        m_ground->update(dt);
-        m_ground->updateForView(view);
-    }
+    m_bgAnim->update(dt);
+    m_hazard->update(dt);
+    m_ground->updateForView(view);
 }
 
 void Environment::renderBackground(sf::RenderTarget& target, const sf::View& view) const {
-    if (m_bgAnim)
-        m_bgAnim->drawForView(target, view);
-
-    if (m_bg && m_bg->size() > 0) {
-        const std::size_t lastBack = std::min<std::size_t>(5, m_bg->size() - 1);
-        m_bg->drawRangeForView(target, view, 0, lastBack);
-    }
+    m_bgAnim->drawForView(target, view);
+    const std::size_t lastBack = std::min<std::size_t>(5, m_bg->size() - 1);
+    m_bg->drawRangeForView(target, view, 0, lastBack);
 }
 
 void Environment::renderForeground(sf::RenderTarget& target, const sf::View& view) const {
-    if (m_ground)
-        m_ground->drawForView(target, view);
+    // Ground visual strip (independent of gameplay colliders)
+    if (!m_groundLayer.texturePath.empty()) {
+        sf::Texture& tex = ResourceManager::getRepeatedTexture(m_groundLayer.texturePath);
+        strip::drawStrip(target, view, tex, m_groundLayer.factor);
+    }
+
+    // Hazard visuals occupying the gaps
+    if (m_ground && m_hazard && m_hazard->hasHazard()) {
+        std::vector<sf::FloatRect> gaps;
+        m_ground->gapsForView(view, gaps);
+        m_hazard->drawForView(target, view, gaps);
+    }
 
     if (m_bg && m_bg->size() >= 7)
         m_bg->drawRangeForView(target, view, 6, 6);
@@ -2991,8 +3006,13 @@ float Environment::getGroundTopY(const sf::View& view) const {
     return m_ground ? m_ground->getTopYForView(view) : 0.f;
 }
 
-bool Environment::intersectsLavaGap(const sf::FloatRect& aabb, const sf::View& view) const {
-    return m_ground ? m_ground->intersectsLavaGap(aabb, view) : false;
+bool Environment::intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const {
+    if (!m_ground || !m_hazard || !m_hazard->hasHazard())
+        return false;
+
+    std::vector<sf::FloatRect> gaps;
+    m_ground->gapsForView(view, gaps);
+    return m_hazard->intersectsHazard(aabb, gaps);
 }
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/Environment.cpp =====
@@ -3001,8 +3021,9 @@ bool Environment::intersectsLavaGap(const sf::FloatRect& aabb, const sf::View& v
 #pragma once
 
 #include "environment/AnimatedParallaxStrip.h"
-#include "environment/GroundStream.h"
 #include "environment/ParallaxBackground.h"
+#include "environment/ground/GroundBand.h"
+#include "environment/ground/HazardLayer.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>
@@ -3021,322 +3042,17 @@ class Environment {
 
     const MultiRectCollider* getGroundCollider() const;
     float                    getGroundTopY(const sf::View& view) const;
-    bool intersectsLavaGap(const sf::FloatRect& aabb, const sf::View& view) const;
+    bool intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const;
 
   private:
     std::unique_ptr<ParallaxBackground>    m_bg;
     std::unique_ptr<AnimatedParallaxStrip> m_bgAnim;
-    std::unique_ptr<GroundStream>          m_ground;
+    std::unique_ptr<GroundBand>            m_ground;
+    std::unique_ptr<HazardLayer>           m_hazard;
+    strip::ParallaxLayerDesc               m_groundLayer{};
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/Environment.h =====
-
-===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/GroundStream.h =====
-#pragma once
-
-#include "animation/Animation.h"
-#include "collision/MultiRectCollider.h"
-#include "core/Assets.h"
-#include "core/Config.h"
-#include "core/Debug.h"
-#include "core/ResourceManager.h"
-#include "environment/StripUtil.h"
-#include "utils/Geom.h"
-#include "utils/Math.h"
-
-#include <SFML/Graphics.hpp>
-#include <algorithm>
-#include <cmath>
-#include <cstdint>
-#include <memory>
-#include <string>
-#include <vector>
-
-// Represents an "infinite" strip of ground at the bottom of the view,
-// with lava gaps inside it. Provides both rendering and collision.
-class GroundStream : public sf::Drawable {
-  public:
-    // Each GroundStream is tied to one parallax layer (texture + factor)
-    explicit GroundStream(const strip::ParallaxLayerDesc& layer) : m_layer(layer) {}
-
-    // Advance lava animation (if it was created)
-    void update(float dt) {
-        if (m_lavaAnimator)
-            m_lavaAnimator->update(dt);
-    }
-
-    // Rebuild the set of collidable ground rectangles for the current camera view.
-    void updateForView(const sf::View& view) {
-        // --- View geometry (world space) ---
-        const sf::Vector2f viewSize = view.getSize();
-        const sf::Vector2f center   = view.getCenter();
-
-        // Left/right edges in world coords
-        const float viewLeft  = center.x - 0.5f * viewSize.x;
-        const float viewRight = viewLeft + viewSize.x;
-
-        // Ground collision band height = fixed fraction of view height
-        const float height = viewSize.y * kColliderHeightRatio;
-
-        // Y of the top of the band, stuck against bottom of view
-        const float y =
-            (center.y - 0.5f * viewSize.y) + (viewSize.y - height); // bottom-anchored band
-
-        // --- Convert visible range to blocks ---
-
-        // First / last cell indices covering the view horizontally
-        const int firstCell = static_cast<int>(std::floor(viewLeft / kCellWidth));
-        const int lastCell  = static_cast<int>(std::ceil(viewRight / kCellWidth));
-
-        // Extend one block on each side to avoid visual/collision popping at edges
-        const int firstBlock = blockIndexForCell(firstCell) - 1;
-        const int lastBlock  = blockIndexForCell(lastCell) + 1;
-
-        // Build solid rects for all blocks intersecting the view
-        std::vector<sf::FloatRect> solids;
-        // Each block can contribute up to 2 rects (left + right of the gap)
-        solids.reserve(std::max(0, (lastBlock - firstBlock + 1)) * 2);
-
-        for (int block = firstBlock; block <= lastBlock; ++block)
-            appendSolidsForBlock(block, y, height, viewLeft, viewRight, solids);
-
-        // Upload result into MultiRectCollider (takes ownership of the vector)
-        m_collider.setRectColliders(std::move(solids));
-    }
-
-    // High-level draw: ground strip + lava gaps (+ optional debug rects)
-    void drawForView(sf::RenderTarget& target, const sf::View& view) const {
-        // Draw the tiled background ground texture (purely visual)
-        sf::Texture& tex = ResourceManager::getRepeatedTexture(m_layer.texturePath);
-        strip::drawStrip(target, view, tex, m_layer.factor);
-
-        // Draw animated lava inside the gaps
-        drawLavaGaps(target, view);
-
-        // Optionally draw debug outlines of the collider rects
-        if constexpr (Config::kDebugDraw) {
-            for (const auto& r : m_collider.getRectColliders()) {
-                sf::RectangleShape outline;
-                outline.setPosition(r.position);
-                outline.setSize(r.size);
-                outline.setFillColor(sf::Color(0, 0, 0, 0));
-                outline.setOutlineColor(sf::Color::Yellow);
-                outline.setOutlineThickness(1.f);
-                target.draw(outline);
-            }
-        }
-    }
-
-    // Access to ground collider used by physics / actors
-    const MultiRectCollider& getCollider() const { return m_collider; }
-
-    // Returns true if aabb overlaps the lava band inside any visible gap for the given view.
-    // Used to detect "player fell into lava".
-    bool intersectsLavaGap(const sf::FloatRect& aabb, const sf::View& view) const {
-        // --- Same geometry as updateForView, but focused on gaps instead of solids ---
-
-        const sf::Vector2f viewSize = view.getSize();
-        const sf::Vector2f center   = view.getCenter();
-
-        const float viewL = center.x - 0.5f * viewSize.x;
-        const float viewR = viewL + viewSize.x;
-
-        const float bandH = viewSize.y * kColliderHeightRatio;
-        const float y     = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH);
-
-        // Same visible block range logic
-        const int firstCell  = static_cast<int>(std::floor(viewL / kCellWidth));
-        const int lastCell   = static_cast<int>(std::ceil(viewR / kCellWidth));
-        const int firstBlock = blockIndexForCell(firstCell) - 1;
-        const int lastBlock  = blockIndexForCell(lastCell) + 1;
-
-        sf::FloatRect gap;
-        for (int block = firstBlock; block <= lastBlock; ++block) {
-            // Compute gap rect in this block
-            gap = gapRectForBlock(block, y, bandH);
-
-            // Early-out: skip if gap is completely left/right off-screen
-            if (geom::left(gap) + geom::width(gap) < viewL || geom::left(gap) > viewR)
-                continue;
-
-            // If player collider intersects the gap, they are in lava
-            if (geom::aabbIntersects(aabb, gap))
-                return true;
-        }
-        return false;
-    }
-
-  private:
-    // sf::Drawable interface: we don't use this low-level overload,
-    // callers are expected to call drawForView instead.
-    void draw(sf::RenderTarget&, sf::RenderStates) const override {}
-
-    // Lazily create lava animation clip & sprite the first time we need it.
-    void ensureLavaClipExists() const {
-        if (m_lavaAnimator)
-            return; // Already initialized
-
-        // Load lava texture
-        sf::Texture& tex = ResourceManager::getTexture(Assets::Tex::Environment::Ground::Lava);
-
-        // Build an animation clip from a sheet (50x50 frames, first 2x2 area, 6 fps, looping)
-        m_lavaClip = Animation::makeClipFromSheet("lava", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
-
-        // Create sprite + animator bound to that sprite
-        m_pLavaSprite  = std::make_unique<sf::Sprite>(tex);
-        m_lavaAnimator = std::make_unique<SpriteAnimator>(*m_pLavaSprite);
-
-        // Register clip and start playing it
-        m_lavaClipId = m_lavaAnimator->addClip(m_lavaClip);
-        m_lavaAnimator->playClip(m_lavaClipId);
-    }
-
-    // Render lava sprites inside every visible gap
-    void drawLavaGaps(sf::RenderTarget& target, const sf::View& view) const {
-        // Make sure animation is set up
-        ensureLavaClipExists();
-
-        // --- View geometry ---
-        const sf::Vector2f viewSize = view.getSize();
-        const sf::Vector2f center   = view.getCenter();
-
-        const float viewL = center.x - 0.5f * viewSize.x;
-        const float viewR = viewL + viewSize.x;
-
-        const float bandH = viewSize.y * kColliderHeightRatio;
-        // Slight vertical lift so lava is visually above the collision band.
-        // So the hazard reads clearly and doesn't look "inside" the ground band.
-        const float y = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH) - kLavaYOffset;
-
-        // Same block range as updateForView
-        const int firstCell  = static_cast<int>(std::floor(viewL / kCellWidth));
-        const int lastCell   = static_cast<int>(std::ceil(viewR / kCellWidth));
-        const int firstBlock = blockIndexForCell(firstCell) - 1;
-        const int lastBlock  = blockIndexForCell(lastCell) + 1;
-
-        // If somehow sprite wasn't created, bail out safely
-        if (!m_pLavaSprite)
-            return;
-
-        // --- Prepare sprite transform (origin + scale) based on current frame ---
-        const sf::IntRect frame  = m_pLavaSprite->getTextureRect();
-        const float       frameW = static_cast<float>(std::max(1, frame.size.x));
-        const float       frameH = static_cast<float>(std::max(1, frame.size.y));
-        // Center origin so scaling/positioning uses the sprite center
-        m_pLavaSprite->setOrigin({frameW * 0.5f, frameH * 0.5f});
-        // Scale up to match size of gap visually
-        m_pLavaSprite->setScale({kLavaScale, kLavaScale});
-
-        // Loop over blocks and draw lava in each gap that overlaps the view
-        for (int block = firstBlock; block <= lastBlock; ++block) {
-            const sf::FloatRect gap = gapRectForBlock(block, y, bandH);
-
-            // Skip if gap is off-screen
-            if (geom::left(gap) + geom::width(gap) < viewL || geom::left(gap) > viewR)
-                continue;
-
-            // Compute center of the gap band
-            const float centerX = geom::left(gap) + 0.5f * geom::width(gap);
-            const float centerY = y + 0.5f * bandH;
-
-            // Place sprite there and draw it
-            m_pLavaSprite->setPosition({centerX, centerY});
-            target.draw(*m_pLavaSprite);
-        }
-    }
-
-    // --- Block / gap helpers ---
-
-    // Converts a cell index to its containing block index.
-    // Each block is kBlockCells cells wide.
-    static int blockIndexForCell(int cell) { return math::floorDivInt(cell, kBlockCells); }
-
-    // Returns the "anchor" cell index for this block (leftmost cell).
-    static int blockAnchor(int blockIdx) { return blockIdx * kBlockCells; }
-
-    // Returns the world-space rectangle of the lava gap within this block.
-    // - Exactly one gap per block
-    // - Gap width = one cell (kCellWidth)
-    // - Gap position inside the block is deterministic pseudo-random based on block index
-    static sf::FloatRect gapRectForBlock(int blockIdx, float y, float h) {
-        const int anchor = blockAnchor(blockIdx);
-
-        // Hash the anchor so gaps are pseudo-random but deterministic
-        const std::uint32_t random = math::mix32(static_cast<std::uint32_t>(anchor));
-
-        // Choose an offset in [1..4] -> 4 possible positions within the 5-cell block
-        const int gapOffset = 1 + static_cast<int>(random % 4); // 1..4
-
-        // X coordinate of gap's left edge (cell-based)
-        const float left = (anchor + gapOffset) * kCellWidth;
-
-        // Rect representing the whole vertical band in that gap cell
-        return sf::FloatRect{{left, y}, {kCellWidth, h}};
-    }
-
-    // Appends the two solid segments of a block (left & right of the gap) clipped to [viewL,
-    // viewR]. This is how we derive collidable ground segments from a block that contains one gap.
-    static void appendSolidsForBlock(int blockIdx, float y, float h, float viewL, float viewR,
-                                     std::vector<sf::FloatRect>& out) {
-        // --- Block horizontal bounds in world space ---
-        const int   anchor = blockAnchor(blockIdx);
-        const float blockL = anchor * kCellWidth;
-        const float blockR = (anchor + kBlockCells) * kCellWidth;
-
-        // Lava gap rect in this block
-        const sf::FloatRect gap  = gapRectForBlock(blockIdx, y, h);
-        const float         gapL = geom::left(gap);
-        const float         gapR = geom::left(gap) + geom::width(gap);
-
-        // Helper to emit a solid rect, clipped to the visible [viewL, viewR] range
-        auto clipPush = [&](float L, float R) {
-            const float left  = std::max(L, viewL);
-            const float right = std::min(R, viewR);
-            if (right > left)
-                out.emplace_back(sf::FloatRect{{left, y}, {right - left, h}});
-        };
-
-        // Left solid: from start of block to start of gap
-        clipPush(blockL, gapL);
-        // Right solid: from end of gap to end of block
-        clipPush(gapR, blockR);
-    }
-
-  public:
-    // Top Y of the collidable band for a given view.
-    // This is used by other systems (e.g., spawning obstacles on top of ground).
-    float getTopYForView(const sf::View& view) const {
-        const sf::Vector2f viewSize = view.getSize();
-        const sf::Vector2f center   = view.getCenter();
-        const float        bandH    = viewSize.y * kColliderHeightRatio;
-
-        // Same computation as in updateForView() to keep everything consistent.
-        const float y = (center.y - 0.5f * viewSize.y) + (viewSize.y - bandH);
-        return y;
-    }
-
-  private:
-    // Parallax layer used for visual ground strip
-    strip::ParallaxLayerDesc m_layer;
-
-    // Aggregated AABBs that represent all solid ground segments under the current view
-    MultiRectCollider m_collider;
-
-    // --- Lava animation state (mutable so we can init/update in const methods) ---
-    mutable std::unique_ptr<sf::Sprite>     m_pLavaSprite;
-    mutable std::unique_ptr<SpriteAnimator> m_lavaAnimator;
-    mutable AnimationClip                   m_lavaClip;
-    mutable SpriteAnimator::ClipId          m_lavaClipId = SpriteAnimator::kInvalidClip;
-
-    // --- Tunables controlling band size and layout ---
-    static constexpr float kColliderHeightRatio = 0.05f; // Ground band = 5% of view height
-    static constexpr float kCellWidth           = 220.f; // World units per "cell"
-    static constexpr int   kBlockCells          = 5;     // Cells per block (1 lava gap inside)
-    static constexpr float kLavaScale           = 6.f;   // Lava sprite scale factor
-    static constexpr float kLavaYOffset         = 85.f;  // Visual offset lifting lava above band
-};
-
-===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/GroundStream.h =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ParallaxBackground.h =====
 #pragma once
@@ -3436,6 +3152,363 @@ namespace strip {
 } // namespace strip
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/StripUtil.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundBand.h =====
+#pragma once
+
+#include "collision/MultiRectCollider.h"
+#include "environment/ground/GroundTypes.h"
+#include "utils/Geom.h"
+#include "utils/Math.h"
+
+#include <SFML/Graphics/Rect.hpp>
+#include <SFML/Graphics/View.hpp>
+#include <algorithm>
+#include <cmath>
+#include <optional>
+#include <vector>
+
+class GroundBand {
+  public:
+    explicit GroundBand(const GroundStreamConfig& cfg)
+        : m_bandHeightRatio(cfg.bandHeightRatio), m_cellWidth(cfg.cellWidth),
+          m_cellsPerBlock(cfg.cellsPerBlock), m_gapPattern(cfg.gapPattern) {}
+
+    // Rebuild the set of collidable ground rectangles for the current camera view.
+    void updateForView(const sf::View& view) {
+        const ViewBandInfo info = computeViewBandInfo(view);
+
+        std::vector<sf::FloatRect> solids;
+        const int                  blockCount = std::max(0, info.lastBlock - info.firstBlock + 1);
+        // Worst case: 2 solids per block (left + right of gap).
+        solids.reserve(blockCount * 2);
+
+        for (int block = info.firstBlock; block <= info.lastBlock; ++block)
+            appendSolidsForBlock(block, info, solids);
+
+        m_collider.setRectColliders(std::move(solids));
+    }
+
+    // Access to ground collider used by physics / actors
+    const MultiRectCollider& getCollider() const { return m_collider; }
+
+    // Top Y of the collidable band for a given view.
+    float getTopYForView(const sf::View& view) const { return computeViewBandInfo(view).y; }
+
+    // Computes gap rectangles for the given view in world space.
+    void gapsForView(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const {
+        outGaps.clear();
+
+        const ViewBandInfo info = computeViewBandInfo(view);
+
+        for (int block = info.firstBlock; block <= info.lastBlock; ++block) {
+            const std::optional<sf::FloatRect> gapOpt =
+                computeGapForBlock(block, info.y, info.height);
+            if (!gapOpt)
+                continue;
+
+            const sf::FloatRect& gap              = *gapOpt;
+            const float          gapL             = geom::left(gap);
+            const float          gapR             = gapL + geom::width(gap);
+            const bool           gapIsLeftOfView  = gapR < info.viewLeft;
+            const bool           gapIsRightOfView = gapL > info.viewRight;
+            if (gapIsLeftOfView || gapIsRightOfView)
+                continue;
+
+            outGaps.push_back(gap);
+        }
+    }
+
+  private:
+    struct ViewBandInfo {
+        float y          = 0.f;
+        float height     = 0.f;
+        float viewLeft   = 0.f;
+        float viewRight  = 0.f;
+        int   firstBlock = 0;
+        int   lastBlock  = -1;
+    };
+
+    ViewBandInfo computeViewBandInfo(const sf::View& view) const {
+        ViewBandInfo info;
+
+        const sf::Vector2f viewSize   = view.getSize();
+        const sf::Vector2f viewCenter = view.getCenter();
+
+        info.viewLeft  = viewCenter.x - 0.5f * viewSize.x;
+        info.viewRight = info.viewLeft + viewSize.x;
+
+        info.height = viewSize.y * m_bandHeightRatio;
+        info.y      = (viewCenter.y - 0.5f * viewSize.y) + (viewSize.y - info.height);
+
+        const int firstCell = static_cast<int>(std::floor(info.viewLeft / m_cellWidth));
+        const int lastCell  = static_cast<int>(std::ceil(info.viewRight / m_cellWidth));
+
+        info.firstBlock = math::floorDivInt(firstCell, m_cellsPerBlock) - 1;
+        info.lastBlock  = math::floorDivInt(lastCell, m_cellsPerBlock) + 1;
+
+        return info;
+    }
+
+    // Returns the world-space rectangle of the gap within this block, if any.
+    // - Gap width/position is fully decided by m_gapPattern
+    // - Pattern can decide per-block to have or not have a gap (nullopt).
+    std::optional<sf::FloatRect> computeGapForBlock(int blockIdx, float y, float h) const {
+        if (m_cellsPerBlock <= 1)
+            return std::nullopt;
+
+        // By design, m_gapPattern is always set (defaults to "no gaps").
+        return m_gapPattern(blockIdx, y, h, m_cellWidth, m_cellsPerBlock);
+    }
+
+    // Appends solid segments of a block, clipped to [viewLeft, viewRight].
+    void appendSolidsForBlock(int blockIdx, const ViewBandInfo& info,
+                              std::vector<sf::FloatRect>& out) const {
+        const int   anchor = blockIdx * m_cellsPerBlock;
+        const float blockL = anchor * m_cellWidth;
+        const float blockR = (anchor + m_cellsPerBlock) * m_cellWidth;
+
+        auto clipPush = [&](float L, float R) {
+            const float left  = std::max(L, info.viewLeft);
+            const float right = std::min(R, info.viewRight);
+            if (right > left)
+                out.emplace_back(sf::FloatRect{{left, info.y}, {right - left, info.height}});
+        };
+
+        const std::optional<sf::FloatRect> gapOpt =
+            computeGapForBlock(blockIdx, info.y, info.height);
+
+        if (gapOpt) {
+            const sf::FloatRect& gap  = *gapOpt;
+            const float          gapL = geom::left(gap);
+            const float          gapR = gapL + geom::width(gap);
+
+            clipPush(blockL, gapL); // left solid
+            clipPush(gapR, blockR); // right solid
+        } else {
+            clipPush(blockL, blockR); // full block solid
+        }
+    }
+
+  private:
+    float        m_bandHeightRatio;
+    float        m_cellWidth;
+    int          m_cellsPerBlock;
+    GapPatternFn m_gapPattern;
+
+    MultiRectCollider m_collider;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundBand.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundTypes.h =====
+#pragma once
+
+#include "environment/StripUtil.h"
+#include "utils/Math.h"
+
+#include <SFML/Graphics/Rect.hpp>
+#include <cstdint>
+#include <functional>
+#include <optional>
+#include <string_view>
+
+// Types of hazards that can fill ground gaps.
+enum class HazardType {
+    None, // gaps are just empty pits, no separate hazard band
+    Lava,
+    Water,
+    Spikes,
+};
+
+struct HazardConfig {
+    HazardType       type = HazardType::None;
+    std::string_view texturePath{};
+    float            scale   = 1.f;
+    float            yOffset = 0.f;
+};
+
+// Function type used to customize how gaps are placed inside blocks.
+// Returning std::nullopt means "no gap for this block".
+using GapPatternFn = std::function<std::optional<sf::FloatRect>(
+    int blockIdx, float y, float h, float cellWidth, int cellsPerBlock)>;
+
+// --- Standard gap patterns --------------------------------------------------
+
+// "No gaps anywhere" => continuous solid ground.
+inline GapPatternFn makeNoGapPattern() {
+    return [](int /*blockIdx*/, float /*y*/, float /*h*/, float /*cellWidth*/,
+              int /*cellsPerBlock*/) -> std::optional<sf::FloatRect> { return std::nullopt; };
+}
+
+// Default deterministic pseudo-random "one gap per block" pattern.
+// - Gap width = 1 cell
+// - Uses block index as seed, so layout is stable across runs.
+inline GapPatternFn makeDefaultRandomGapPattern() {
+    return [](int blockIdx, float y, float h, float cellWidth,
+              int cellsPerBlock) -> std::optional<sf::FloatRect> {
+        if (cellsPerBlock <= 1)
+            return std::nullopt;
+
+        const int anchor = blockIdx * cellsPerBlock;
+
+        // Hash the anchor so gaps are pseudo-random but deterministic
+        const std::uint32_t random = math::mix32(static_cast<std::uint32_t>(anchor));
+
+        // Choose an offset in [1..cellsPerBlock-1] -> keeps gap away from anchor cell
+        const int positions = cellsPerBlock - 1;
+        const int gapOffset = 1 + static_cast<int>(random % positions);
+
+        // X coordinate of gap's left edge (cell-based)
+        const float left = (anchor + gapOffset) * cellWidth;
+
+        // Rect representing the whole vertical band in that gap cell
+        return sf::FloatRect{{left, y}, {cellWidth, h}};
+    };
+}
+
+struct GroundStreamConfig {
+    strip::ParallaxLayerDesc visualLayer;
+
+    float bandHeightRatio = 0.05f; // fraction of view height used for the ground band
+    float cellWidth       = 220.f; // world units per "cell"
+    int   cellsPerBlock   = 5;     // cells per block (potentially 1 gap per block)
+
+    // Always-present pattern. Default: "no gaps".
+    GapPatternFn gapPattern = makeNoGapPattern();
+
+    HazardConfig hazard; // what fills the gaps visually / as a hazard
+};
+
+namespace GroundPresets {
+
+    inline GroundStreamConfig solidFloor(const strip::ParallaxLayerDesc& visualLayer) {
+        GroundStreamConfig cfg;
+        cfg.visualLayer = visualLayer;
+        cfg.gapPattern  = makeNoGapPattern(); // explicit: continuous floor
+        cfg.hazard      = HazardConfig{};
+        return cfg;
+    }
+
+    inline GroundStreamConfig gapsWithoutHazard(const strip::ParallaxLayerDesc& visualLayer) {
+        GroundStreamConfig cfg = solidFloor(visualLayer);
+        cfg.gapPattern         = makeDefaultRandomGapPattern(); // now actually has gaps
+        return cfg;
+    }
+
+    inline GroundStreamConfig gapsWithHazard(const strip::ParallaxLayerDesc& visualLayer,
+                                             const HazardConfig&             hazard) {
+        GroundStreamConfig cfg = gapsWithoutHazard(visualLayer);
+        cfg.hazard             = hazard;
+        return cfg;
+    }
+
+} // namespace GroundPresets
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundTypes.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/HazardLayer.h =====
+#pragma once
+
+#include "animation/Animation.h"
+#include "core/Assets.h"
+#include "core/ResourceManager.h"
+#include "environment/ground/GroundTypes.h"
+#include "utils/Geom.h"
+
+#include <SFML/Graphics.hpp>
+#include <algorithm>
+#include <memory>
+#include <vector>
+
+// Handles rendering and collision detection for hazards that occupy ground gaps.
+class HazardLayer {
+  public:
+    explicit HazardLayer(const HazardConfig& cfg) : m_cfg(cfg) {}
+
+    void update(float dt) {
+        if (m_animator)
+            m_animator->update(dt);
+    }
+
+    bool hasHazard() const { return m_cfg.type != HazardType::None; }
+
+    void drawForView(sf::RenderTarget& target, const sf::View& view,
+                     const std::vector<sf::FloatRect>& gaps) const {
+        (void)view;
+        if (m_cfg.type == HazardType::None)
+            return;
+
+        // Make sure animation is set up
+        ensureClipExists();
+
+        if (!m_sprite)
+            return;
+
+        // --- Prepare sprite transform (origin + scale) based on current frame ---
+        const sf::IntRect frame  = m_sprite->getTextureRect();
+        const float       frameW = static_cast<float>(std::max(1, frame.size.x));
+        const float       frameH = static_cast<float>(std::max(1, frame.size.y));
+        // Center origin so scaling/positioning uses the sprite center
+        m_sprite->setOrigin({frameW * 0.5f, frameH * 0.5f});
+        // Scale up to match size of gap visually
+        const float scale = m_cfg.scale;
+        m_sprite->setScale({scale, scale});
+
+        // Loop over gaps and draw hazard in each
+        for (const auto& gap : gaps) {
+            const float centerX = gap.position.x + 0.5f * gap.size.x;
+            const float centerY = gap.position.y + 0.5f * gap.size.y - m_cfg.yOffset;
+
+            m_sprite->setPosition({centerX, centerY});
+            target.draw(*m_sprite);
+        }
+    }
+
+    bool intersectsHazard(const sf::FloatRect& aabb, const std::vector<sf::FloatRect>& gaps) const {
+        if (m_cfg.type == HazardType::None)
+            return false;
+
+        for (const auto& gap : gaps) {
+            if (geom::aabbIntersects(aabb, gap))
+                return true;
+        }
+        return false;
+    }
+
+  private:
+    // Lazily create hazard animation clip & sprite the first time we need it.
+    void ensureClipExists() const {
+        if (m_animator || m_cfg.type == HazardType::None)
+            return; // Already initialized or unused
+
+        // Load hazard texture (fall back to lava texture if not provided for Lava)
+        const std::string_view path =
+            !m_cfg.texturePath.empty() ? m_cfg.texturePath : Assets::Tex::Environment::Ground::Lava;
+        sf::Texture& tex = ResourceManager::getTexture(path);
+
+        // Build an animation clip from a sheet (50x50 frames, first 2x2 area, 6 fps, looping)
+        m_clip = Animation::makeClipFromSheet("hazard", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
+
+        // Create sprite + animator bound to that sprite
+        m_sprite   = std::make_unique<sf::Sprite>(tex);
+        m_animator = std::make_unique<SpriteAnimator>(*m_sprite);
+
+        // Register clip and start playing it
+        m_clipId = m_animator->addClip(m_clip);
+        m_animator->playClip(m_clipId);
+    }
+
+  private:
+    HazardConfig m_cfg;
+
+    mutable std::unique_ptr<sf::Sprite>     m_sprite;
+    mutable std::unique_ptr<SpriteAnimator> m_animator;
+    mutable AnimationClip                   m_clip;
+    mutable SpriteAnimator::ClipId          m_clipId = SpriteAnimator::kInvalidClip;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/HazardLayer.h =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gameplay/Faction.h =====
 // src/game/Faction.h

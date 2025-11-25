@@ -1,8 +1,9 @@
 #pragma once
 
 #include "environment/AnimatedParallaxStrip.h"
-#include "environment/GroundStream.h"
 #include "environment/ParallaxBackground.h"
+#include "environment/ground/GroundBand.h"
+#include "environment/ground/HazardLayer.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/Graphics/RenderTarget.hpp>

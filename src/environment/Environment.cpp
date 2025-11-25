@@ -41,31 +41,23 @@ bool Environment::initVolcanoDay() {
     hazardCfg.yOffset     = 85.f;
 
     GroundStreamConfig groundCfg = GroundPresets::gapsWithHazard(m_groundLayer, hazardCfg);
-    m_ground = std::make_unique<GroundBand>(groundCfg.bandHeightRatio, groundCfg.cellWidth,
-                                            groundCfg.cellsPerBlock, groundCfg.hasGaps,
-                                            groundCfg.gapPattern);
-    m_hazard = std::make_unique<HazardLayer>(groundCfg.hazard);
+    m_ground                     = std::make_unique<GroundBand>(groundCfg);
+    m_hazard                     = std::make_unique<HazardLayer>(groundCfg.hazard);
+    m_hazard->init();
 
     return true;
 }
 
 void Environment::update(float dt, const sf::View& view) {
-    if (m_bgAnim)
-        m_bgAnim->update(dt);
-    if (m_hazard)
-        m_hazard->update(dt);
-    if (m_ground)
-        m_ground->updateForView(view);
+    m_bgAnim->update(dt);
+    m_hazard->update(dt);
+    m_ground->updateForView(view);
 }
 
 void Environment::renderBackground(sf::RenderTarget& target, const sf::View& view) const {
-    if (m_bgAnim)
-        m_bgAnim->drawForView(target, view);
-
-    if (m_bg && m_bg->size() > 0) {
-        const std::size_t lastBack = std::min<std::size_t>(5, m_bg->size() - 1);
-        m_bg->drawRangeForView(target, view, 0, lastBack);
-    }
+    m_bgAnim->drawForView(target, view);
+    const std::size_t lastBack = std::min<std::size_t>(5, m_bg->size() - 1);
+    m_bg->drawRangeForView(target, view, 0, lastBack);
 }
 
 void Environment::renderForeground(sf::RenderTarget& target, const sf::View& view) const {

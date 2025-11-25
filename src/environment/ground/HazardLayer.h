@@ -14,47 +14,71 @@
 // Handles rendering and collision detection for hazards that occupy ground gaps.
 class HazardLayer {
   public:
-    explicit HazardLayer(const HazardConfig& cfg) : m_cfg(cfg) {}
+    explicit HazardLayer(const HazardConfig& config) : m_cfg(config) {}
+
+    // Call once after construction.
+    bool init() {
+        if (m_cfg.type == HazardType::None)
+            return true; // Nothing to set up, but not an error.
+
+        sf::Texture& texture = ResourceManager::getTexture(m_cfg.texturePath);
+
+        // Build an animation clip from a sheet (50x50 frames, first 2x2 area, 6 fps, looping).
+        m_clip = Animation::makeClipFromSheet("hazard", texture,
+                                              {50, 50},  // frame size
+                                              {0, 0},    // first cell
+                                              {1, 1},    // last cell
+                                              6.f,       // fps
+                                              true);     // looping
+
+        // Create sprite + animator bound to that sprite.
+        m_sprite   = std::make_unique<sf::Sprite>(texture);
+        m_animator = std::make_unique<SpriteAnimator>(*m_sprite);
+
+        // Register clip and start playing it.
+        m_clipId = m_animator->addClip(m_clip);
+        m_animator->playClip(m_clipId);
+
+        return true;
+    }
 
     void update(float dt) {
-        if (m_animator)
-            m_animator->update(dt);
+        m_animator->update(dt);
     }
 
     bool hasHazard() const { return m_cfg.type != HazardType::None; }
 
-    void drawForView(sf::RenderTarget& target, const sf::View& /*view*/,
-                     const std::vector<sf::FloatRect>& gaps) const {
+    void drawForView(sf::RenderTarget&                 target,
+                     const sf::View& /*view*/,
+                     const std::vector<sf::FloatRect>& gaps) {
         if (m_cfg.type == HazardType::None)
             return;
 
-        // Make sure animation is set up
-        ensureClipExists();
+        // Prepare sprite transform (origin + scale) based on current frame.
+        const sf::IntRect frame      = m_sprite->getTextureRect();
+        const float       frameWidth = static_cast<float>(std::max(1, frame.size.x));
+        const float       frameHeight =
+            static_cast<float>(std::max(1, frame.size.y));
 
-        if (!m_sprite)
-            return;
+        // Center origin so scaling/positioning uses the sprite center.
+        m_sprite->setOrigin({frameWidth * 0.5f, frameHeight * 0.5f});
 
-        // --- Prepare sprite transform (origin + scale) based on current frame ---
-        const sf::IntRect frame  = m_sprite->getTextureRect();
-        const float       frameW = static_cast<float>(std::max(1, frame.size.x));
-        const float       frameH = static_cast<float>(std::max(1, frame.size.y));
-        // Center origin so scaling/positioning uses the sprite center
-        m_sprite->setOrigin({frameW * 0.5f, frameH * 0.5f});
-        // Scale up to match size of gap visually
+        // Scale up to match size of gap visually.
         const float scale = m_cfg.scale;
         m_sprite->setScale({scale, scale});
 
-        // Loop over gaps and draw hazard in each
+        // Loop over gaps and draw hazard in each.
         for (const auto& gap : gaps) {
             const float centerX = gap.position.x + 0.5f * gap.size.x;
-            const float centerY = gap.position.y + 0.5f * gap.size.y - m_cfg.yOffset;
+            const float centerY =
+                gap.position.y + 0.5f * gap.size.y - m_cfg.yOffset;
 
             m_sprite->setPosition({centerX, centerY});
             target.draw(*m_sprite);
         }
     }
 
-    bool intersectsHazard(const sf::FloatRect& aabb,
+    bool intersectsHazard(const sf::FloatRect&                 aabb,
                           const std::vector<sf::FloatRect>& gaps) const {
         if (m_cfg.type == HazardType::None)
             return false;
@@ -67,35 +91,10 @@ class HazardLayer {
     }
 
   private:
-    // Lazily create hazard animation clip & sprite the first time we need it.
-    void ensureClipExists() const {
-        if (m_animator || m_cfg.type == HazardType::None)
-            return; // Already initialized or unused
-
-        // Load hazard texture (fall back to lava texture if not provided for Lava)
-        const std::string_view path = !m_cfg.texturePath.empty()
-                                          ? m_cfg.texturePath
-                                          : Assets::Tex::Environment::Ground::Lava;
-        sf::Texture& tex = ResourceManager::getTexture(path);
-
-        // Build an animation clip from a sheet (50x50 frames, first 2x2 area, 6 fps, looping)
-        m_clip = Animation::makeClipFromSheet("hazard", tex, {50, 50}, {0, 0}, {1, 1}, 6.f, true);
-
-        // Create sprite + animator bound to that sprite
-        m_sprite   = std::make_unique<sf::Sprite>(tex);
-        m_animator = std::make_unique<SpriteAnimator>(*m_sprite);
-
-        // Register clip and start playing it
-        m_clipId = m_animator->addClip(m_clip);
-        m_animator->playClip(m_clipId);
-    }
-
-  private:
     HazardConfig m_cfg;
 
-    mutable std::unique_ptr<sf::Sprite>     m_sprite;
-    mutable std::unique_ptr<SpriteAnimator> m_animator;
-    mutable AnimationClip                   m_clip;
-    mutable SpriteAnimator::ClipId          m_clipId = SpriteAnimator::kInvalidClip;
+    std::unique_ptr<sf::Sprite>     m_sprite;
+    std::unique_ptr<SpriteAnimator> m_animator;
+    AnimationClip                   m_clip;
+    SpriteAnimator::ClipId          m_clipId = SpriteAnimator::kInvalidClip;
 };
-
