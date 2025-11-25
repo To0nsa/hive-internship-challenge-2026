@@ -1,6 +1,7 @@
 /home/toonsa/myProjects/hive-internship-challenge-2026
 ├── .clang-format
 ├── .gitignore
+├── AGENTS.md
 ├── CMakeLists.txt
 ├── README.md
 ├── assets
@@ -8,22 +9,26 @@
 │   │   └── Lavigne.ttf
 │   ├── image
 │   │   ├── enemies
-│   │   │   ├── DemonDeathAnimation.png
-│   │   │   ├── DemonFlyAnimation.png
-│   │   │   └── DemonHitAnimation.png
+│   │   │   └── demon
+│   │   │       ├── death.png
+│   │   │       ├── fly.png
+│   │   │       └── hit.png
 │   │   ├── environment
-│   │   │   ├── Volcano Layer 01.png
-│   │   │   ├── Volcano Layer 02.png
-│   │   │   ├── Volcano Layer 03.png
-│   │   │   ├── Volcano Layer 04.png
-│   │   │   ├── Volcano Layer 05.png
-│   │   │   ├── Volcano Layer 06.png
-│   │   │   ├── Volcano Layer 07.png
-│   │   │   ├── Volcano Layer 08.png
-│   │   │   ├── Volcano anim. 01.png
-│   │   │   ├── Volcano anim. 02.png
-│   │   │   ├── Volcano anim. 03.png
-│   │   │   └── lava.png
+│   │   │   ├── ground
+│   │   │   │   └── lava.png
+│   │   │   └── parallax
+│   │   │       └── volcano-day
+│   │   │           ├── bg_01.png
+│   │   │           ├── bg_02.png
+│   │   │           ├── bg_03.png
+│   │   │           ├── layer_01.png
+│   │   │           ├── layer_02.png
+│   │   │           ├── layer_03.png
+│   │   │           ├── layer_04.png
+│   │   │           ├── layer_05.png
+│   │   │           ├── layer_06.png
+│   │   │           ├── layer_07.png
+│   │   │           └── layer_08.png
 │   │   ├── obstacles
 │   │   │   ├── altar1.png
 │   │   │   ├── altar2.png
@@ -31,24 +36,26 @@
 │   │   │   ├── skull_pile.png
 │   │   │   └── tree.png
 │   │   ├── platform
-│   │   │   ├── platform1.png
-│   │   │   └── platform2.png
+│   │   │   ├── rock_01.png
+│   │   │   └── rock_02.png
 │   │   ├── player
-│   │   │   ├── PlayerCastAnimation.png
-│   │   │   ├── PlayerDashAnimation.png
-│   │   │   ├── PlayerDeathAnimation.png
-│   │   │   ├── PlayerFallAnimation.png
-│   │   │   ├── PlayerHitAnimation.png
-│   │   │   ├── PlayerIdleAnimation.png
-│   │   │   ├── PlayerJumpAnimation.png
-│   │   │   └── PlayerMoveAnimation.png
+│   │   │   ├── cast.png
+│   │   │   ├── dash.png
+│   │   │   ├── death.png
+│   │   │   ├── fall.png
+│   │   │   ├── hit.png
+│   │   │   ├── idle.png
+│   │   │   ├── jump.png
+│   │   │   └── move.png
 │   │   └── spells
-│   │       ├── ice_boltstart.png
-│   │       ├── icebolt_hit.png
-│   │       ├── icebolt_loop.png
-│   │       ├── lightning_hit.png
-│   │       ├── lightning_loop.png
-│   │       └── lightning_start.png
+│   │       ├── icebolt
+│   │       │   ├── hit.png
+│   │       │   ├── loop.png
+│   │       │   └── start.png
+│   │       └── lightning
+│   │           ├── hit.png
+│   │           ├── loop.png
+│   │           └── start.png
 │   ├── music
 │   ├── sfx
 │   └── shader
@@ -67,13 +74,18 @@
     │   └── Animation.h
     ├── collision
     │   ├── Collider.h
-    │   ├── Collision.h
+    │   ├── CollisionLayers.h
+    │   ├── CollisionSystem.cpp
+    │   ├── CollisionSystem.h
     │   ├── MultiRectCollider.h
     │   ├── RectCollider.cpp
     │   └── RectCollider.h
     ├── core
     │   ├── Application.cpp
     │   ├── Application.h
+    │   ├── Assets.h
+    │   ├── Camera.cpp
+    │   ├── Camera.h
     │   ├── Config.h
     │   ├── Debug.h
     │   ├── ResourceManager.cpp
@@ -106,13 +118,14 @@
     │       └── PlatformTypes.h
     ├── environment
     │   ├── AnimatedParallaxStrip.h
-    │   ├── BackgroundAssets.h
+    │   ├── EnvConfig.h
+    │   ├── Environment.cpp
+    │   ├── Environment.h
     │   ├── GroundStream.h
     │   ├── ParallaxBackground.h
     │   └── StripUtil.h
     ├── gameplay
     │   ├── Faction.h
-    │   ├── GameSession.cpp
     │   └── GameSession.h
     ├── spell
     │   ├── CastRequest.h
@@ -144,4 +157,4 @@
         ├── Stopwatch.h
         └── utils.h
 
-34 directories, 111 files
+40 directories, 118 files
