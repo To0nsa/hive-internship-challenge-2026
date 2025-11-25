@@ -12,7 +12,7 @@ class ParallaxBackground : public sf::Drawable {
 
     void add(const strip::ParallaxLayerDesc& desc) { m_layers.push_back(desc); }
 
-    void drawRangeForView(sf::RenderTarget& t, const sf::View& view, std::size_t first,
+    void drawRangeForView(sf::RenderTarget& target, const sf::View& view, std::size_t first,
                           std::size_t last) const {
         if (m_layers.empty())
             return;
@@ -22,7 +22,7 @@ class ParallaxBackground : public sf::Drawable {
         for (std::size_t i = first; i <= lastClamped; ++i) {
             const auto&  layer = m_layers[i];
             sf::Texture& tex   = ResourceManager::getRepeatedTexture(layer.texturePath);
-            strip::drawStrip(t, view, tex, layer.factor);
+            strip::drawStrip(target, view, tex, layer.factor);
         }
     }
 

@@ -16,6 +16,7 @@
 #include <cmath>
 
 bool Player::init() {
+    // Setup collision layer and mask
     setCollisionLayer(CollisionLayer::Player);
     setCollisionMask(maskFrom({CollisionLayer::Obstacle, CollisionLayer::Platform,
                                CollisionLayer::Collectible, CollisionLayer::EnemyProjectile}));
@@ -102,26 +103,22 @@ void Player::update(float dt) {
     if ((m_hp <= 0.f || m_stamina <= 0.f) && m_state != State::Death) {
         enterDeath();
     }
+
+    // Death state: only update death animation.
     if (m_state == State::Death) {
-        if (m_pAnimator) {
-            m_pAnimator->playClip(m_deathClip);
-            m_pAnimator->update(dt);
-        }
-        if (m_pSprite)
-            m_pSprite->setPosition(m_position);
+        m_pAnimator->playClip(m_deathClip);
+        m_pAnimator->update(dt);
+        m_pSprite->setPosition(m_position);
         return;
     }
 
+    // Base actor update (regeneration, etc)
     updateActorBase(dt);
 
     // Consume input supplied by the state
     if (m_input.jumpPressed) {
-        // Disable jump buffering: only accept if currently grounded or within coyote window
-        if (isGrounded() || m_coyoteTimer > 0.f)
-            m_jumpRequested = true;
-        else
-            m_jumpRequested = false;
-        m_jumpBufferLeft = 0.f; // no queued jump
+        // Start / refresh jump buffer window on edge-triggered press
+        m_jumpBufferLeft = kJumpBufferTime;
     }
     if (m_input.dashPressed) {
         m_dashRequested = true;
@@ -133,7 +130,13 @@ void Player::update(float dt) {
     } else {
         m_coyoteTimer -= dt;
     }
-    // No jump buffering; do not decrement buffer timer
+
+    // Jump buffer timer
+    if (m_jumpBufferLeft > 0.f) {
+        m_jumpBufferLeft -= dt;
+        if (m_jumpBufferLeft < 0.f)
+            m_jumpBufferLeft = 0.f;
+    }
 
     // Dash timers and transitions
     if (m_dashCooldownLeft > 0.f)
@@ -189,35 +192,41 @@ void Player::update(float dt) {
     // Vertical physics and collision are applied from the world via Actor::applyPhysics().
 
     // Animation selection
-    if (m_pAnimator) {
-        if (m_state == State::Dash) {
-            m_pAnimator->playClip(m_dashClip);
-        } else if (m_state == State::Cast) {
-            m_pAnimator->playClip(m_castClip);
-        } else if (!isGrounded()) {
-            updateJumpAnimation();
-        } else {
-            updateMoveAnimation();
-        }
-        m_pAnimator->update(dt);
+    if (m_state == State::Dash) {
+        m_pAnimator->playClip(m_dashClip);
+    } else if (m_state == State::Cast) {
+        m_pAnimator->playClip(m_castClip);
+    } else if (!isGrounded()) {
+        updateJumpAnimation();
+    } else {
+        updateMoveAnimation();
     }
+    m_pAnimator->update(dt);
 
-    // Push transform to sprite
-    if (m_pSprite)
-        m_pSprite->setPosition(m_position);
+    // Update sprite position from transform
+    m_pSprite->setPosition(m_position);
 }
 
 void Player::tryApplyJump() {
-    if (m_jumpRequested && (isGrounded() || m_coyoteTimer > 0.f) &&
-        (m_stamina >= kJumpStaminaCost)) {
-        m_velocity.y = -kJumpSpeed;
-        // Spend stamina
-        m_stamina -= kJumpStaminaCost;
-        m_jumpRequested  = false;
-        m_jumpBufferLeft = 0.f;
-        if (m_pAnimator)
-            m_pAnimator->requestRestart();
-    }
+    // Already grounded => nothing to do
+    if (!(isGrounded() || m_coyoteTimer > 0.f))
+        return;
+
+    // No buffered jump request => nothing to do
+    if (m_jumpBufferLeft <= 0.f)
+        return;
+
+    if (m_stamina < kJumpStaminaCost)
+        return;
+
+    // Perform the jump
+    m_velocity.y = -kJumpSpeed;
+    m_stamina -= kJumpStaminaCost;
+
+    // Consume the buffer so we don't chain extra jumps
+    m_jumpBufferLeft = 0.f;
+
+    m_pAnimator->requestRestart();
 }
 
 void Player::tryApplyDash() {
@@ -257,8 +266,7 @@ void Player::updateMoveAnimation() {
 
 void Player::enterMove() {
     m_state = State::Move;
-    if (m_pAnimator)
-        m_pAnimator->playClip(m_idleClip);
+    m_pAnimator->playClip(m_idleClip);
 }
 
 void Player::enterDash(float dirX) {
@@ -266,24 +274,19 @@ void Player::enterDash(float dirX) {
     m_dashTimer        = kDashDuration;
     m_dashCooldownLeft = kDashCooldown;
     m_dashDirX         = (dirX >= 0.f) ? +1.f : -1.f;
-    // Spend stamina
     if (m_stamina >= kDashStaminaCost)
         m_stamina -= kDashStaminaCost;
     setFacing(m_dashDirX > 0 ? Facing::Right : Facing::Left);
-    if (m_pAnimator)
-        m_pAnimator->playClip(m_dashClip);
+    m_pAnimator->playClip(m_dashClip);
 }
 
 void Player::enterDeath() {
     m_state = State::Death;
-    if (m_pAnimator) {
-        // When the non-looping death animation finishes, return to the menu.
-        World* world = m_world;
-        m_pAnimator->playClip(m_deathClip, [world]() {
-            if (world)
-                world->requestExitToMenu();
-        });
-    }
+
+    m_pAnimator->playClip(m_deathClip, [world = m_world]() {
+        if (world)
+            world->requestExitToMenu();
+    });
 }
 
 void Player::enterCast() {
@@ -294,33 +297,26 @@ void Player::enterCast() {
     m_mana -= def.stats.manaCost;
 
     // Aim: from player position to mouse world position
-    sf::Vector2f aimDir{(m_facing == Facing::Right) ? +1.f : -1.f, 0.f};
-    if (m_world) {
-        const sf::Vector2f mouseWorld = m_world->getMouseWorld();
-        sf::Vector2f       v          = mouseWorld - m_position;
-        sf::Vector2f       n          = math::normalizeVec(v);
-        if (n.x != 0.f || n.y != 0.f)
-            aimDir = n;
-    }
+    sf::Vector2f       aimDir{(m_facing == Facing::Right) ? +1.f : -1.f, 0.f};
+    const sf::Vector2f mouseWorld = m_world->getMouseWorld();
+    sf::Vector2f       v          = mouseWorld - m_position;
+    sf::Vector2f       n          = math::normalizeVec(v);
+    if (n.x != 0.f || n.y != 0.f)
+        aimDir = n;
 
     // Origin slightly in front along aim
     sf::Vector2f orig = m_position + aimDir * (kFrameSize.x * 0.4f);
 
-    if (m_world) {
-        auto* proj =
-            m_world->createEntity<Projectile>(SpellId::IceBolt, Faction::Player, orig, aimDir);
-        if (proj) {
-            (void)proj->init();
-        }
-    }
+    auto* proj = m_world->createEntity<Projectile>(SpellId::IceBolt, Faction::Player, orig, aimDir);
+
+    (void)proj->init();
 
     // Play cast animation and return to move on completion
     m_state = State::Cast;
-    if (m_pAnimator)
-        m_pAnimator->playClip(m_castClip, [this]() {
-            if (m_state == State::Cast)
-                enterMove();
-        });
+    m_pAnimator->playClip(m_castClip, [this]() {
+        if (m_state == State::Cast)
+            enterMove();
+    });
 }
 
 bool Player::isGrounded() const { return m_grounded; }

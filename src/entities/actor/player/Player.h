@@ -42,7 +42,6 @@ class Player final : public Actor {
 
     // Input state
     PlayerInput m_input;
-    bool        m_jumpRequested = false;
 
     // Rendering
     static inline const sf::Vector2i kFrameSize{100, 64};
