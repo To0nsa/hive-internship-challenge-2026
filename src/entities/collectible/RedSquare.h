@@ -1,5 +1,6 @@
 #pragma once
 
+#include "collision/CollisionLayers.h"
 #include "entities/Entity.h"
 
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -7,7 +8,10 @@
 // Minimal rotating collectible square.
 class RedSquare final : public Entity {
   public:
-    explicit RedSquare(const sf::Vector2f& center) : m_startCenter(center) {}
+    explicit RedSquare(const sf::Vector2f& center) : m_startCenter(center) {
+        setCollisionLayer(CollisionLayer::Collectible);
+        setCollisionMask(maskFrom({CollisionLayer::Player, CollisionLayer::PlayerProjectile}));
+    }
     ~RedSquare() override = default;
 
     bool init() override;

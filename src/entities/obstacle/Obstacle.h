@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "animation/Animation.h"
+#include "collision/CollisionLayers.h"
 #include "core/Config.h"
 #include "core/Debug.h"
 #include "core/ResourceManager.h"
@@ -12,7 +13,10 @@
 // Minimal obstacle entity: static sprite with optional sheet-based animation.
 class Obstacle final : public Entity {
   public:
-    explicit Obstacle(const ObstacleDesc& desc) : m_desc(desc) {}
+    explicit Obstacle(const ObstacleDesc& desc) : m_desc(desc) {
+        setCollisionLayer(CollisionLayer::Obstacle);
+        setCollisionMask(maskFrom({CollisionLayer::Player}));
+    }
 
     bool init() override {
         const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);

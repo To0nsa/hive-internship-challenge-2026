@@ -3,6 +3,7 @@
 #include "core/Camera.h"
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
+#include "collision/CollisionSystem.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -36,11 +37,6 @@ class World {
     float getFollowThresholdX() const;
     float getViewBottomY() const { return m_camera.bottom(); }
 
-    const std::vector<sf::FloatRect>& getGroundRects() const;
-    const std::vector<sf::FloatRect>& getObstacleRects() const;
-    const std::vector<sf::FloatRect>& getPlatformRects() const;
-    const std::vector<sf::FloatRect>& getSolidTopRects() const;
-
     sf::Vector2f getMouseWorld() const;
 
     void addScore(int points);
@@ -72,7 +68,5 @@ class World {
 
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
-    mutable std::vector<sf::FloatRect> m_cachedObstacleRects;
-    mutable std::vector<sf::FloatRect> m_cachedPlatformRects;
-    mutable std::vector<sf::FloatRect> m_cachedSolidTopRects;
+    CollisionContext buildCollisionContext(float dt, const MultiRectCollider* groundCollider);
 };

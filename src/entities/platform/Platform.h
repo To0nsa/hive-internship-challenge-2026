@@ -1,5 +1,6 @@
 ﻿#pragma once
 
+#include "collision/CollisionLayers.h"
 #include "core/Config.h"
 #include "core/Debug.h"
 #include "core/ResourceManager.h"
@@ -9,7 +10,10 @@
 // Minimal static-image platform entity. No animation.
 class Platform final : public Entity {
   public:
-    explicit Platform(const PlatformDesc& desc) : m_desc(desc) {}
+    explicit Platform(const PlatformDesc& desc) : m_desc(desc) {
+        setCollisionLayer(CollisionLayer::Platform);
+        setCollisionMask(maskFrom({CollisionLayer::Player}));
+    }
 
     bool init() override {
         const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);

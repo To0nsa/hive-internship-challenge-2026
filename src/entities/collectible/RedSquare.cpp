@@ -38,20 +38,7 @@ void RedSquare::update(float dt) {
     if (m_pSprite)
         m_pSprite->setPosition(m_shape.getPosition());
 
-    // Collect on player intersection
     if (m_world) {
-        if (auto* player = m_world->getPlayer()) {
-            if (player->isAlive()) {
-                const sf::FloatRect a = getCollider().worldAabb();
-                const sf::FloatRect b = player->getCollider().worldAabb();
-                if (geom::aabbIntersects(a, b)) {
-                    m_world->addScore(100);
-                    setAlive(false);
-                    return;
-                }
-            }
-        }
-
         // Self-cull when far behind camera
         const float camLeft = m_world->getCameraLeft();
         const float right   = geom::right(getCollider().worldAabb());

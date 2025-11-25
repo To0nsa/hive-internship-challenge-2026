@@ -1,6 +1,7 @@
 ﻿#include "entities/actor/player/Player.h"
 
 #include "animation/Animation.h"
+#include "collision/CollisionLayers.h"
 #include "collision/RectCollider.h"
 #include "core/Assets.h"
 #include "core/ResourceManager.h"
@@ -15,6 +16,10 @@
 #include <cmath>
 
 bool Player::init() {
+    setCollisionLayer(CollisionLayer::Player);
+    setCollisionMask(maskFrom({CollisionLayer::Obstacle, CollisionLayer::Platform,
+                               CollisionLayer::Collectible, CollisionLayer::EnemyProjectile}));
+
     // Load animation textures if present
     const sf::Texture& idleTex  = ResourceManager::getTexture(Assets::Tex::Player::Idle);
     const sf::Texture& runTex   = ResourceManager::getTexture(Assets::Tex::Player::Move);

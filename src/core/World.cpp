@@ -1,5 +1,7 @@
 #include "core/World.h"
 
+#include "collision/CollisionLayers.h"
+#include "collision/CollisionSystem.h"
 #include "collision/MultiRectCollider.h"
 #include "core/Config.h"
 #include "core/Debug.h"
@@ -13,7 +15,6 @@
 #include "entities/obstacle/ObstacleTypes.h"
 #include "entities/platform/Platform.h"
 #include "entities/platform/PlatformFactory.h"
-#include "gameplay/Faction.h"
 #include "spell/projectile/Projectile.h"
 #include "states/StatePlaying.h"
 #include "utils/Geom.h"
@@ -64,10 +65,16 @@ void World::update(float dt) {
             e->update(dt);
     }
 
+    // Update camera
     m_camera.update(dt, (m_pPlayer && m_pPlayer->isAlive()) ? m_pPlayer : nullptr);
 
+    // Update environment and build ground collider
     m_environment.update(dt, m_camera.getView());
     const MultiRectCollider* groundCollider = m_environment.getGroundCollider();
+
+    // Resolve collisions
+    CollisionContext collisionCtx = buildCollisionContext(dt, groundCollider);
+    collision::resolve(collisionCtx);
 
     // Timed Demon spawns: every 10 seconds at y=400, just off the right edge of the view
     m_demonSpawnTimer -= dt;
@@ -80,141 +87,6 @@ void World::update(float dt) {
                 demon->setPosition({rightX, y});
                 demon->update(0.f);
             }
-        }
-    }
-
-    // Resolve horizontal collisions between player and obstacles
-    if (m_pPlayer && m_pPlayer->isAlive()) {
-        sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
-        for (auto& entity : m_entities) {
-            if (!entity->isAlive())
-                continue;
-            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
-                const sf::FloatRect ob = o->getCollider().worldAabb();
-                sf::FloatRect       inter;
-                if (geom::aabbIntersects(pb, ob, inter)) {
-                    if (m_pPlayer)
-                        m_pPlayer->applyDamage(o->getDps() * dt);
-                    const float pcx   = pb.position.x + pb.size.x * 0.5f;
-                    const float ocx   = ob.position.x + ob.size.x * 0.5f;
-                    const float pushX = (pcx < ocx ? -inter.size.x : +inter.size.x);
-                    const auto  p     = m_pPlayer->getPosition();
-                    m_pPlayer->setPosition({p.x + pushX, p.y});
-                    pb = m_pPlayer->getCollider().worldAabb();
-                }
-            }
-        }
-    }
-
-    // Apply physics to actors using combined ground + obstacle colliders (walk on them)
-    MultiRectCollider combined;
-    if (groundCollider) {
-        std::vector<sf::FloatRect> solids = groundCollider->getRectColliders();
-        solids.reserve(solids.size() + m_entities.size());
-        for (auto& entity : m_entities) {
-            if (!entity->isAlive())
-                continue;
-            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
-                solids.emplace_back(o->getCollider().worldAabb());
-            } else if (auto* p = dynamic_cast<Platform*>(entity.get())) {
-                solids.emplace_back(p->getCollider().worldAabb());
-            }
-        }
-        combined.setRectColliders(std::move(solids));
-    }
-    for (auto& entity : m_entities) {
-        if (!entity->isAlive())
-            continue;
-        if (auto* actor = dynamic_cast<Actor*>(entity.get())) {
-            const Collider* col = groundCollider ? static_cast<const Collider*>(&combined)
-                                                 : static_cast<const Collider*>(nullptr);
-            actor->applyPhysics(dt, col);
-        }
-    }
-
-    // Spell collisions: projectiles vs actors by faction
-    {
-        for (const auto& eProj : m_entities) {
-            auto* proj = dynamic_cast<Projectile*>(eProj.get());
-            if (!proj || !proj->isAlive() || !proj->isDamageActive())
-                continue;
-
-            const sf::FloatRect pr = proj->getCollider().worldAabb();
-            if (proj->getFaction() == Faction::Enemy) {
-                // Enemy projectile hits the player
-                if (m_pPlayer && m_pPlayer->isAlive()) {
-                    const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
-                    if (geom::aabbIntersects(pr, pb)) {
-                        m_pPlayer->applyDamage(proj->getStats().damage);
-                        proj->requestImpact();
-                        continue;
-                    }
-                }
-            } else if (proj->getFaction() == Faction::Player) {
-                // Player projectile hits enemies or collectibles
-                for (const auto& eOther : m_entities) {
-                    // Enemies
-                    if (auto* enemy = dynamic_cast<Enemy*>(eOther.get())) {
-                        if (!enemy->isAlive())
-                            continue;
-                        const sf::FloatRect eb = enemy->getCollider().worldAabb();
-                        if (geom::aabbIntersects(pr, eb)) {
-                            // Award kill if this hit is lethal
-                            const float hpBefore = enemy->getHp();
-                            enemy->applyDamage(proj->getStats().damage);
-                            if (hpBefore > 0.f && enemy->getHp() <= 0.f)
-                                m_session.addScore(100); // enemy killed
-                            proj->requestImpact();
-                            break;
-                        }
-                        continue;
-                    }
-                    // RedSquare collectibles
-                    if (auto* sq = dynamic_cast<RedSquare*>(eOther.get())) {
-                        if (!sq->isAlive())
-                            continue;
-                        const sf::FloatRect qb = sq->getCollider().worldAabb();
-                        if (geom::aabbIntersects(pr, qb)) {
-                            addScore(100);
-                            sq->setAlive(false);
-                            proj->requestImpact();
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    // Apply DPS when standing on top of an obstacle
-    if (m_pPlayer && m_pPlayer->isAlive()) {
-        const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
-        for (auto& entity : m_entities) {
-            if (!entity->isAlive())
-                continue;
-            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
-                const sf::FloatRect ob = o->getCollider().worldAabb();
-                if (geom::touchTop(pb, ob, 0.75f)) {
-                    m_pPlayer->applyDamage(o->getDps() * dt);
-                }
-            }
-        }
-    }
-
-    // Kill if player falls into a lava gap
-    if (m_pPlayer && m_pPlayer->isAlive()) {
-        const sf::FloatRect pb = m_pPlayer->getCollider().worldAabb();
-        if (m_environment.intersectsLavaGap(pb, m_camera.getView())) {
-            m_pPlayer->applyDamage(10000.f);
-        }
-    }
-
-    // Kill if the camera (left edge) catches up to the player
-    if (m_pPlayer && m_pPlayer->isAlive()) {
-        const sf::FloatRect pb      = m_pPlayer->getCollider().worldAabb();
-        const float         camLeft = getCameraLeft();
-        if (geom::right(pb) < camLeft) {
-            m_pPlayer->applyDamage(10000.f);
         }
     }
 
@@ -303,57 +175,6 @@ void World::update(float dt) {
     }
 }
 
-const std::vector<sf::FloatRect>& World::getGroundRects() const {
-    if (const auto* collider = m_environment.getGroundCollider())
-        return collider->getRectColliders();
-    static const std::vector<sf::FloatRect> kEmpty;
-    return kEmpty;
-}
-
-const std::vector<sf::FloatRect>& World::getObstacleRects() const {
-    m_cachedObstacleRects.clear();
-    m_cachedObstacleRects.reserve(m_entities.size());
-    for (const auto& entity : m_entities) {
-        if (!entity->isAlive())
-            continue;
-        if (dynamic_cast<const Obstacle*>(entity.get())) {
-            m_cachedObstacleRects.push_back(entity->getCollider().worldAabb());
-        }
-    }
-    return m_cachedObstacleRects;
-}
-
-const std::vector<sf::FloatRect>& World::getPlatformRects() const {
-    m_cachedPlatformRects.clear();
-    m_cachedPlatformRects.reserve(m_entities.size());
-    for (const auto& entity : m_entities) {
-        if (!entity->isAlive())
-            continue;
-        if (dynamic_cast<const Platform*>(entity.get())) {
-            m_cachedPlatformRects.push_back(entity->getCollider().worldAabb());
-        }
-    }
-    return m_cachedPlatformRects;
-}
-
-const std::vector<sf::FloatRect>& World::getSolidTopRects() const {
-    m_cachedSolidTopRects.clear();
-    // Start with ground rects
-    const auto& groundRects = getGroundRects();
-    m_cachedSolidTopRects.reserve(groundRects.size() + m_entities.size());
-    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), groundRects.begin(),
-                                 groundRects.end());
-    // Append obstacle rects
-    const auto& obstacleRects = getObstacleRects();
-    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), obstacleRects.begin(),
-                                 obstacleRects.end());
-    // Append platform rects
-    const auto& platformRects = getPlatformRects();
-    m_cachedSolidTopRects.insert(m_cachedSolidTopRects.end(), platformRects.begin(),
-                                 platformRects.end());
-    return m_cachedSolidTopRects;
-}
-
 void World::render(sf::RenderTarget& target) const {
     const sf::View oldView = target.getView();
     m_camera.apply(target);
@@ -397,3 +218,53 @@ sf::Vector2f World::getMouseWorld() const {
 void World::addScore(int points) { m_session.addScore(points); }
 
 void World::requestExitToMenu() { m_owner.requestExitToMenu(); }
+
+CollisionContext World::buildCollisionContext(float dt, const MultiRectCollider* groundCollider) {
+    CollisionContext ctx;
+    ctx.dt          = dt;
+    ctx.player      = m_pPlayer;
+    ctx.ground      = groundCollider;
+    ctx.cameraView  = &m_camera.getView();
+    ctx.cameraLeft  = getCameraLeft();
+    ctx.session     = &m_session;
+    ctx.environment = &m_environment;
+
+    ctx.actors.reserve(m_entities.size());
+    ctx.enemies.reserve(m_entities.size());
+    ctx.projectiles.reserve(m_entities.size());
+    ctx.obstacles.reserve(m_entities.size());
+    ctx.platforms.reserve(m_entities.size());
+    ctx.collectibles.reserve(m_entities.size());
+
+    for (auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+
+        switch (entity->getCollisionLayer()) {
+        case CollisionLayer::Player:
+            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
+            break;
+        case CollisionLayer::Enemy:
+            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
+            ctx.enemies.push_back(static_cast<Enemy*>(entity.get()));
+            break;
+        case CollisionLayer::PlayerProjectile:
+        case CollisionLayer::EnemyProjectile:
+            ctx.projectiles.push_back(static_cast<Projectile*>(entity.get()));
+            break;
+        case CollisionLayer::Obstacle:
+            ctx.obstacles.push_back(static_cast<Obstacle*>(entity.get()));
+            break;
+        case CollisionLayer::Platform:
+            ctx.platforms.push_back(static_cast<Platform*>(entity.get()));
+            break;
+        case CollisionLayer::Collectible:
+            ctx.collectibles.push_back(static_cast<RedSquare*>(entity.get()));
+            break;
+        default:
+            break;
+        }
+    }
+
+    return ctx;
+}

@@ -1,5 +1,6 @@
 #include "spell/projectile/Projectile.h"
 
+#include "collision/CollisionLayers.h"
 #include "core/Config.h"
 #include "core/Debug.h"
 #include "core/ResourceManager.h"
@@ -16,6 +17,15 @@ static inline AnimationClip makeClipFromSpell(const std::string& name, const Spe
 Projectile::Projectile(SpellId spellId, Faction faction, const sf::Vector2f& origin,
                        const sf::Vector2f& direction)
     : m_spellId(spellId), m_faction(faction), m_def(getSpellDef(spellId)) {
+    const CollisionLayer layer = (faction == Faction::Enemy) ? CollisionLayer::EnemyProjectile
+                                                             : CollisionLayer::PlayerProjectile;
+    setCollisionLayer(layer);
+    if (layer == CollisionLayer::EnemyProjectile) {
+        setCollisionMask(maskFrom({CollisionLayer::Player}));
+    } else {
+        setCollisionMask(maskFrom({CollisionLayer::Enemy, CollisionLayer::Collectible}));
+    }
+
     // Direction / velocity (normalize; fallback +X)
     sf::Vector2f dir = math::normalizeVec(direction);
     if (dir.x == 0.f && dir.y == 0.f)

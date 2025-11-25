@@ -1,6 +1,7 @@
 #pragma once
 
 #include "animation/Animation.h"
+#include "collision/CollisionLayers.h"
 #include "collision/RectCollider.h"
 
 #include <SFML/Graphics/Sprite.hpp>
@@ -39,6 +40,11 @@ class Entity {
     const sf::Vector2f&      getColliderOffset() const { return m_colliderOffset; }
     void                     setColliderSize(const sf::Vector2f& size) { m_colliderSize = size; }
     void setColliderOffset(const sf::Vector2f& offset) { m_colliderOffset = offset; }
+
+    CollisionLayer getCollisionLayer() const { return m_collisionLayer; }
+    void           setCollisionLayer(CollisionLayer layer) { m_collisionLayer = layer; }
+    CollisionMask  getCollisionMask() const { return m_collisionMask; }
+    void           setCollisionMask(CollisionMask mask) { m_collisionMask = mask; }
 
     const RectCollider& getCollider() const { return m_collider; }
 
@@ -79,9 +85,11 @@ class Entity {
     sf::Vector2f m_velocity;
 
     // Collision
-    RectCollider m_collider;
-    sf::Vector2f m_colliderSize;
-    sf::Vector2f m_colliderOffset;
+    RectCollider   m_collider;
+    sf::Vector2f   m_colliderSize;
+    sf::Vector2f   m_colliderOffset;
+    CollisionLayer m_collisionLayer = CollisionLayer::None;
+    CollisionMask  m_collisionMask  = maskNone();
 
   public:
     // World reference
