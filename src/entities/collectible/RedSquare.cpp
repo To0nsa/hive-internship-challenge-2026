@@ -29,24 +29,11 @@ bool RedSquare::init() {
 }
 
 void RedSquare::update(float dt) {
-    if (!isAlive())
-        return;
-
     // Rotate in place
     const float ang = m_shape.getRotation().asDegrees() + kRotateDps * dt;
     m_shape.setRotation(sf::degrees(ang));
     if (m_pSprite)
         m_pSprite->setPosition(m_shape.getPosition());
-
-    if (m_world) {
-        // Self-cull when far behind camera
-        const float camLeft = m_world->getCameraLeft();
-        const float right   = geom::right(getCollider().worldAabb());
-        if (right < camLeft - 100.f) {
-            setAlive(false);
-            return;
-        }
-    }
 }
 
 void RedSquare::render(sf::RenderTarget& target) const {
