@@ -97,8 +97,8 @@ namespace {
                 continue;
 
             const sf::FloatRect  projectileBounds = proj->getCollider().worldAabb();
-            const CollisionLayer projLayer = proj->getCollisionLayer();
-            const CollisionMask  projMask  = proj->getCollisionMask();
+            const CollisionLayer projLayer        = proj->getCollisionLayer();
+            const CollisionMask  projMask         = proj->getCollisionMask();
 
             if (projLayer == CollisionLayer::EnemyProjectile) {
                 Player* player = ctx.player;
@@ -166,7 +166,8 @@ namespace {
             if (!collectible || !collectible->isAlive())
                 continue;
             if (!layersCanCollide(player->getCollisionLayer(), player->getCollisionMask(),
-                                  collectible->getCollisionLayer(), collectible->getCollisionMask()))
+                                  collectible->getCollisionLayer(),
+                                  collectible->getCollisionMask()))
                 continue;
             const sf::FloatRect collectibleBounds = collectible->getCollider().worldAabb();
             if (geom::aabbIntersects(playerBounds, collectibleBounds)) {

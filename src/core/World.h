@@ -1,9 +1,9 @@
 #pragma once
 
+#include "collision/CollisionSystem.h"
 #include "core/Camera.h"
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
-#include "collision/CollisionSystem.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -69,4 +69,6 @@ class World {
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
     CollisionContext buildCollisionContext(float dt, const MultiRectCollider* groundCollider);
+
+    void cullOffscreen();
 };

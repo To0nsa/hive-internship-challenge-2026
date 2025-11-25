@@ -132,47 +132,13 @@ void World::update(float dt) {
         }
     }
 
-    // Lifetime culling: remove platforms behind the camera
-    {
-        const float viewLeft   = getCameraLeft();
-        const float cullBefore = viewLeft - m_camera.getView().getSize().x;
+    // Lifetime culling, mark obstacles, platforms, collectibles dead if offscreen
+    cullOffscreen();
 
-        for (auto& entity : m_entities) {
-            if (!entity->isAlive())
-                continue;
-            if (auto* p = dynamic_cast<Platform*>(entity.get())) {
-                const sf::FloatRect aabb  = p->getCollider().worldAabb();
-                const float         right = aabb.position.x + aabb.size.x;
-                if (right < cullBefore)
-                    p->setAlive(false);
-            }
-        }
-
-        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
-                                        [](auto& e) { return !e->isAlive(); }),
-                         m_entities.end());
-    }
-
-    // Lifetime culling: remove obstacles behind the camera
-    {
-        const float viewLeft   = getCameraLeft();
-        const float cullBefore = viewLeft - m_camera.getView().getSize().x;
-
-        for (auto& entity : m_entities) {
-            if (!entity->isAlive())
-                continue;
-            if (auto* o = dynamic_cast<Obstacle*>(entity.get())) {
-                const sf::FloatRect aabb  = o->getCollider().worldAabb();
-                const float         right = aabb.position.x + aabb.size.x;
-                if (right < cullBefore)
-                    o->setAlive(false);
-            }
-        }
-
-        m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
-                                        [](auto& e) { return !e->isAlive(); }),
-                         m_entities.end());
-    }
+    // Remove dead entities
+    m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
+                                    [](const auto& e) { return !e->isAlive(); }),
+                     m_entities.end());
 }
 
 void World::render(sf::RenderTarget& target) const {
@@ -267,4 +233,24 @@ CollisionContext World::buildCollisionContext(float dt, const MultiRectCollider*
     }
 
     return ctx;
+}
+
+void World::cullOffscreen() {
+    const float viewLeft   = getCameraLeft();
+    const float cullBefore = viewLeft - m_camera.getView().getSize().x;
+
+    for (auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+
+        const CollisionLayer layer = entity->getCollisionLayer();
+        if (layer != CollisionLayer::Obstacle && layer != CollisionLayer::Platform &&
+            layer != CollisionLayer::Collectible)
+            continue;
+
+        const sf::FloatRect aabb  = entity->getCollider().worldAabb();
+        const float         right = aabb.position.x + aabb.size.x;
+        if (right < cullBefore)
+            entity->setAlive(false);
+    }
 }
