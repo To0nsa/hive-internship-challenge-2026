@@ -5,7 +5,7 @@
 
 class World;
 
-// Tiny, inline spawn helper consistent with spawnObstacle
+// Inline spawn helper
 inline Platform* spawnPlatform(World& world, PlatformKind kind, const sf::Vector2f& pos) {
     const PlatformDesc& desc = getPlatformDesc(kind);
     auto*               p    = world.createEntity<Platform>(desc);

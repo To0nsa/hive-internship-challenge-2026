@@ -19,21 +19,16 @@ class Obstacle final : public Entity {
     }
 
     bool init() override {
+        // Load texture
         const sf::Texture& tex = ResourceManager::getTexture(m_desc.textureKey);
 
+        // Sprite setup
         m_pSprite     = std::make_unique<sf::Sprite>(tex);
         m_spriteScale = m_desc.scale;
         applyFacingScale();
+        m_pSprite->setOrigin({m_desc.frameSize.x * 0.5f, m_desc.frameSize.y * 0.5f});
 
-        if (m_desc.frameSize.x > 0 && m_desc.frameSize.y > 0) {
-            const sf::IntRect rect{
-                {m_desc.startCell.x * m_desc.frameSize.x, m_desc.startCell.y * m_desc.frameSize.y},
-                {m_desc.frameSize.x, m_desc.frameSize.y}};
-            m_pSprite->setTextureRect(rect);
-            m_pSprite->setOrigin({m_desc.frameSize.x * 0.5f, m_desc.frameSize.y * 0.5f});
-        }
-
-        // Animation
+        // Animation setup
         if (m_desc.animated) {
             m_pAnimator = std::make_unique<SpriteAnimator>(*m_pSprite);
             auto clip =
@@ -47,6 +42,7 @@ class Obstacle final : public Entity {
         sf::Vector2f spritePos = m_pSprite->getPosition();
         setColliderSize(m_desc.colliderSize);
         setColliderOffset(spritePos);
+
         return true;
     }
 
