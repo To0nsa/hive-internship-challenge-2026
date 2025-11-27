@@ -17,11 +17,12 @@ class Demon final : public Enemy {
     void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
 
   private:
-    enum class State { Fly, Death };
+    enum class State { Fly, Death, Hit };
     State m_state = State::Fly;
 
     void enterFly();
     void enterDeath();
+    void enterHit();
 
     void updateFly(float dt);
 
@@ -42,4 +43,5 @@ class Demon final : public Enemy {
 
     SpriteAnimator::ClipId m_flyClip   = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId m_deathClip = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId m_hitClip   = SpriteAnimator::kInvalidClip;
 };

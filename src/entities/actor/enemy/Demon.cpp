@@ -13,6 +13,7 @@ bool Demon::init() {
     // Load textures
     sf::Texture& flyTex   = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Fly);
     sf::Texture& deathTex = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Death);
+    sf::Texture& hitTex   = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Hit);
 
     // Sprite
     const sf::Vector2i kFrame{81, 71};
@@ -33,6 +34,8 @@ bool Demon::init() {
         m_pAnimator->addClip(Animation::makeClipFromRow("fly", flyTex, kFrame, 4, 10.f, true));
     m_deathClip =
         m_pAnimator->addClip(Animation::makeClipFromRow("death", deathTex, kFrame, 7, 10.f, false));
+    m_hitClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrame, 3, 15.f, false));
 
     // Collider
     setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});
@@ -43,22 +46,21 @@ bool Demon::init() {
 
 void Demon::enterFly() {
     m_state = State::Fly;
-    if (m_pAnimator)
-        m_pAnimator->playClip(m_flyClip);
+    m_pAnimator->playClip(m_flyClip);
+}
+
+void Demon::enterHit() {
+    m_state = State::Hit;
+    m_pAnimator->playClip(m_hitClip, [this]() { enterFly(); });
 }
 
 void Demon::enterDeath() {
     m_state = State::Death;
-    if (m_pAnimator)
-        m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
+    m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
 }
 
 void Demon::updateFly(float dt) {
-    if (!m_world)
-        return;
     Player* player = m_world->getPlayer();
-    if (!player)
-        return;
 
     const sf::Vector2f toPlayer = player->getPosition() - m_position;
     const float        dist     = math::length(toPlayer);
@@ -66,11 +68,10 @@ void Demon::updateFly(float dt) {
     sf::Vector2f dir{0.f, 0.f};
     if (dist > 0.001f) {
         const sf::Vector2f n = math::normalizeVec(toPlayer);
-        if (dist > kDesiredRange + kHoldSlack) {
+        if (dist > kDesiredRange + kHoldSlack)
             dir = n; // move toward
-        } else if (dist < kDesiredRange - kHoldSlack) {
+        else if (dist < kDesiredRange - kHoldSlack)
             dir = {-n.x, -n.y}; // move away
-        }
 
         // Face horizontally toward player
         setFacing((toPlayer.x >= 0.f) ? Entity::Facing::Right : Entity::Facing::Left);
@@ -85,10 +86,8 @@ void Demon::update(float dt) {
     if (m_hp <= 0.f && m_state != State::Death)
         enterDeath();
     if (m_state == State::Death) {
-        if (m_pAnimator)
-            m_pAnimator->update(dt);
-        if (m_pSprite)
-            m_pSprite->setPosition(m_position);
+        m_pAnimator->update(dt);
+        m_pSprite->setPosition(m_position);
         return;
     }
 
@@ -98,8 +97,7 @@ void Demon::update(float dt) {
     // Casting: aim at player and fire when in range and cooldown elapsed
     if (m_castCooldownLeft > 0.f)
         m_castCooldownLeft -= dt;
-
-    if (m_castCooldownLeft <= 0.f) {
+    else if (m_castCooldownLeft <= 0.f) {
         auto*        player = m_world->getPlayer();
         sf::Vector2f dir    = math::normalizeVec(player->getPosition() - m_position);
 

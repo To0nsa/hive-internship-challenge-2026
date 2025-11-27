@@ -2,7 +2,15 @@
 
 #include "entities/Entity.h"
 
+#include <SFML/System/Vector2.hpp>
+
 class Collider;
+
+struct DamageInfo {
+    float amount = 0.f;
+    sf::Vector2f hitDirection; // Normalized direction vector of the hit
+    sf::Vector2f hitPoint;     // World-space point where the hit occurred
+};
 
 class Actor : public Entity {
   public:
