@@ -98,28 +98,19 @@ void Demon::update(float dt) {
     // Casting: aim at player and fire when in range and cooldown elapsed
     if (m_castCooldownLeft > 0.f)
         m_castCooldownLeft -= dt;
-    if (m_castCooldownLeft < 0.f)
-        m_castCooldownLeft = 0.f;
 
-    if (m_world && m_castCooldownLeft <= 0.f) {
-        if (auto* player = m_world->getPlayer()) {
-            const sf::Vector2f selfPos = m_position;
-            sf::Vector2f       dir     = math::normalizeVec(player->getPosition() - selfPos);
-            if (dir.x == 0.f && dir.y == 0.f)
-                dir = {1.f, 0.f};
+    if (m_castCooldownLeft <= 0.f) {
+        auto*        player = m_world->getPlayer();
+        sf::Vector2f dir    = math::normalizeVec(player->getPosition() - m_position);
 
-            // Spawn lightning bolt
-            const sf::Vector2f origin = selfPos + dir * 20.f;
-            if (auto* proj = m_world->createEntity<Projectile>(SpellId::Lightning, Faction::Enemy,
-                                                               origin, dir))
-                (void)proj->init();
-            m_castCooldownLeft = kCastCooldown;
-        }
+        // Spawn lightning bolt
+        const sf::Vector2f origin = m_position + dir * 20.f;
+        if (auto* proj =
+                m_world->createEntity<Projectile>(SpellId::Lightning, Faction::Enemy, origin, dir))
+            (void)proj->init();
+        m_castCooldownLeft = kCastCooldown;
     }
-
     // Animation tick
-    if (m_pAnimator)
-        m_pAnimator->update(dt);
-    if (m_pSprite)
-        m_pSprite->setPosition(m_position);
+    m_pAnimator->update(dt);
+    m_pSprite->setPosition(m_position);
 }
