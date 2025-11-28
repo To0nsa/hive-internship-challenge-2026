@@ -78,9 +78,7 @@ void Actor::applyDamage(const DamageInfo& info) {
     onDamaged(info);
 }
 
-void Actor::onDamaged(const DamageInfo& /*info*/) {
-    // Default actors do not have a special hit reaction.
-}
+void Actor::onDamaged(const DamageInfo& /*info*/) {} // called by applyDamage, noop by default
 
 void Actor::updateActorBase(float dt) {
     regenerateHp(dt);
