@@ -8,9 +8,11 @@
 #include "entities/obstacle/Obstacle.h"
 #include "entities/platform/Platform.h"
 #include "environment/Environment.h"
+#include "gameplay/Damage.h"
 #include "gameplay/GameSession.h"
 #include "spell/projectile/Projectile.h"
 #include "utils/Geom.h"
+#include "utils/Math.h"
 
 namespace {
 
@@ -63,7 +65,9 @@ namespace {
                 continue;
 
             // Contact = damage + horizontal separation (no vertical response here).
-            player->applyDamage(obstacle->getDps() * ctx.dt);
+            DamageInfo info = buildDamageInfo(obstacle->getDps() * ctx.dt, obstacle, playerBounds,
+                                              &obstacleBounds);
+            player->applyDamage(info);
 
             const float playerCenterX   = playerBounds.position.x + playerBounds.size.x * 0.5f;
             const float obstacleCenterX = obstacleBounds.position.x + obstacleBounds.size.x * 0.5f;
@@ -86,8 +90,11 @@ namespace {
             if (!obstacle || !obstacle->isAlive())
                 continue;
             const sf::FloatRect obstacleBounds = obstacle->getCollider().worldAabb();
-            if (geom::touchTop(playerBounds, obstacleBounds, 0.75f))
-                player->applyDamage(obstacle->getDps() * ctx.dt);
+            if (geom::touchTop(playerBounds, obstacleBounds, 0.75f)) {
+                DamageInfo info = buildDamageInfo(obstacle->getDps() * ctx.dt, obstacle,
+                                                  playerBounds, &obstacleBounds);
+                player->applyDamage(info);
+            }
         }
     }
 
@@ -109,7 +116,9 @@ namespace {
                     continue;
                 const sf::FloatRect playerBounds = player->getCollider().worldAabb();
                 if (geom::aabbIntersects(projectileBounds, playerBounds)) {
-                    player->applyDamage(proj->getStats().damage);
+                    DamageInfo info = buildDamageInfo(proj->getStats().damage, proj, playerBounds,
+                                                      &projectileBounds);
+                    player->applyDamage(info);
                     proj->requestImpact();
                 }
             } else if (projLayer == CollisionLayer::PlayerProjectile) {
@@ -125,7 +134,9 @@ namespace {
                     const sf::FloatRect enemyBounds = enemy->getCollider().worldAabb();
                     if (geom::aabbIntersects(projectileBounds, enemyBounds)) {
                         const float hpBefore = enemy->getHp();
-                        enemy->applyDamage(proj->getStats().damage);
+                        DamageInfo  info     = buildDamageInfo(proj->getStats().damage, proj,
+                                                               enemyBounds, &projectileBounds);
+                        enemy->applyDamage(info);
                         if (hpBefore > 0.f && enemy->getHp() <= 0.f && ctx.session)
                             ctx.session->addScore(100);
                         proj->requestImpact();
@@ -185,12 +196,17 @@ namespace {
 
         const sf::FloatRect playerBounds = player->getCollider().worldAabb();
         if (ctx.environment && ctx.cameraView) {
-            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView))
-                player->applyDamage(10000.f);
+            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView)) {
+                // Treat environment hazard as an instant-kill hit without a concrete source entity.
+                DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
+                player->applyDamage(info);
+            }
         }
 
-        if (geom::right(playerBounds) < ctx.cameraLeft)
-            player->applyDamage(10000.f);
+        if (geom::right(playerBounds) < ctx.cameraLeft) {
+            DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
+            player->applyDamage(info);
+        }
     }
 
 } // namespace

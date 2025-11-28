@@ -24,6 +24,9 @@ class Projectile final : public Entity {
     Faction           getFaction() const { return m_faction; }
     const SpellStats& getStats() const { return m_def.stats; }
 
+    // Expose current velocity so collision code can derive knockback directions later if needed.
+    sf::Vector2f getVelocity() const { return m_velocity; }
+
     // Hit only one time
     bool isDamageActive() const { return m_phase == Phase::Start || m_phase == Phase::Loop; }
 

@@ -128,6 +128,7 @@
     │       ├── GroundTypes.h
     │       └── HazardLayer.h
     ├── gameplay
+    │   ├── Damage.h
     │   ├── Faction.h
     │   └── GameSession.h
     ├── spell
@@ -160,4 +161,4 @@
         ├── Stopwatch.h
         └── utils.h
 
-41 directories, 120 files
+41 directories, 121 files

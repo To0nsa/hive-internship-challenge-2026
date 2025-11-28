@@ -35,13 +35,23 @@ bool Demon::init() {
     m_deathClip =
         m_pAnimator->addClip(Animation::makeClipFromRow("death", deathTex, kFrame, 7, 10.f, false));
     m_hitClip =
-        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrame, 3, 15.f, false));
+        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrame, 4, 10.f, false));
 
     // Collider
     setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});
     setArtFacingDirX(-1.f);
     enterFly();
     return true;
+}
+
+void Demon::onDamaged(const DamageInfo& /*info*/) {
+    // Skip reactions once death has started so we don't interrupt the death animation.
+    if (m_state == State::Death)
+        return;
+
+    // For now, any damaging hit just plays the hit animation; later we can add knockback, etc.
+    if (m_state != State::Hit)
+        enterHit();
 }
 
 void Demon::enterFly() {

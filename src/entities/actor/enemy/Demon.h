@@ -26,6 +26,9 @@ class Demon final : public Enemy {
 
     void updateFly(float dt);
 
+    // React to damage by briefly entering the hit animation state.
+    void onDamaged(const DamageInfo& info) override;
+
     // Casting
     static constexpr float kCastCooldown      = 2.0f;
     float                  m_castCooldownLeft = 0.f;

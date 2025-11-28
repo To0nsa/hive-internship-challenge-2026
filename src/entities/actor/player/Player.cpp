@@ -29,6 +29,7 @@ bool Player::init() {
     const sf::Texture& dashTex  = ResourceManager::getTexture(Assets::Tex::Player::Dash);
     const sf::Texture& deathTex = ResourceManager::getTexture(Assets::Tex::Player::Death);
     const sf::Texture& castTex  = ResourceManager::getTexture(Assets::Tex::Player::Cast);
+    const sf::Texture& hitTex   = ResourceManager::getTexture(Assets::Tex::Player::Hit);
 
     // Setup sprite
     m_pSprite = std::make_unique<sf::Sprite>(idleTex);
@@ -55,6 +56,8 @@ bool Player::init() {
         Animation::makeClipFromRow("death", deathTex, kFrameSize, 6, 8.f, false));
     m_castClip = m_pAnimator->addClip(
         Animation::makeClipFromRow("cast", castTex, kFrameSize, 5, 20.f, false));
+    m_hitClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrameSize, 4, 10.f, false));
 
     // Setup collider
     setColliderSize(
@@ -196,6 +199,8 @@ void Player::update(float dt) {
         m_pAnimator->playClip(m_dashClip);
     } else if (m_state == State::Cast) {
         m_pAnimator->playClip(m_castClip);
+    } else if (m_state == State::Hit) {
+        m_pAnimator->playClip(m_hitClip);
     } else if (!isGrounded()) {
         updateJumpAnimation();
     } else {
@@ -283,10 +288,7 @@ void Player::enterDash(float dirX) {
 void Player::enterDeath() {
     m_state = State::Death;
 
-    m_pAnimator->playClip(m_deathClip, [world = m_world]() {
-        if (world)
-            world->requestExitToMenu();
-    });
+    m_pAnimator->playClip(m_deathClip, [world = m_world]() { world->requestExitToMenu(); });
 }
 
 void Player::enterCast() {
@@ -319,4 +321,24 @@ void Player::enterCast() {
     });
 }
 
+void Player::enterHit() {
+    m_state = State::Hit;
+
+    m_pAnimator->playClip(m_hitClip, [this]() {
+        if (m_state == State::Hit)
+            enterMove();
+    });
+}
+
 bool Player::isGrounded() const { return m_grounded; }
+
+void Player::onDamaged(const DamageInfo& damage) {
+    if (m_state == State::Death)
+        return;
+
+    if (m_state == State::Hit)
+        return;
+
+    if (damage.collideWith == CollisionLayer::EnemyProjectile)
+        enterHit();
+}

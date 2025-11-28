@@ -66,12 +66,20 @@ float Actor::getManaMax() const { return m_manaMax; }
 float Actor::getStamina() const { return m_stamina; }
 float Actor::getStaminaMax() const { return m_staminaMax; }
 
-void Actor::applyDamage(float dmg) {
-    if (dmg <= 0.f)
+void Actor::applyDamage(const DamageInfo& info) {
+    if (!isAlive())
         return;
-    m_hp -= dmg;
+
+    // Core HP handling is centralized here so derived classes only deal with reactions.
+    m_hp -= info.amount;
     if (m_hp < 0.f)
         m_hp = 0.f;
+
+    onDamaged(info);
+}
+
+void Actor::onDamaged(const DamageInfo& /*info*/) {
+    // Default actors do not have a special hit reaction.
 }
 
 void Actor::updateActorBase(float dt) {

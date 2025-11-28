@@ -1,16 +1,11 @@
 #pragma once
 
 #include "entities/Entity.h"
+#include "gameplay/Damage.h"
 
 #include <SFML/System/Vector2.hpp>
 
 class Collider;
-
-struct DamageInfo {
-    float amount = 0.f;
-    sf::Vector2f hitDirection; // Normalized direction vector of the hit
-    sf::Vector2f hitPoint;     // World-space point where the hit occurred
-};
 
 class Actor : public Entity {
   public:
@@ -33,7 +28,8 @@ class Actor : public Entity {
     float getStamina() const;
     float getStaminaMax() const;
 
-    void applyDamage(float dmg);
+    // Main damage entry point using hit data.
+    void applyDamage(const DamageInfo& info);
 
     // Minimal vertical physics with top-only collision against provided ground collider.
     // Pass a MultiRectCollider (preferred) or any Collider containing the walkable surfaces.
@@ -41,6 +37,9 @@ class Actor : public Entity {
 
   protected:
     virtual void updateActorBase(float dt);
+
+    // Hook for derived classes to react to damage (animations, knockback, etc.).
+    virtual void onDamaged(const DamageInfo& info);
 
     // Stats
     // Health

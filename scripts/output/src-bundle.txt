@@ -301,9 +301,11 @@ constexpr bool layersCanCollide(CollisionLayer aLayer, CollisionMask aMask, Coll
 #include "entities/obstacle/Obstacle.h"
 #include "entities/platform/Platform.h"
 #include "environment/Environment.h"
+#include "gameplay/Damage.h"
 #include "gameplay/GameSession.h"
 #include "spell/projectile/Projectile.h"
 #include "utils/Geom.h"
+#include "utils/Math.h"
 
 namespace {
 
@@ -356,7 +358,9 @@ namespace {
                 continue;
 
             // Contact = damage + horizontal separation (no vertical response here).
-            player->applyDamage(obstacle->getDps() * ctx.dt);
+            DamageInfo info = buildDamageInfo(obstacle->getDps() * ctx.dt, obstacle, playerBounds,
+                                              &obstacleBounds);
+            player->applyDamage(info);
 
             const float playerCenterX   = playerBounds.position.x + playerBounds.size.x * 0.5f;
             const float obstacleCenterX = obstacleBounds.position.x + obstacleBounds.size.x * 0.5f;
@@ -379,8 +383,11 @@ namespace {
             if (!obstacle || !obstacle->isAlive())
                 continue;
             const sf::FloatRect obstacleBounds = obstacle->getCollider().worldAabb();
-            if (geom::touchTop(playerBounds, obstacleBounds, 0.75f))
-                player->applyDamage(obstacle->getDps() * ctx.dt);
+            if (geom::touchTop(playerBounds, obstacleBounds, 0.75f)) {
+                DamageInfo info = buildDamageInfo(obstacle->getDps() * ctx.dt, obstacle,
+                                                  playerBounds, &obstacleBounds);
+                player->applyDamage(info);
+            }
         }
     }
 
@@ -402,7 +409,9 @@ namespace {
                     continue;
                 const sf::FloatRect playerBounds = player->getCollider().worldAabb();
                 if (geom::aabbIntersects(projectileBounds, playerBounds)) {
-                    player->applyDamage(proj->getStats().damage);
+                    DamageInfo info = buildDamageInfo(proj->getStats().damage, proj, playerBounds,
+                                                      &projectileBounds);
+                    player->applyDamage(info);
                     proj->requestImpact();
                 }
             } else if (projLayer == CollisionLayer::PlayerProjectile) {
@@ -418,7 +427,9 @@ namespace {
                     const sf::FloatRect enemyBounds = enemy->getCollider().worldAabb();
                     if (geom::aabbIntersects(projectileBounds, enemyBounds)) {
                         const float hpBefore = enemy->getHp();
-                        enemy->applyDamage(proj->getStats().damage);
+                        DamageInfo  info     = buildDamageInfo(proj->getStats().damage, proj,
+                                                               enemyBounds, &projectileBounds);
+                        enemy->applyDamage(info);
                         if (hpBefore > 0.f && enemy->getHp() <= 0.f && ctx.session)
                             ctx.session->addScore(100);
                         proj->requestImpact();
@@ -478,12 +489,17 @@ namespace {
 
         const sf::FloatRect playerBounds = player->getCollider().worldAabb();
         if (ctx.environment && ctx.cameraView) {
-            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView))
-                player->applyDamage(10000.f);
+            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView)) {
+                // Treat environment hazard as an instant-kill hit without a concrete source entity.
+                DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
+                player->applyDamage(info);
+            }
         }
 
-        if (geom::right(playerBounds) < ctx.cameraLeft)
-            player->applyDamage(10000.f);
+        if (geom::right(playerBounds) < ctx.cameraLeft) {
+            DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
+            player->applyDamage(info);
+        }
     }
 
 } // namespace
@@ -1697,12 +1713,20 @@ float Actor::getManaMax() const { return m_manaMax; }
 float Actor::getStamina() const { return m_stamina; }
 float Actor::getStaminaMax() const { return m_staminaMax; }
 
-void Actor::applyDamage(float dmg) {
-    if (dmg <= 0.f)
+void Actor::applyDamage(const DamageInfo& info) {
+    if (!isAlive())
         return;
-    m_hp -= dmg;
+
+    // Core HP handling is centralized here so derived classes only deal with reactions.
+    m_hp -= info.amount;
     if (m_hp < 0.f)
         m_hp = 0.f;
+
+    onDamaged(info);
+}
+
+void Actor::onDamaged(const DamageInfo& /*info*/) {
+    // Default actors do not have a special hit reaction.
 }
 
 void Actor::updateActorBase(float dt) {
@@ -1798,6 +1822,9 @@ void Actor::applyPhysics(float dt, const Collider* ground) {
 #pragma once
 
 #include "entities/Entity.h"
+#include "gameplay/Damage.h"
+
+#include <SFML/System/Vector2.hpp>
 
 class Collider;
 
@@ -1822,7 +1849,8 @@ class Actor : public Entity {
     float getStamina() const;
     float getStaminaMax() const;
 
-    void applyDamage(float dmg);
+    // Main damage entry point using hit data.
+    void applyDamage(const DamageInfo& info);
 
     // Minimal vertical physics with top-only collision against provided ground collider.
     // Pass a MultiRectCollider (preferred) or any Collider containing the walkable surfaces.
@@ -1830,6 +1858,9 @@ class Actor : public Entity {
 
   protected:
     virtual void updateActorBase(float dt);
+
+    // Hook for derived classes to react to damage (animations, knockback, etc.).
+    virtual void onDamaged(const DamageInfo& info);
 
     // Stats
     // Health
@@ -1870,6 +1901,7 @@ bool Demon::init() {
     // Load textures
     sf::Texture& flyTex   = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Fly);
     sf::Texture& deathTex = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Death);
+    sf::Texture& hitTex   = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Hit);
 
     // Sprite
     const sf::Vector2i kFrame{81, 71};
@@ -1890,6 +1922,8 @@ bool Demon::init() {
         m_pAnimator->addClip(Animation::makeClipFromRow("fly", flyTex, kFrame, 4, 10.f, true));
     m_deathClip =
         m_pAnimator->addClip(Animation::makeClipFromRow("death", deathTex, kFrame, 7, 10.f, false));
+    m_hitClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrame, 4, 10.f, false));
 
     // Collider
     setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});
@@ -1898,24 +1932,33 @@ bool Demon::init() {
     return true;
 }
 
+void Demon::onDamaged(const DamageInfo& /*info*/) {
+    // Skip reactions once death has started so we don't interrupt the death animation.
+    if (m_state == State::Death)
+        return;
+
+    // For now, any damaging hit just plays the hit animation; later we can add knockback, etc.
+    if (m_state != State::Hit)
+        enterHit();
+}
+
 void Demon::enterFly() {
     m_state = State::Fly;
-    if (m_pAnimator)
-        m_pAnimator->playClip(m_flyClip);
+    m_pAnimator->playClip(m_flyClip);
+}
+
+void Demon::enterHit() {
+    m_state = State::Hit;
+    m_pAnimator->playClip(m_hitClip, [this]() { enterFly(); });
 }
 
 void Demon::enterDeath() {
     m_state = State::Death;
-    if (m_pAnimator)
-        m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
+    m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
 }
 
 void Demon::updateFly(float dt) {
-    if (!m_world)
-        return;
     Player* player = m_world->getPlayer();
-    if (!player)
-        return;
 
     const sf::Vector2f toPlayer = player->getPosition() - m_position;
     const float        dist     = math::length(toPlayer);
@@ -1923,11 +1966,10 @@ void Demon::updateFly(float dt) {
     sf::Vector2f dir{0.f, 0.f};
     if (dist > 0.001f) {
         const sf::Vector2f n = math::normalizeVec(toPlayer);
-        if (dist > kDesiredRange + kHoldSlack) {
+        if (dist > kDesiredRange + kHoldSlack)
             dir = n; // move toward
-        } else if (dist < kDesiredRange - kHoldSlack) {
+        else if (dist < kDesiredRange - kHoldSlack)
             dir = {-n.x, -n.y}; // move away
-        }
 
         // Face horizontally toward player
         setFacing((toPlayer.x >= 0.f) ? Entity::Facing::Right : Entity::Facing::Left);
@@ -1942,10 +1984,8 @@ void Demon::update(float dt) {
     if (m_hp <= 0.f && m_state != State::Death)
         enterDeath();
     if (m_state == State::Death) {
-        if (m_pAnimator)
-            m_pAnimator->update(dt);
-        if (m_pSprite)
-            m_pSprite->setPosition(m_position);
+        m_pAnimator->update(dt);
+        m_pSprite->setPosition(m_position);
         return;
     }
 
@@ -1955,12 +1995,9 @@ void Demon::update(float dt) {
     // Casting: aim at player and fire when in range and cooldown elapsed
     if (m_castCooldownLeft > 0.f)
         m_castCooldownLeft -= dt;
-
-    if (m_castCooldownLeft <= 0.f) {
+    else if (m_castCooldownLeft <= 0.f) {
         auto*        player = m_world->getPlayer();
         sf::Vector2f dir    = math::normalizeVec(player->getPosition() - m_position);
-        if (dir.x == 0.f && dir.y == 0.f)
-            dir = {1.f, 0.f};
 
         // Spawn lightning bolt
         const sf::Vector2f origin = m_position + dir * 20.f;
@@ -1996,13 +2033,17 @@ class Demon final : public Enemy {
     void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
 
   private:
-    enum class State { Fly, Death };
+    enum class State { Fly, Death, Hit };
     State m_state = State::Fly;
 
     void enterFly();
     void enterDeath();
+    void enterHit();
 
     void updateFly(float dt);
+
+    // React to damage by briefly entering the hit animation state.
+    void onDamaged(const DamageInfo& info) override;
 
     // Casting
     static constexpr float kCastCooldown      = 2.0f;
@@ -2021,6 +2062,7 @@ class Demon final : public Enemy {
 
     SpriteAnimator::ClipId m_flyClip   = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId m_deathClip = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId m_hitClip   = SpriteAnimator::kInvalidClip;
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Demon.h =====
@@ -2074,6 +2116,7 @@ bool Player::init() {
     const sf::Texture& dashTex  = ResourceManager::getTexture(Assets::Tex::Player::Dash);
     const sf::Texture& deathTex = ResourceManager::getTexture(Assets::Tex::Player::Death);
     const sf::Texture& castTex  = ResourceManager::getTexture(Assets::Tex::Player::Cast);
+    const sf::Texture& hitTex   = ResourceManager::getTexture(Assets::Tex::Player::Hit);
 
     // Setup sprite
     m_pSprite = std::make_unique<sf::Sprite>(idleTex);
@@ -2100,6 +2143,8 @@ bool Player::init() {
         Animation::makeClipFromRow("death", deathTex, kFrameSize, 6, 8.f, false));
     m_castClip = m_pAnimator->addClip(
         Animation::makeClipFromRow("cast", castTex, kFrameSize, 5, 20.f, false));
+    m_hitClip =
+        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrameSize, 4, 10.f, false));
 
     // Setup collider
     setColliderSize(
@@ -2241,6 +2286,8 @@ void Player::update(float dt) {
         m_pAnimator->playClip(m_dashClip);
     } else if (m_state == State::Cast) {
         m_pAnimator->playClip(m_castClip);
+    } else if (m_state == State::Hit) {
+        m_pAnimator->playClip(m_hitClip);
     } else if (!isGrounded()) {
         updateJumpAnimation();
     } else {
@@ -2328,10 +2375,7 @@ void Player::enterDash(float dirX) {
 void Player::enterDeath() {
     m_state = State::Death;
 
-    m_pAnimator->playClip(m_deathClip, [world = m_world]() {
-        if (world)
-            world->requestExitToMenu();
-    });
+    m_pAnimator->playClip(m_deathClip, [world = m_world]() { world->requestExitToMenu(); });
 }
 
 void Player::enterCast() {
@@ -2364,7 +2408,27 @@ void Player::enterCast() {
     });
 }
 
+void Player::enterHit() {
+    m_state = State::Hit;
+
+    m_pAnimator->playClip(m_hitClip, [this]() {
+        if (m_state == State::Hit)
+            enterMove();
+    });
+}
+
 bool Player::isGrounded() const { return m_grounded; }
+
+void Player::onDamaged(const DamageInfo& damage) {
+    if (m_state == State::Death)
+        return;
+
+    if (m_state == State::Hit)
+        return;
+
+    if (damage.collideWith == CollisionLayer::EnemyProjectile)
+        enterHit();
+}
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/player/Player.cpp =====
 
@@ -2393,7 +2457,7 @@ class Player final : public Actor {
 
   private:
     // State machine
-    enum class State { Move, Dash, Death, Cast };
+    enum class State { Move, Dash, Death, Cast, Hit };
     State m_state = State::Move;
 
     bool isGrounded() const;
@@ -2402,6 +2466,7 @@ class Player final : public Actor {
     void enterDash(float dirX);
     void enterDeath();
     void enterCast();
+    void enterHit();
 
     void applyMovement(const sf::Vector2f& direction, float dt);
     void tryApplyJump();
@@ -2410,6 +2475,9 @@ class Player final : public Actor {
 
     void updateJumpAnimation();
     void updateMoveAnimation();
+
+    // Called when the player takes damage;
+    void onDamaged(const DamageInfo& info) override;
 
     // Input state
     PlayerInput m_input;
@@ -2424,6 +2492,7 @@ class Player final : public Actor {
     SpriteAnimator::ClipId           m_dashClip  = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId           m_deathClip = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId           m_castClip  = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_hitClip   = SpriteAnimator::kInvalidClip;
 
     // Configuration
     static constexpr float kMaxSpeed     = 500.f;
@@ -3498,6 +3567,65 @@ class HazardLayer {
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/HazardLayer.h =====
 
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gameplay/Damage.h =====
+#pragma once
+
+#include "collision/CollisionLayers.h"
+#include "utils/Geom.h"
+#include "utils/Math.h"
+
+#include <SFML/System/Vector2.hpp>
+
+class Entity;
+
+// Basic damage payload passed from collision/system code to actors.
+// Kept small on purpose; extend with knockback, damage types, etc. when needed.
+struct DamageInfo {
+    float          amount = 0.f;                       // raw HP loss for this hit
+    sf::Vector2f   hitPoint{0.f, 0.f};                 // world-space point of impact (best-effort)
+    sf::Vector2f   hitDir{0.f, 0.f};                   // normalized direction into the victim
+    const Entity*  source      = nullptr;              // non-owning pointer to the damage source
+    CollisionLayer collideWith = CollisionLayer::None; // layer of the source
+
+    // Future extensions:
+    // float      knockbackStrength = 0.f;       // scalar used by actors for physics response
+    // float      bloodAmount       = 0.f;       // hints for VFX systems
+    // DamageType type              = DamageType::Generic;
+};
+
+// Helper to build a basic DamageInfo from two AABBs and an optional damage source.
+DamageInfo buildDamageInfo(float amount, const Entity* source, const sf::FloatRect& victimAabb,
+                           const sf::FloatRect* sourceAabb = nullptr) {
+    DamageInfo info{};
+    info.amount      = amount;
+    info.source      = source;
+    info.collideWith = source ? source->getCollisionLayer() : CollisionLayer::None;
+
+    // Approximate hit point: center of overlap if possible, otherwise victim center.
+    if (sourceAabb) {
+        sf::FloatRect overlap;
+        if (geom::aabbIntersects(*sourceAabb, victimAabb, overlap)) {
+            info.hitPoint = {overlap.position.x + overlap.size.x * 0.5f,
+                             overlap.position.y + overlap.size.y * 0.5f};
+        } else {
+            info.hitPoint = {victimAabb.position.x + victimAabb.size.x * 0.5f,
+                             victimAabb.position.y + victimAabb.size.y * 0.5f};
+        }
+    } else {
+        info.hitPoint = {victimAabb.position.x + victimAabb.size.x * 0.5f,
+                         victimAabb.position.y + victimAabb.size.y * 0.5f};
+    }
+
+    // Hit direction points into the victim from the impact point (best-effort).
+    const sf::Vector2f victimCenter{victimAabb.position.x + victimAabb.size.x * 0.5f,
+                                    victimAabb.position.y + victimAabb.size.y * 0.5f};
+    info.hitDir = math::normalizeVec(victimCenter - info.hitPoint);
+
+    return info;
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/gameplay/Damage.h =====
+
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/gameplay/Faction.h =====
 // src/game/Faction.h
 #pragma once
@@ -3852,6 +3980,9 @@ class Projectile final : public Entity {
     SpellId           getSpellId() const { return m_spellId; }
     Faction           getFaction() const { return m_faction; }
     const SpellStats& getStats() const { return m_def.stats; }
+
+    // Expose current velocity so collision code can derive knockback directions later if needed.
+    sf::Vector2f getVelocity() const { return m_velocity; }
 
     // Hit only one time
     bool isDamageActive() const { return m_phase == Phase::Start || m_phase == Phase::Loop; }

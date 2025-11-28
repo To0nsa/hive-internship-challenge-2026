@@ -22,7 +22,7 @@ class Player final : public Actor {
 
   private:
     // State machine
-    enum class State { Move, Dash, Death, Cast };
+    enum class State { Move, Dash, Death, Cast, Hit };
     State m_state = State::Move;
 
     bool isGrounded() const;
@@ -31,6 +31,7 @@ class Player final : public Actor {
     void enterDash(float dirX);
     void enterDeath();
     void enterCast();
+    void enterHit();
 
     void applyMovement(const sf::Vector2f& direction, float dt);
     void tryApplyJump();
@@ -39,6 +40,9 @@ class Player final : public Actor {
 
     void updateJumpAnimation();
     void updateMoveAnimation();
+
+    // Called when the player takes damage;
+    void onDamaged(const DamageInfo& info) override;
 
     // Input state
     PlayerInput m_input;
@@ -53,6 +57,7 @@ class Player final : public Actor {
     SpriteAnimator::ClipId           m_dashClip  = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId           m_deathClip = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId           m_castClip  = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_hitClip   = SpriteAnimator::kInvalidClip;
 
     // Configuration
     static constexpr float kMaxSpeed     = 500.f;
