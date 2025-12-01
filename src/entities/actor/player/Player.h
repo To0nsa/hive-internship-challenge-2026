@@ -36,7 +36,6 @@ class Player final : public Actor {
     void applyMovement(const sf::Vector2f& direction, float dt);
     void tryApplyJump();
     void tryApplyDash();
-    void tryApplyCast();
 
     void updateJumpAnimation();
     void updateMoveAnimation();

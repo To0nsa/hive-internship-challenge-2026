@@ -24,8 +24,9 @@ struct DamageInfo {
 };
 
 // Helper to build a basic DamageInfo from two AABBs and an optional damage source.
-inline DamageInfo buildDamageInfo(float amount, const Entity* source, const sf::FloatRect& victimAabb,
-                           const sf::FloatRect* sourceAabb = nullptr) {
+inline DamageInfo buildDamageInfo(float amount, const Entity* source,
+                                  const sf::FloatRect& victimAabb,
+                                  const sf::FloatRect* sourceAabb = nullptr) {
     DamageInfo info{};
     info.amount      = amount;
     info.source      = source;

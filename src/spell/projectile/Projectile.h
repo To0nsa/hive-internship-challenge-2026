@@ -48,9 +48,8 @@ class Projectile final : public Entity {
     Faction         m_faction;
     const SpellDef& m_def;
 
-    // Movement / life
-    sf::Vector2f m_velocity{0.f, 0.f};
-    float        m_timeToLive = 0.f;
+    // Lifetime
+    float m_lifetime = 0.f;
 
     // Phase
     Phase m_phase        = Phase::Start;

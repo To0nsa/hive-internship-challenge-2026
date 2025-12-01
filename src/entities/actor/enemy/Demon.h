@@ -14,7 +14,7 @@ class Demon final : public Enemy {
     void update(float dt) override;
 
     // Flying: ignore Actor's vertical physics/gravity
-    void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
+    // void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
 
   private:
     enum class State { Fly, Death, Hit };
@@ -44,7 +44,10 @@ class Demon final : public Enemy {
     static constexpr float kDemonHpRegenRate   = 0.f;
     static constexpr float kDemonManaRegenRate = 5.f;
 
-    SpriteAnimator::ClipId m_flyClip   = SpriteAnimator::kInvalidClip;
-    SpriteAnimator::ClipId m_deathClip = SpriteAnimator::kInvalidClip;
-    SpriteAnimator::ClipId m_hitClip   = SpriteAnimator::kInvalidClip;
+    static inline const sf::Vector2i kFrameSize{81, 71};
+    static inline const sf::Vector2f kSpriteScale{1.2f, 1.2f};
+    static inline const sf::Vector2f kColliderSizeMult{0.30f, 0.60f};
+    SpriteAnimator::ClipId           m_flyClip   = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_deathClip = SpriteAnimator::kInvalidClip;
+    SpriteAnimator::ClipId           m_hitClip   = SpriteAnimator::kInvalidClip;
 };

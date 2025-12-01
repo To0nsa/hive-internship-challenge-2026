@@ -16,10 +16,9 @@ bool Demon::init() {
     sf::Texture& hitTex   = ResourceManager::getTexture(Assets::Tex::Enemy::Demon::Hit);
 
     // Sprite
-    const sf::Vector2i kFrame{81, 71};
     m_pSprite = std::make_unique<sf::Sprite>(flyTex);
-    m_pSprite->setOrigin({kFrame.x * 0.5f, kFrame.y * 0.5f});
-    m_spriteScale = {1.2f, 1.2f};
+    m_pSprite->setOrigin({kFrameSize.x * 0.5f, kFrameSize.y * 0.5f});
+    m_spriteScale = {kSpriteScale.x, kSpriteScale.y};
     applyFacingScale();
     m_pSprite->setPosition(m_position);
 
@@ -31,14 +30,13 @@ bool Demon::init() {
 
     // Clips
     m_flyClip =
-        m_pAnimator->addClip(Animation::makeClipFromRow("fly", flyTex, kFrame, 4, 10.f, true));
-    m_deathClip =
-        m_pAnimator->addClip(Animation::makeClipFromRow("death", deathTex, kFrame, 7, 10.f, false));
+        m_pAnimator->addClip(Animation::makeClipFromRow("fly", flyTex, kFrameSize, 4, 10.f, true));
+    m_deathClip = m_pAnimator->addClip(
+        Animation::makeClipFromRow("death", deathTex, kFrameSize, 7, 10.f, false));
     m_hitClip =
-        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrame, 4, 10.f, false));
-
+        m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrameSize, 4, 10.f, false));
     // Collider
-    setColliderSize({kFrame.x * 0.30f, kFrame.y * 0.60f});
+    setColliderSize({kFrameSize.x * kColliderSizeMult.x, kFrameSize.y * kColliderSizeMult.y});
     setArtFacingDirX(-1.f);
     enterFly();
     return true;
@@ -87,8 +85,8 @@ void Demon::updateFly(float dt) {
         setFacing((toPlayer.x >= 0.f) ? Entity::Facing::Right : Entity::Facing::Left);
     }
 
-    m_position.x += dir.x * kMoveSpeed * dt;
-    m_position.y += dir.y * kMoveSpeed * dt;
+    m_velocity = dir * kMoveSpeed;
+    m_position += m_velocity * dt;
 }
 
 void Demon::update(float dt) {

@@ -32,7 +32,7 @@ class Camera {
     float m_cameraX           = 0.f;
     float m_cameraTargetX     = 0.f; // smoothed target center X
     float m_cameraSpeed       = 0.f;
-    float m_cameraTargetSpeed = 450.f;
+    float m_cameraTargetSpeed = 10.f;
 
     static constexpr float kCameraAccel          = 1200.f;
     static constexpr float kCatchupMarginLeft    = 60.f;

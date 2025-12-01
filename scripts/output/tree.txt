@@ -4,15 +4,22 @@
 ├── AGENTS.md
 ├── CMakeLists.txt
 ├── README.md
+├── TODO.md
 ├── assets
 │   ├── font
 │   │   └── Lavigne.ttf
 │   ├── image
 │   │   ├── enemies
-│   │   │   └── demon
+│   │   │   ├── demon
+│   │   │   │   ├── death.png
+│   │   │   │   ├── fly.png
+│   │   │   │   └── hit.png
+│   │   │   └── fireWorm
+│   │   │       ├── attack.png
 │   │   │       ├── death.png
-│   │   │       ├── fly.png
-│   │   │       └── hit.png
+│   │   │       ├── hit.png
+│   │   │       ├── idle.png
+│   │   │       └── move.png
 │   │   ├── environment
 │   │   │   ├── ground
 │   │   │   │   └── lava.png
@@ -101,7 +108,9 @@
     │   │   ├── enemy
     │   │   │   ├── Demon.cpp
     │   │   │   ├── Demon.h
-    │   │   │   └── Enemy.h
+    │   │   │   ├── Enemy.h
+    │   │   │   ├── FireWorm.cpp
+    │   │   │   └── FireWorm.h
     │   │   └── player
     │   │       ├── Player.cpp
     │   │       └── Player.h
@@ -161,4 +170,4 @@
         ├── Stopwatch.h
         └── utils.h
 
-41 directories, 121 files
+42 directories, 129 files

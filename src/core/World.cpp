@@ -8,6 +8,7 @@
 #include "entities/actor/Actor.h"
 #include "entities/actor/enemy/Demon.h"
 #include "entities/actor/enemy/Enemy.h"
+#include "entities/actor/enemy/FireWorm.h"
 #include "entities/actor/player/Player.h"
 #include "entities/collectible/RedSquare.h"
 #include "entities/obstacle/Obstacle.h"
@@ -89,6 +90,13 @@ void World::update(float dt) {
         if (auto* demon = createEntity<Demon>()) {
             if (demon->init()) {
                 demon->setPosition({rightX, y});
+                demon->update(0.f);
+            }
+        }
+        const float yBis = 300.f;
+        if (auto* demon = createEntity<FireWorm>()) {
+            if (demon->init()) {
+                demon->setPosition({rightX, yBis});
                 demon->update(0.f);
             }
         }

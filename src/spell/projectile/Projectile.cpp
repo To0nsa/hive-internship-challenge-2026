@@ -30,8 +30,8 @@ Projectile::Projectile(SpellId spellId, Faction faction, const sf::Vector2f& ori
     sf::Vector2f dir = math::normalizeVec(direction);
     if (dir.x == 0.f && dir.y == 0.f)
         dir = {1.f, 0.f};
-    m_velocity   = dir * m_def.stats.projectile.speed;
-    m_timeToLive = m_def.stats.projectile.lifetime;
+    m_velocity = dir * m_def.stats.projectile.speed;
+    m_lifetime = m_def.stats.projectile.lifetime;
 
     // Sprite + animator
     const sf::Texture& pStart = ResourceManager::getTexture(m_def.visuals.start.textureKey);
@@ -105,8 +105,8 @@ void Projectile::update(float dt) {
 
     // Lifetime
     if (m_phase != Phase::Hit) {
-        m_timeToLive -= dt;
-        if (m_timeToLive <= 0.f) {
+        m_lifetime -= dt;
+        if (m_lifetime <= 0.f) {
             enterHit();
             m_pAnimator->update(dt);
             return;

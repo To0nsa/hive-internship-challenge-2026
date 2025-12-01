@@ -116,6 +116,7 @@ void Actor::applyPhysics(float dt, const Collider* ground) {
     float bestLiftDy  = -std::numeric_limits<float>::infinity(); // largest deltaY ≤ 0
     bool  touchingTop = false; // exact top contact without overlap
 
+    // Helper to consider one ground collider for top contact.
     auto consider = [&](const sf::FloatRect& groundCollider) {
         // Require actual overlap this frame to resolve.
         sf::FloatRect inter;

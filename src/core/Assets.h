@@ -27,6 +27,14 @@ namespace Assets {
                 inline constexpr std::string_view Hit   = "image/enemies/demon/hit.png";
                 inline constexpr std::string_view Death = "image/enemies/demon/death.png";
             } // namespace Demon
+
+            namespace FireWorm {
+                inline constexpr std::string_view Move   = "image/enemies/fireWorm/move.png";
+                inline constexpr std::string_view Idle   = "image/enemies/fireWorm/idle.png";
+                inline constexpr std::string_view Attack = "image/enemies/fireWorm/attack.png";
+                inline constexpr std::string_view Hit    = "image/enemies/fireWorm/hit.png";
+                inline constexpr std::string_view Death  = "image/enemies/fireWorm/death.png";
+            } // namespace FireWorm
         } // namespace Enemy
 
         namespace Environment {
