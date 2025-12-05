@@ -1,12 +1,10 @@
 #include "collision/CollisionSystem.h"
 
 #include "collision/CollisionLayers.h"
-#include "entities/actor/Actor.h"
 #include "entities/actor/enemy/Enemy.h"
 #include "entities/actor/player/Player.h"
 #include "entities/collectible/RedSquare.h"
 #include "entities/obstacle/Obstacle.h"
-#include "entities/platform/Platform.h"
 #include "environment/Environment.h"
 #include "gameplay/Damage.h"
 #include "gameplay/GameSession.h"
@@ -15,39 +13,6 @@
 #include "utils/Math.h"
 
 namespace {
-
-    MultiRectCollider buildSolidCollider(const CollisionContext& ctx) {
-        MultiRectCollider combined;
-
-        std::vector<sf::FloatRect> solids =
-            ctx.ground ? ctx.ground->getRectColliders() : std::vector<sf::FloatRect>{};
-        solids.reserve(solids.size() + ctx.obstacles.size() + ctx.platforms.size());
-
-        for (auto* obstacle : ctx.obstacles) {
-            if (obstacle && obstacle->isAlive())
-                solids.push_back(obstacle->getCollider().worldAabb());
-        }
-        for (auto* platform : ctx.platforms) {
-            if (platform && platform->isAlive())
-                solids.push_back(platform->getCollider().worldAabb());
-        }
-
-        combined.setRectColliders(std::move(solids));
-        return combined;
-    }
-
-    void applyActorGroundContacts(const CollisionContext& ctx, const MultiRectCollider& combined) {
-        const Collider* ground = combined.getRectColliders().empty()
-                                     ? static_cast<const Collider*>(nullptr)
-                                     : static_cast<const Collider*>(&combined);
-
-        for (auto* actor : ctx.actors) {
-            if (!actor || !actor->isAlive())
-                continue;
-            actor->applyPhysics(ctx.dt, ground);
-        }
-    }
-
     void resolvePlayerObstacleSides(const CollisionContext& ctx) {
         Player* player = ctx.player;
         if (!player || !player->isAlive())
@@ -212,9 +177,6 @@ namespace {
 } // namespace
 
 void collision::resolve(const CollisionContext& ctx) {
-    const MultiRectCollider combined = buildSolidCollider(ctx);
-
-    applyActorGroundContacts(ctx, combined);
     resolvePlayerObstacleSides(ctx);
     resolveProjectileHits(ctx);
     resolveObstacleTopDps(ctx);

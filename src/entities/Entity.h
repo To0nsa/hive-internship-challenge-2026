@@ -28,7 +28,11 @@ class Entity {
     void setAlive(bool alive) { m_alive = alive; }
 
     const sf::Vector2f& getPosition() const { return m_position; }
-    void                setPosition(const sf::Vector2f& position) { m_position = position; };
+    void                setPosition(const sf::Vector2f& position) {
+        m_position = position;
+        if (m_pSprite)
+            m_pSprite->setPosition(m_position);
+    }
 
     // back-reference to owning world
     void   setWorld(World* world) { m_world = world; }
@@ -47,6 +51,10 @@ class Entity {
     void           setCollisionMask(CollisionMask mask) { m_collisionMask = mask; }
 
     const RectCollider& getCollider() const { return m_collider; }
+
+    // Physics
+    const sf::Vector2f& getVelocity() const { return m_velocity; }
+    void                setVelocity(const sf::Vector2f& v) { m_velocity = v; }
 
   protected:
     // State

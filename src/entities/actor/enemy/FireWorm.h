@@ -13,8 +13,6 @@ class FireWorm final : public Enemy {
     bool init() override;
     void update(float dt) override;
 
-    void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
-
   private:
     enum class State { Move, Idle, Attack, Death, Hit };
     State m_state = State::Idle;

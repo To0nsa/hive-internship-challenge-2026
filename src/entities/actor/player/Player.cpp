@@ -7,6 +7,7 @@
 #include "core/ResourceManager.h"
 #include "core/World.h"
 #include "gameplay/Faction.h"
+#include "physics/PhysicsBody.h"
 #include "spell/CastRequest.h"
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
@@ -63,6 +64,17 @@ bool Player::init() {
     setColliderSize(
         {static_cast<float>(kFrameSize.x) * 0.2f, static_cast<float>(kFrameSize.y) * 0.88f});
 
+    // Register with physics system so movement and gravity are applied centrally.
+    PhysicsBodyConfig physCfg;
+    physCfg.enabled       = true;
+    physCfg.isKinematic   = false;
+    physCfg.useGravity    = true;
+    physCfg.topOnlyGround = true;
+    physCfg.gravityScale  = 1.f;
+    physCfg.maxVelX       = 3000.f;
+    physCfg.maxVelY       = kMaxVelY;
+    m_world->getPhysics().registerBody(*this, physCfg);
+
     // Setup stats
     setInitialStats(kPlayerHpMax, kPlayerManaMax, kPlayerManaRegenRate, kPlayerHpRegenRate,
                     kPlayerStaminaMax, kPlayerStaminaRegenRate);
@@ -72,7 +84,7 @@ bool Player::init() {
     return true;
 }
 
-void Player::applyMovement(const sf::Vector2f& direction, float dt) {
+void Player::applyHorizontalMovement(const sf::Vector2f& direction, float dt) {
     // Horizontal move
     if (direction.x != 0.f) {
         // Accelerate toward desired X
@@ -96,18 +108,6 @@ void Player::applyMovement(const sf::Vector2f& direction, float dt) {
             }
         }
     }
-
-    // Integrate X only; Y handled separately
-    m_position.x += m_velocity.x * dt;
-}
-
-void Player::applyPhysics(float dt, const Collider* ground) {
-    // During dash, freeze vertical physics so the player
-    // maintains their current height and grounded state.
-    if (m_state == State::Dash)
-        return;
-
-    Actor::applyPhysics(dt, ground);
 }
 
 void Player::update(float dt) {
@@ -188,20 +188,17 @@ void Player::update(float dt) {
 
     // Apply horizontal movement
     if (m_state == State::Move) {
-        applyMovement(dir, dt);
+        applyHorizontalMovement(dir, dt);
     } else if (m_state == State::Dash) {
         m_velocity.x = m_dashDirX * kDashSpeed;
-        m_position.x += m_velocity.x * dt;
     } else if (m_state == State::Cast) {
         // Allow light movement during cast
-        applyMovement(dir, dt);
+        applyHorizontalMovement(dir, dt);
     }
 
     // Jumping (disabled while dashing)
     if (m_state != State::Dash)
         tryApplyJump();
-
-    // Vertical physics and collision are applied from the world via Actor::applyPhysics().
 
     // Animation selection
     if (m_state == State::Dash) {
@@ -217,8 +214,7 @@ void Player::update(float dt) {
     }
     m_pAnimator->update(dt);
 
-    // Update sprite position from transform
-    m_pSprite->setPosition(m_position);
+    // Sprite position follows entity transform (via Entity::setPosition / PhysicsSystem).
 }
 
 void Player::tryApplyJump() {
@@ -281,6 +277,11 @@ void Player::updateMoveAnimation() {
 void Player::enterMove() {
     m_state = State::Move;
     m_pAnimator->playClip(m_idleClip);
+
+    // Restore normal gravity after dash or other special states.
+    if (auto* body = m_world->getPhysics().findBody(*this)) {
+        body->config.useGravity = true;
+    }
 }
 
 void Player::enterDash(float dirX) {
@@ -288,9 +289,12 @@ void Player::enterDash(float dirX) {
     m_dashTimer        = kDashDuration;
     m_dashCooldownLeft = kDashCooldown;
     m_dashDirX         = (dirX >= 0.f) ? +1.f : -1.f;
-    // Reset vertical velocity so dash does not inherit
-    // any upward or downward motion.
-    m_velocity.y       = 0.f;
+    // Reset vertical velocity so dash does not inherit any upward or downward motion,
+    // and temporarily disable gravity while dashing.
+    m_velocity.y = 0.f;
+    if (auto* body = m_world->getPhysics().findBody(*this)) {
+        body->config.useGravity = false;
+    }
     if (m_stamina >= kDashStaminaCost)
         m_stamina -= kDashStaminaCost;
     setFacing(m_dashDirX > 0 ? Facing::Right : Facing::Left);
@@ -342,7 +346,10 @@ void Player::enterHit() {
     });
 }
 
-bool Player::isGrounded() const { return m_grounded; }
+bool Player::isGrounded() const {
+    const PhysicsBody* body = m_world->getPhysics().findBody(*this);
+    return body->grounded;
+}
 
 void Player::onDamaged(const DamageInfo& damage) {
     if (m_state == State::Death)

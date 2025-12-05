@@ -1,6 +1,7 @@
 # TODO List
 
 Scale enemies collider size
+Rename Demon to FlyingDemon ?
 
 Centralize: (data-driven ? JSON ?)
 
@@ -10,3 +11,7 @@ Centralize: (data-driven ? JSON ?)
 - clip ids constants ?
 - fps constants ?
 - frame counts constants ?
+
+Improving player dash
+
+Create a proper physic system

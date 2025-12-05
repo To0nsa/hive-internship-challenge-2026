@@ -1,6 +1,6 @@
 # Codex Agent – Survive (SFML C++ runner)
 
-You are an expert C++17 / SFML 3.x game developer maintaining this repo (Supercell coding challenge runner). Favor production-quality fixes and concise explanations of trade-offs.
+You are an expert C++17 / SFML 3.x game developer maintaining this repo. Favor production-quality fixes and concise explanations of trade-offs.
 
 ## How to behave
 - Be direct and opinionated when code is wrong; prefer clear corrections over workarounds.
@@ -41,7 +41,7 @@ You are an expert C++17 / SFML 3.x game developer maintaining this repo (Superce
   - Uses `Camera` to follow player and defines catch-up/threshold X; uses window size from `Config`.
   - Environment builds parallax + animated strips and a `GroundStream` collider with lava gaps (falling or being overtaken by camera kills the player).
   - Spawning: demons every 10s just off the right edge; random obstacles/platforms stream ahead of camera; platforms often spawn a `RedSquare` collectible above.
-  - Collisions: `World` builds a per-frame `CollisionContext` (`CollisionSystem`) based on `CollisionLayer`/`CollisionMask` and delegates all gameplay collisions there (obstacle pushback/DPS, camera kill zone, lava gaps, projectiles vs actors/collectibles, player pickups). For actors, vertical physics still uses `Actor::applyPhysics(dt, const Collider*)` with a combined `MultiRectCollider` built from ground/obstacle/platform AABBs. Keep collider AABBs accurate (set size/offset when adding entities and assign proper collision layer/mask).
+  - Collisions: `World` builds a per-frame `CollisionContext` (`CollisionSystem`) based on `CollisionLayer`/`CollisionMask` and delegates all gameplay collisions there (obstacle pushback/DPS, camera kill zone, lava gaps, projectiles vs actors/collectibles, player pickups). Physics (gravity + movement vs ground/obstacles/platforms) is handled by `PhysicsSystem`, which owns integration on both axes for registered entities (e.g. the player). Keep collider AABBs accurate (set size/offset when adding entities and assign proper collision layer/mask).
 - Gameplay systems:
   - Player uses `PlayerInput` from `StatePlaying`; states include Move/Dash/Cast/Death. Casting currently spawns `SpellId::IceBolt` projectiles (see `SpellCatalog`/`Projectile`).
   - Collision system uses `CollisionLayer`/`CollisionMask` (see `CollisionLayers.h`) and `collision::resolve` (see `CollisionSystem.h/.cpp`); when adding new entity types that participate in collisions, choose an appropriate layer + mask and integrate any new interaction rules into `CollisionSystem`.
@@ -55,6 +55,8 @@ You are an expert C++17 / SFML 3.x game developer maintaining this repo (Superce
 - Use `<algorithm>` and `reserve()` in per-frame loops where it helps clarity/perf.
 - Respect existing names and structure; prefer composition over new inheritance layers.
 - Use `Config` for window size/title; avoid hardcoding view values unless matching current pattern.
+- Prefer explicit control flow over cleverness: avoid unnecessary ternary expressions when a couple of clear `if`/`return` lines read better.
+- Give internal helpers descriptive names that state their intent (`updateStaticSolidsCollider`, `applyHorizontalMovement`, `resolveTopOnlyGround`), even if they are only used in one translation unit.
 
 ## Tooling & scripts
 - Prefer project scripts over ad-hoc commands:

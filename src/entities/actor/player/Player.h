@@ -18,7 +18,6 @@ class Player final : public Actor {
 
     bool init() override;
     void update(float dt) override;
-    void applyPhysics(float dt, const Collider* ground) override;
     void setInput(const PlayerInput& input) { m_input = input; }
 
   private:
@@ -34,7 +33,7 @@ class Player final : public Actor {
     void enterCast();
     void enterHit();
 
-    void applyMovement(const sf::Vector2f& direction, float dt);
+    void applyHorizontalMovement(const sf::Vector2f& direction, float dt);
     void tryApplyJump();
     void tryApplyDash();
 
@@ -64,6 +63,7 @@ class Player final : public Actor {
     static constexpr float kAcceleration = 1200.f;
     static constexpr float kDeceleration = 800.f;
     static constexpr float kMinSpeed     = 5.f;
+    static constexpr float kMaxVelY      = 3000.f;
 
     // Stats
     static constexpr float kPlayerHpMax            = 100.f;

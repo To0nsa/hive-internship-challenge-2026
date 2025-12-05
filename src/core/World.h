@@ -4,6 +4,7 @@
 #include "core/Camera.h"
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
+#include "physics/PhysicsSystem.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -42,6 +43,9 @@ class World {
     void addScore(int points);
     void requestExitToMenu();
 
+    PhysicsSystem&       getPhysics() { return m_physics; }
+    const PhysicsSystem& getPhysics() const { return m_physics; }
+
     template <typename T, typename... Args> T* createEntity(Args&&... args) {
         auto entity    = std::make_unique<T>(std::forward<Args>(args)...);
         T*   entityPtr = entity.get();
@@ -66,9 +70,16 @@ class World {
 
     Camera m_camera;
 
+    // Combined static solids used by the physics system (ground + obstacles + platforms).
+    MultiRectCollider m_staticSolids;
+
+    PhysicsSystem m_physics;
+
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
     CollisionContext buildCollisionContext(float dt, const MultiRectCollider* groundCollider);
 
     void cullOffscreen();
+
+    void updateStaticSolidsCollider(const MultiRectCollider* groundCollider);
 };

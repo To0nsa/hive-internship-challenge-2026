@@ -140,6 +140,10 @@
     │   ├── Damage.h
     │   ├── Faction.h
     │   └── GameSession.h
+    ├── physics
+    │   ├── PhysicsBody.h
+    │   ├── PhysicsSystem.cpp
+    │   └── PhysicsSystem.h
     ├── spell
     │   ├── CastRequest.h
     │   ├── SpellCatalog.cpp
@@ -170,4 +174,4 @@
         ├── Stopwatch.h
         └── utils.h
 
-42 directories, 129 files
+43 directories, 132 files

@@ -76,6 +76,13 @@ void World::update(float dt) {
     m_environment.update(dt, m_camera.getView());
     const MultiRectCollider* groundCollider = m_environment.getGroundCollider();
 
+    // Build combined static solids for physics (ground + obstacles + platforms).
+    updateStaticSolidsCollider(groundCollider);
+
+    // Step physics. At this stage, bodies may or may not be registered yet;
+    // wiring happens in the actors that opt into physics.
+    m_physics.step(dt, &m_staticSolids);
+
     // Resolve collisions
     CollisionContext collisionCtx = buildCollisionContext(dt, groundCollider);
     collision::resolve(collisionCtx);
@@ -147,9 +154,15 @@ void World::update(float dt) {
     // Lifetime culling, mark obstacles, platforms, collectibles dead if offscreen
     cullOffscreen();
 
-    // Remove dead entities
+    // Remove dead entities and unregister any physics bodies they owned.
     m_entities.erase(std::remove_if(m_entities.begin(), m_entities.end(),
-                                    [](const auto& e) { return !e->isAlive(); }),
+                                    [this](const auto& e) {
+                                        if (!e->isAlive()) {
+                                            m_physics.unregisterBody(*e);
+                                            return true;
+                                        }
+                                        return false;
+                                    }),
                      m_entities.end());
 }
 
@@ -265,4 +278,25 @@ void World::cullOffscreen() {
         if (right < cullBefore)
             entity->setAlive(false);
     }
+}
+
+void World::updateStaticSolidsCollider(const MultiRectCollider* groundCollider) {
+    std::vector<sf::FloatRect> solids;
+    if (groundCollider) {
+        solids = groundCollider->getRectColliders();
+    }
+    solids.reserve(solids.size() + m_entities.size());
+
+    for (const auto& entity : m_entities) {
+        if (!entity->isAlive())
+            continue;
+
+        const CollisionLayer layer = entity->getCollisionLayer();
+        if (layer != CollisionLayer::Obstacle && layer != CollisionLayer::Platform)
+            continue;
+
+        solids.push_back(entity->getCollider().worldAabb());
+    }
+
+    m_staticSolids.setRectColliders(std::move(solids));
 }

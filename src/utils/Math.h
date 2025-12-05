@@ -33,8 +33,8 @@ namespace math {
     // - Indirectly used in:
     //   * World::update(): DPS when the player stands on top of an obstacle
     //     via geom::touchTop().
-    //   * Actor::applyPhysics(): detecting when the actor is resting on
-    //     top of ground colliders (via geom helpers).
+    //   * PhysicsSystem::integrateBody(): detecting when physics bodies are
+    //     resting on top of ground colliders (via geom helpers).
     //
     // Purpose:
     // - Avoid flaky collisions due to tiny float discrepancies when objects
@@ -86,6 +86,18 @@ namespace math {
     // - Turning raw stat ranges into 0..1 parameters for shaders / effects.
     inline float remap(float x, float inMin, float inMax, float outMin, float outMax) {
         return lerp(outMin, outMax, saturate(unlerp(inMin, inMax, x)));
+    }
+
+    // Clamp a signed value to a symmetric range [-maxMagnitude, +maxMagnitude].
+    //
+    // Usage in this project:
+    // - PhysicsSystem: clamping horizontal and vertical velocities to a maximum magnitude.
+    inline float clampToMagnitude(float v, float maxMagnitude) {
+        if (v > maxMagnitude)
+            return maxMagnitude;
+        if (v < -maxMagnitude)
+            return -maxMagnitude;
+        return v;
     }
 
     // Integer division with floor semantics, even for negative values.

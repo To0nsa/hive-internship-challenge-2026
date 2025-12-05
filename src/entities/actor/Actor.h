@@ -31,19 +31,11 @@ class Actor : public Entity {
     // Main damage entry point using hit data.
     void applyDamage(const DamageInfo& info);
 
-    // Minimal vertical physics with top-only collision against provided ground collider.
-    // Pass a MultiRectCollider (preferred) or any Collider containing the walkable surfaces.
-    virtual void applyPhysics(float dt, const Collider* ground);
-
   protected:
     virtual void updateActorBase(float dt);
 
     // Hook for derived classes to react to damage (animations, knockback, etc.).
     virtual void onDamaged(const DamageInfo& info);
-
-    // Physics constants
-    static constexpr float kPhysGravity = 2400.f;
-    static constexpr float kMaxVelY     = 3000.f;
 
     // Stats
     // Health
@@ -62,6 +54,4 @@ class Actor : public Entity {
     // Rendering
     void render(sf::RenderTarget& target) const override;
 
-    // Grounded state updated by applyPhysics
-    bool m_grounded = false;
 };
