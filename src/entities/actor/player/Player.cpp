@@ -225,7 +225,7 @@ void Player::tryApplyJump() {
         return;
 
     // Perform the jump
-    m_velocity.y = -kJumpSpeed;
+    m_velocity.y = -kJumpForce;
     m_stamina -= kJumpStaminaCost;
 
     // Consume the buffer so we don't chain extra jumps

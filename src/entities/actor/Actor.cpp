@@ -87,8 +87,6 @@ void Actor::updateActorBase(float dt) {
 }
 
 void Actor::applyPhysics(float dt, const Collider* ground) {
-    static constexpr float kPhysGravity = 2400.f;
-    static constexpr float kMaxVelY     = 3000.f;
 
     // Gravity + vertical move
     if (!m_grounded)

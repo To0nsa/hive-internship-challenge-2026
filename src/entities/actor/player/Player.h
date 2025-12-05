@@ -63,7 +63,6 @@ class Player final : public Actor {
     static constexpr float kAcceleration = 1200.f;
     static constexpr float kDeceleration = 800.f;
     static constexpr float kMinSpeed     = 5.f;
-    static constexpr float kGravity      = 2400.f;
 
     // Stats
     static constexpr float kPlayerHpMax            = 100.f;
@@ -76,7 +75,7 @@ class Player final : public Actor {
     static constexpr float kDashStaminaCost        = 2.f;
 
     // Jumping
-    static constexpr float kJumpSpeed       = 1200.f;
+    static constexpr float kJumpForce       = 1200.f;
     static constexpr float kCoyoteTime      = 0.10f;
     static constexpr float kJumpBufferTime  = 0.12f;
     float                  m_coyoteTimer    = 0.f;

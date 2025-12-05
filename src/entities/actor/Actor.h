@@ -41,6 +41,10 @@ class Actor : public Entity {
     // Hook for derived classes to react to damage (animations, knockback, etc.).
     virtual void onDamaged(const DamageInfo& info);
 
+    // Physics constants
+    static constexpr float kPhysGravity = 2400.f;
+    static constexpr float kMaxVelY     = 3000.f;
+
     // Stats
     // Health
     float m_hp          = 1.f;

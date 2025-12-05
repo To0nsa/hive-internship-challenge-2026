@@ -14,7 +14,7 @@ class Demon final : public Enemy {
     void update(float dt) override;
 
     // Flying: ignore Actor's vertical physics/gravity
-    // void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
+    void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
 
   private:
     enum class State { Fly, Death, Hit };
