@@ -130,8 +130,8 @@ void PhysicsSystem::integratePosition(Entity& owner, sf::Vector2f& position,
     }
 }
 
-void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner,
-                                         sf::Vector2f& position, sf::Vector2f& velocity, float dy,
+void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
+                                         sf::Vector2f& velocity, float dy,
                                          const MultiRectCollider& staticWorld) {
     const sf::FloatRect actorCollider = owner.getCollider().worldAabb();
 

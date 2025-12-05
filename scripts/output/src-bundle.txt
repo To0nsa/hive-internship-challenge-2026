@@ -1226,7 +1226,7 @@ void World::update(float dt) {
     const MultiRectCollider* groundCollider = m_environment.getGroundCollider();
 
     // Build combined static solids for physics (ground + obstacles + platforms).
-    buildStaticSolids(groundCollider);
+    updateStaticSolidsCollider(groundCollider);
 
     // Step physics. At this stage, bodies may or may not be registered yet;
     // wiring happens in the actors that opt into physics.
@@ -1429,9 +1429,11 @@ void World::cullOffscreen() {
     }
 }
 
-void World::buildStaticSolids(const MultiRectCollider* groundCollider) {
-    std::vector<sf::FloatRect> solids =
-        groundCollider ? groundCollider->getRectColliders() : std::vector<sf::FloatRect>{};
+void World::updateStaticSolidsCollider(const MultiRectCollider* groundCollider) {
+    std::vector<sf::FloatRect> solids;
+    if (groundCollider) {
+        solids = groundCollider->getRectColliders();
+    }
     solids.reserve(solids.size() + m_entities.size());
 
     for (const auto& entity : m_entities) {
@@ -1534,7 +1536,7 @@ class World {
 
     void cullOffscreen();
 
-    void buildStaticSolids(const MultiRectCollider* groundCollider);
+    void updateStaticSolidsCollider(const MultiRectCollider* groundCollider);
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/World.h =====
@@ -1677,16 +1679,13 @@ class Entity {
 // src/game/Actor.cpp
 #include "entities/actor/Actor.h"
 
-#include "collision/MultiRectCollider.h"
 #include "core/Config.h"
 #include "core/Debug.h"
 #include "core/ResourceManager.h"
-#include "utils/Geom.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 void Actor::render(sf::RenderTarget& target) const {
     if (m_pSprite)
@@ -1762,86 +1761,6 @@ void Actor::updateActorBase(float dt) {
     regenerateStamina(dt);
 }
 
-void Actor::applyPhysics(float dt, const Collider* ground) {
-
-    // Gravity + vertical move
-    if (!m_grounded)
-        m_velocity.y += kPhysGravity * dt;
-    if (m_velocity.y > kMaxVelY)
-        m_velocity.y = kMaxVelY;
-
-    const float dy = m_velocity.y * dt;
-    if (m_velocity.y != 0.f) {
-        m_position.y += dy;
-        if (m_pSprite)
-            m_pSprite->setPosition(m_position);
-    }
-
-    // Ground collision (top-only). Skip if moving upward.
-    m_grounded = false;
-    if (m_velocity.y < 0.f || !ground)
-        return;
-
-    const sf::FloatRect actorCollider = getCollider().worldAabb();
-    sf::FloatRect       prevActor     = actorCollider;
-    prevActor.position.y -= dy; // position before applying vertical integration
-
-    // Choose the smallest upward correction needed to rest on top.
-    float bestLiftDy  = -std::numeric_limits<float>::infinity(); // largest deltaY ≤ 0
-    bool  touchingTop = false; // exact top contact without overlap
-
-    // Helper to consider one ground collider for top contact.
-    auto consider = [&](const sf::FloatRect& groundCollider) {
-        // Require actual overlap this frame to resolve.
-        sf::FloatRect inter;
-        // Track exact top contact even without overlap (resting on top, no motion)
-        if (m_velocity.y == 0.f && geom::touchTop(actorCollider, groundCollider, 0.75f))
-            touchingTop = true;
-
-        // We only care about landings from above this frame: bottom crossing the top plane.
-        const float groundTop    = geom::top(groundCollider);
-        const float prevBottom   = geom::bottom(prevActor);
-        const float currentB     = geom::bottom(actorCollider);
-        const float currentLeft  = geom::left(actorCollider);
-        const float currentRight = geom::right(actorCollider);
-        const float groundLeft   = geom::left(groundCollider);
-        const float groundRight  = geom::right(groundCollider);
-
-        // Horizontal overlap required to stand on top.
-        if (currentRight <= groundLeft || currentLeft >= groundRight)
-            return;
-
-        // Must be above last frame and now at/through the top plane.
-        constexpr float kTopEps = 0.001f;
-        if (prevBottom > groundTop + kTopEps)
-            return; // not a landing from above
-        if (currentB < groundTop - kTopEps)
-            return; // still above top -> no contact yet
-
-        // Upward lift required to rest bottom on top of ground.
-        const float deltaY = groundTop - currentB; // ≤ 0 when penetrating from above
-        bestLiftDy         = std::max(bestLiftDy, deltaY);
-    };
-
-    if (const auto* multi = dynamic_cast<const MultiRectCollider*>(ground)) {
-        for (const auto& r : multi->getRectColliders())
-            consider(r);
-    } else {
-        consider(ground->worldAabb());
-    }
-
-    if (bestLiftDy > -std::numeric_limits<float>::infinity()) {
-        m_position.y += bestLiftDy;
-        if (m_pSprite)
-            m_pSprite->setPosition(m_position);
-        m_velocity.y = 0.f;
-        m_grounded   = true;
-    } else if (touchingTop) {
-        // Maintain grounded state on exact top contact
-        m_grounded = true;
-    }
-}
-
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/Actor.cpp =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/Actor.h =====
@@ -1878,19 +1797,11 @@ class Actor : public Entity {
     // Main damage entry point using hit data.
     void applyDamage(const DamageInfo& info);
 
-    // Minimal vertical physics with top-only collision against provided ground collider.
-    // Pass a MultiRectCollider (preferred) or any Collider containing the walkable surfaces.
-    virtual void applyPhysics(float dt, const Collider* ground);
-
   protected:
     virtual void updateActorBase(float dt);
 
     // Hook for derived classes to react to damage (animations, knockback, etc.).
     virtual void onDamaged(const DamageInfo& info);
-
-    // Physics constants
-    static constexpr float kPhysGravity = 2400.f;
-    static constexpr float kMaxVelY     = 3000.f;
 
     // Stats
     // Health
@@ -1908,9 +1819,6 @@ class Actor : public Entity {
 
     // Rendering
     void render(sf::RenderTarget& target) const override;
-
-    // Grounded state updated by applyPhysics
-    bool m_grounded = false;
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/Actor.h =====
@@ -2056,9 +1964,6 @@ class Demon final : public Enemy {
 
     bool init() override;
     void update(float dt) override;
-
-    // Flying: ignore Actor's vertical physics/gravity
-    void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
 
   private:
     enum class State { Fly, Death, Hit };
@@ -2240,8 +2145,6 @@ class FireWorm final : public Enemy {
     bool init() override;
     void update(float dt) override;
 
-    void applyPhysics(float /*dt*/, const Collider* /*ground*/) override {}
-
   private:
     enum class State { Move, Idle, Attack, Death, Hit };
     State m_state = State::Idle;
@@ -2352,17 +2255,15 @@ bool Player::init() {
         {static_cast<float>(kFrameSize.x) * 0.2f, static_cast<float>(kFrameSize.y) * 0.88f});
 
     // Register with physics system so movement and gravity are applied centrally.
-    if (m_world) {
-        PhysicsBodyConfig physCfg;
-        physCfg.enabled       = true;
-        physCfg.isKinematic   = false;
-        physCfg.useGravity    = true;
-        physCfg.topOnlyGround = true;
-        physCfg.gravity       = kPhysGravity;
-        physCfg.maxVelX       = 3000.f;
-        physCfg.maxVelY       = kMaxVelY;
-        m_world->getPhysics().registerBody(*this, physCfg);
-    }
+    PhysicsBodyConfig physCfg;
+    physCfg.enabled       = true;
+    physCfg.isKinematic   = false;
+    physCfg.useGravity    = true;
+    physCfg.topOnlyGround = true;
+    physCfg.gravityScale  = 1.f;
+    physCfg.maxVelX       = 3000.f;
+    physCfg.maxVelY       = kMaxVelY;
+    m_world->getPhysics().registerBody(*this, physCfg);
 
     // Setup stats
     setInitialStats(kPlayerHpMax, kPlayerManaMax, kPlayerManaRegenRate, kPlayerHpRegenRate,
@@ -2373,7 +2274,7 @@ bool Player::init() {
     return true;
 }
 
-void Player::applyMovement(const sf::Vector2f& direction, float dt) {
+void Player::applyHorizontalMovement(const sf::Vector2f& direction, float dt) {
     // Horizontal move
     if (direction.x != 0.f) {
         // Accelerate toward desired X
@@ -2397,15 +2298,6 @@ void Player::applyMovement(const sf::Vector2f& direction, float dt) {
             }
         }
     }
-}
-
-void Player::applyPhysics(float dt, const Collider* ground) {
-    // During dash, freeze vertical physics so the player
-    // maintains their current height and grounded state.
-    if (m_state == State::Dash)
-        return;
-
-    Actor::applyPhysics(dt, ground);
 }
 
 void Player::update(float dt) {
@@ -2486,12 +2378,12 @@ void Player::update(float dt) {
 
     // Apply horizontal movement
     if (m_state == State::Move) {
-        applyMovement(dir, dt);
+        applyHorizontalMovement(dir, dt);
     } else if (m_state == State::Dash) {
         m_velocity.x = m_dashDirX * kDashSpeed;
     } else if (m_state == State::Cast) {
         // Allow light movement during cast
-        applyMovement(dir, dt);
+        applyHorizontalMovement(dir, dt);
     }
 
     // Jumping (disabled while dashing)
@@ -2577,10 +2469,8 @@ void Player::enterMove() {
     m_pAnimator->playClip(m_idleClip);
 
     // Restore normal gravity after dash or other special states.
-    if (m_world) {
-        if (auto* body = m_world->getPhysics().findBody(*this)) {
-            body->config.useGravity = true;
-        }
+    if (auto* body = m_world->getPhysics().findBody(*this)) {
+        body->config.useGravity = true;
     }
 }
 
@@ -2592,10 +2482,8 @@ void Player::enterDash(float dirX) {
     // Reset vertical velocity so dash does not inherit any upward or downward motion,
     // and temporarily disable gravity while dashing.
     m_velocity.y = 0.f;
-    if (m_world) {
-        if (auto* body = m_world->getPhysics().findBody(*this)) {
-            body->config.useGravity = false;
-        }
+    if (auto* body = m_world->getPhysics().findBody(*this)) {
+        body->config.useGravity = false;
     }
     if (m_stamina >= kDashStaminaCost)
         m_stamina -= kDashStaminaCost;
@@ -2649,10 +2537,8 @@ void Player::enterHit() {
 }
 
 bool Player::isGrounded() const {
-    if (!m_world)
-        return false;
     const PhysicsBody* body = m_world->getPhysics().findBody(*this);
-    return body ? body->grounded : false;
+    return body->grounded;
 }
 
 void Player::onDamaged(const DamageInfo& damage) {
@@ -2689,7 +2575,6 @@ class Player final : public Actor {
 
     bool init() override;
     void update(float dt) override;
-    void applyPhysics(float dt, const Collider* ground) override;
     void setInput(const PlayerInput& input) { m_input = input; }
 
   private:
@@ -2705,7 +2590,7 @@ class Player final : public Actor {
     void enterCast();
     void enterHit();
 
-    void applyMovement(const sf::Vector2f& direction, float dt);
+    void applyHorizontalMovement(const sf::Vector2f& direction, float dt);
     void tryApplyJump();
     void tryApplyDash();
 
@@ -2735,6 +2620,7 @@ class Player final : public Actor {
     static constexpr float kAcceleration = 1200.f;
     static constexpr float kDeceleration = 800.f;
     static constexpr float kMinSpeed     = 5.f;
+    static constexpr float kMaxVelY      = 3000.f;
 
     // Stats
     static constexpr float kPlayerHpMax            = 100.f;
@@ -3927,7 +3813,10 @@ struct PhysicsBodyConfig {
     bool useGravity    = true;
     bool topOnlyGround = true; // if true, only resolve top contacts (platformer-style)
 
-    float gravity = 2400.f; // pixels per second^2
+    // Scale applied to the global gravity configured on PhysicsSystem.
+    // 1.0 = normal gravity, 0.0 = no gravity, >1.0 = stronger gravity.
+    float gravityScale = 1.f;
+
     float maxVelX = 3000.f;
     float maxVelY = 3000.f;
 };
@@ -3949,23 +3838,11 @@ struct PhysicsBody {
 #include "collision/RectCollider.h"
 #include "entities/Entity.h"
 #include "utils/Geom.h"
+#include "utils/Math.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <algorithm>
 #include <limits>
-
-namespace {
-
-    // Small helper to clamp a float to [-maxAbs, +maxAbs].
-    float clampAbs(float v, float maxAbs) {
-        if (v > maxAbs)
-            return maxAbs;
-        if (v < -maxAbs)
-            return -maxAbs;
-        return v;
-    }
-
-} // namespace
 
 void PhysicsSystem::registerBody(Entity& owner, const PhysicsBodyConfig& config) {
     // If already present, just update config.
@@ -4035,33 +3912,48 @@ void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
     sf::Vector2f position = owner.getPosition();
     sf::Vector2f velocity = owner.getVelocity();
 
-    // Apply gravity.
-    if (body.config.useGravity) {
-        velocity.y += body.config.gravity * dt;
-    }
+    // Forces + clamping.
+    applyForces(body, velocity, dt);
 
-    // Clamp speeds.
-    velocity.x = clampAbs(velocity.x, body.config.maxVelX);
-    velocity.y = clampAbs(velocity.y, body.config.maxVelY);
-
-    // Initial guesses for integration.
-    const float dx = velocity.x * dt;
+    // Cache vertical delta for ground resolution.
     const float dy = velocity.y * dt;
 
     body.grounded = false;
 
-    // Move horizontally first, then vertically.
+    // Integrate position on both axes.
+    integratePosition(owner, position, velocity, dt);
+
+    // Top-only ground resolution matches previous Actor::applyPhysics() behavior.
+    if (body.config.topOnlyGround && velocity.y >= 0.f) {
+        resolveTopOnlyGround(body, owner, position, velocity, dy, *staticWorld);
+    }
+
+    // Push updated velocity back to the entity.
+    owner.setVelocity(velocity);
+}
+
+void PhysicsSystem::applyForces(PhysicsBody& body, sf::Vector2f& velocity, float dt) {
+    // Apply gravity using global gravity magnitude scaled per body.
+    if (body.config.useGravity) {
+        velocity.y += m_gravity * body.config.gravityScale * dt;
+    }
+
+    // Clamp speeds to configured maximum magnitudes.
+    velocity.x = math::clampToMagnitude(velocity.x, body.config.maxVelX);
+    velocity.y = math::clampToMagnitude(velocity.y, body.config.maxVelY);
+}
+
+void PhysicsSystem::integratePosition(Entity& owner, sf::Vector2f& position,
+                                      const sf::Vector2f& velocity, float dt) {
+    const float dx = velocity.x * dt;
+    const float dy = velocity.y * dt;
+
     if (dx != 0.f || dy != 0.f) {
-        // Horizontal move
         if (dx != 0.f) {
             position.x += dx;
             owner.setPosition(position);
-            // For now we only do simple overlap correction horizontally if needed.
-            // This keeps behavior closer to previous implementation where horizontal
-            // collisions were handled separately.
         }
 
-        // Vertical move + top-only collision against static world.
         if (dy != 0.f) {
             position.y += dy;
             owner.setPosition(position);
@@ -4070,65 +3962,60 @@ void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
         // No movement this frame; still need collider below for precise grounding.
         owner.setPosition(position);
     }
+}
 
-    // Top-only ground resolution matches previous Actor::applyPhysics() behavior.
-    if (body.config.topOnlyGround) {
-        // Skip when moving upward.
-        if (velocity.y >= 0.f) {
-            const sf::FloatRect actorCollider = owner.getCollider().worldAabb();
+void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
+                                         sf::Vector2f& velocity, float dy,
+                                         const MultiRectCollider& staticWorld) {
+    const sf::FloatRect actorCollider = owner.getCollider().worldAabb();
 
-            // Previous frame actor position on Y.
-            sf::FloatRect prevActor = actorCollider;
-            prevActor.position.y -= dy;
+    // Previous frame actor position on Y.
+    sf::FloatRect prevActor = actorCollider;
+    prevActor.position.y -= dy;
 
-            float bestLiftDy  = -std::numeric_limits<float>::infinity();
-            bool  touchingTop = false;
+    float bestLiftDy  = -std::numeric_limits<float>::infinity();
+    bool  touchingTop = false;
 
-            auto consider = [&](const sf::FloatRect& groundCollider) {
-                // Track exact top contact for zero-motion cases.
-                if (velocity.y == 0.f && geom::touchTop(actorCollider, groundCollider, 0.75f))
-                    touchingTop = true;
+    auto consider = [&](const sf::FloatRect& groundCollider) {
+        // Track exact top contact for zero-motion cases.
+        if (velocity.y == 0.f && geom::touchTop(actorCollider, groundCollider, 0.75f))
+            touchingTop = true;
 
-                const float groundTop    = geom::top(groundCollider);
-                const float prevBottom   = geom::bottom(prevActor);
-                const float currentB     = geom::bottom(actorCollider);
-                const float currentLeft  = geom::left(actorCollider);
-                const float currentRight = geom::right(actorCollider);
-                const float groundLeft   = geom::left(groundCollider);
-                const float groundRight  = geom::right(groundCollider);
+        const float groundTop    = geom::top(groundCollider);
+        const float prevBottom   = geom::bottom(prevActor);
+        const float currentB     = geom::bottom(actorCollider);
+        const float currentLeft  = geom::left(actorCollider);
+        const float currentRight = geom::right(actorCollider);
+        const float groundLeft   = geom::left(groundCollider);
+        const float groundRight  = geom::right(groundCollider);
 
-                // Require horizontal overlap to stand on top.
-                if (currentRight <= groundLeft || currentLeft >= groundRight)
-                    return;
+        // Require horizontal overlap to stand on top.
+        if (currentRight <= groundLeft || currentLeft >= groundRight)
+            return;
 
-                constexpr float kTopEps = 0.001f;
-                if (prevBottom > groundTop + kTopEps)
-                    return; // not a landing from above
-                if (currentB < groundTop - kTopEps)
-                    return; // still above top
+        constexpr float kTopEps = 0.001f;
+        if (prevBottom > groundTop + kTopEps)
+            return; // not a landing from above
+        if (currentB < groundTop - kTopEps)
+            return; // still above top
 
-                const float deltaY = groundTop - currentB;
-                if (deltaY > bestLiftDy)
-                    bestLiftDy = deltaY;
-            };
+        const float deltaY = groundTop - currentB;
+        if (deltaY > bestLiftDy)
+            bestLiftDy = deltaY;
+    };
 
-            for (const auto& r : staticWorld->getRectColliders()) {
-                consider(r);
-            }
-
-            if (bestLiftDy > -std::numeric_limits<float>::infinity()) {
-                position.y += bestLiftDy;
-                owner.setPosition(position);
-                velocity.y    = 0.f;
-                body.grounded = true;
-            } else if (touchingTop) {
-                body.grounded = true;
-            }
-        }
+    for (const auto& r : staticWorld.getRectColliders()) {
+        consider(r);
     }
 
-    // Push updated velocity back to the entity.
-    owner.setVelocity(velocity);
+    if (bestLiftDy > -std::numeric_limits<float>::infinity()) {
+        position.y += bestLiftDy;
+        owner.setPosition(position);
+        velocity.y    = 0.f;
+        body.grounded = true;
+    } else if (touchingTop) {
+        body.grounded = true;
+    }
 }
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/physics/PhysicsSystem.cpp =====
@@ -4138,6 +4025,7 @@ void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
 
 #include "physics/PhysicsBody.h"
 
+#include <SFML/System/Vector2.hpp>
 #include <vector>
 
 class Entity;
@@ -4170,10 +4058,30 @@ class PhysicsSystem {
     // staticWorld: combined collider for all static solids (ground, obstacles, platforms).
     void step(float dt, const MultiRectCollider* staticWorld);
 
+    // Global gravity magnitude in pixels per second^2.
+    // Bodies use this multiplied by their gravityScale when useGravity is true.
+    void  setGravity(float g) { m_gravity = g; }
+    float getGravity() const { return m_gravity; }
+
   private:
     std::vector<PhysicsBody> m_bodies;
 
+    float m_gravity = 2400.f;
+
+    // Integrates a single body for one frame: forces, position, and contacts.
     void integrateBody(PhysicsBody& body, float dt, const MultiRectCollider* staticWorld);
+
+    // Apply per-body forces (currently gravity) and clamp velocity.
+    void applyForces(PhysicsBody& body, sf::Vector2f& velocity, float dt);
+
+    // Integrate position from velocity and write back via Entity::setPosition.
+    void integratePosition(Entity& owner, sf::Vector2f& position, const sf::Vector2f& velocity,
+                           float dt);
+
+    // Resolve vertical top-only contacts against static world and update grounded/velocity.
+    void resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
+                              sf::Vector2f& velocity, float dy,
+                              const MultiRectCollider& staticWorld);
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/physics/PhysicsSystem.h =====
@@ -5324,6 +5232,18 @@ namespace math {
     // - Turning raw stat ranges into 0..1 parameters for shaders / effects.
     inline float remap(float x, float inMin, float inMax, float outMin, float outMax) {
         return lerp(outMin, outMax, saturate(unlerp(inMin, inMax, x)));
+    }
+
+    // Clamp a signed value to a symmetric range [-maxMagnitude, +maxMagnitude].
+    //
+    // Usage in this project:
+    // - PhysicsSystem: clamping horizontal and vertical velocities to a maximum magnitude.
+    inline float clampToMagnitude(float v, float maxMagnitude) {
+        if (v > maxMagnitude)
+            return maxMagnitude;
+        if (v < -maxMagnitude)
+            return -maxMagnitude;
+        return v;
     }
 
     // Integer division with floor semantics, even for negative values.

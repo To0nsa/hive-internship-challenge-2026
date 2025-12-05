@@ -52,8 +52,8 @@ class PhysicsSystem {
     void applyForces(PhysicsBody& body, sf::Vector2f& velocity, float dt);
 
     // Integrate position from velocity and write back via Entity::setPosition.
-    void integratePosition(Entity& owner, sf::Vector2f& position,
-                           const sf::Vector2f& velocity, float dt);
+    void integratePosition(Entity& owner, sf::Vector2f& position, const sf::Vector2f& velocity,
+                           float dt);
 
     // Resolve vertical top-only contacts against static world and update grounded/velocity.
     void resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,

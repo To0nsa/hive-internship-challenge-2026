@@ -53,5 +53,4 @@ class Actor : public Entity {
 
     // Rendering
     void render(sf::RenderTarget& target) const override;
-
 };
