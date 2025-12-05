@@ -101,6 +101,15 @@ void Player::applyMovement(const sf::Vector2f& direction, float dt) {
     m_position.x += m_velocity.x * dt;
 }
 
+void Player::applyPhysics(float dt, const Collider* ground) {
+    // During dash, freeze vertical physics so the player
+    // maintains their current height and grounded state.
+    if (m_state == State::Dash)
+        return;
+
+    Actor::applyPhysics(dt, ground);
+}
+
 void Player::update(float dt) {
     // Death state: if HP or Stamina is zero or below, enter death and only update animation.
     if ((m_hp <= 0.f || m_stamina <= 0.f) && m_state != State::Death) {
@@ -279,6 +288,9 @@ void Player::enterDash(float dirX) {
     m_dashTimer        = kDashDuration;
     m_dashCooldownLeft = kDashCooldown;
     m_dashDirX         = (dirX >= 0.f) ? +1.f : -1.f;
+    // Reset vertical velocity so dash does not inherit
+    // any upward or downward motion.
+    m_velocity.y       = 0.f;
     if (m_stamina >= kDashStaminaCost)
         m_stamina -= kDashStaminaCost;
     setFacing(m_dashDirX > 0 ? Facing::Right : Facing::Left);

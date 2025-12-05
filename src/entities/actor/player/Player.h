@@ -18,6 +18,7 @@ class Player final : public Actor {
 
     bool init() override;
     void update(float dt) override;
+    void applyPhysics(float dt, const Collider* ground) override;
     void setInput(const PlayerInput& input) { m_input = input; }
 
   private:
