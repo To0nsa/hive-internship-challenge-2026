@@ -4,6 +4,7 @@
 #include "core/ResourceManager.h"
 #include "environment/EnvConfig.h"
 #include "environment/StripUtil.h"
+#include "environment/ground/GroundHazardCatalog.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -34,11 +35,14 @@ bool Environment::initVolcanoDay() {
     m_groundLayer = strip::ParallaxLayerDesc{
         Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, kLayerFactors[6]};
 
+    const GroundHazardDef& lavaDef = getGroundHazardDef(HazardType::Lava);
+    const GroundHazardDef& holeDef = getGroundHazardDef(HazardType::Hole);
+
     HazardConfig hazardCfg;
-    hazardCfg.type        = HazardType::Lava;
-    hazardCfg.texturePath = Assets::Tex::Environment::Ground::Lava;
-    hazardCfg.scale       = 6.f;
-    hazardCfg.yOffset     = 85.f;
+    hazardCfg.enabled    = true;
+    hazardCfg.holeChance = 0.5f;
+    hazardCfg.lava       = lavaDef.style;
+    hazardCfg.hole       = holeDef.style;
 
     GroundStreamConfig groundCfg = GroundPresets::gapsWithHazard(m_groundLayer, hazardCfg);
     m_ground                     = std::make_unique<GroundBand>(groundCfg);
@@ -69,7 +73,7 @@ void Environment::renderForeground(sf::RenderTarget& target, const sf::View& vie
 
     // Hazard visuals occupying the gaps
     if (m_ground && m_hazard && m_hazard->hasHazard()) {
-        std::vector<sf::FloatRect> gaps;
+        std::vector<GroundGap> gaps;
         m_ground->gapsForView(view, gaps);
         m_hazard->drawForView(target, view, gaps);
     }
@@ -79,18 +83,22 @@ void Environment::renderForeground(sf::RenderTarget& target, const sf::View& vie
 }
 
 const MultiRectCollider* Environment::getGroundCollider() const {
-    return m_ground ? &m_ground->getCollider() : nullptr;
+    if (!m_ground)
+        return nullptr;
+    return &m_ground->getCollider();
 }
 
 float Environment::getGroundTopY(const sf::View& view) const {
-    return m_ground ? m_ground->getTopYForView(view) : 0.f;
+    if (!m_ground)
+        return 0.f;
+    return m_ground->getTopYForView(view);
 }
 
 bool Environment::intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const {
     if (!m_ground || !m_hazard || !m_hazard->hasHazard())
         return false;
 
-    std::vector<sf::FloatRect> gaps;
+    std::vector<GroundGap> gaps;
     m_ground->gapsForView(view, gaps);
     return m_hazard->intersectsHazard(aabb, gaps);
 }

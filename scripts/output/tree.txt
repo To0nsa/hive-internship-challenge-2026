@@ -134,6 +134,8 @@
     │   ├── StripUtil.h
     │   └── ground
     │       ├── GroundBand.h
+    │       ├── GroundHazardCatalog.cpp
+    │       ├── GroundHazardCatalog.h
     │       ├── GroundTypes.h
     │       └── HazardLayer.h
     ├── gameplay
@@ -174,4 +176,4 @@
         ├── Stopwatch.h
         └── utils.h
 
-43 directories, 132 files
+43 directories, 134 files

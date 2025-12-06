@@ -40,7 +40,7 @@ class GroundBand {
     float getTopYForView(const sf::View& view) const { return computeViewBandInfo(view).y; }
 
     // Computes gap rectangles for the given view in world space.
-    void gapsForView(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const {
+    void gapsForView(const sf::View& view, std::vector<GroundGap>& outGaps) const {
         outGaps.clear();
 
         const ViewBandInfo info = computeViewBandInfo(view);
@@ -59,7 +59,10 @@ class GroundBand {
             if (gapIsLeftOfView || gapIsRightOfView)
                 continue;
 
-            outGaps.push_back(gap);
+            GroundGap groundGap;
+            groundGap.rect       = gap;
+            groundGap.blockIndex = block;
+            outGaps.push_back(groundGap);
         }
     }
 

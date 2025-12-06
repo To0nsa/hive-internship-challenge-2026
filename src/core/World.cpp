@@ -188,6 +188,13 @@ void World::render(sf::RenderTarget& target) const {
     if constexpr (Config::kDebugDraw) {
         Debug::drawCameraGuides(target, m_camera.getView(), getCameraCatchupX(),
                                 getFollowThresholdX());
+
+        if (const MultiRectCollider* ground = m_environment.getGroundCollider()) {
+            const auto& rects = ground->getRectColliders();
+            for (const auto& r : rects) {
+                Debug::drawRectOutline(target, r, sf::Color::Green, 1.f);
+            }
+        }
     }
 
     target.setView(oldView);

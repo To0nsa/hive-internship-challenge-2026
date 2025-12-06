@@ -2,6 +2,7 @@
 
 Scale enemies collider size
 Rename Demon to FlyingDemon ?
+Make FlyingDemon not able to go below the ground level
 
 Centralize: (data-driven ? JSON ?)
 

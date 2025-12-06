@@ -7,17 +7,22 @@
 #include <SFML/Graphics/Sprite.hpp>
 
 namespace Debug {
-    inline void drawSpriteBounds(sf::RenderTarget& target, const sf::Sprite& sprite,
-                                 const sf::Color& color, float thickness = 1.f) {
-        const sf::FloatRect bounds = sprite.getGlobalBounds();
-
+    inline void drawRectOutline(sf::RenderTarget& target, const sf::FloatRect& rect,
+                                const sf::Color& color, float thickness = 1.f) {
         sf::RectangleShape outline;
-        outline.setPosition(bounds.position);
-        outline.setSize(bounds.size);
+        outline.setPosition(rect.position);
+        outline.setSize(rect.size);
         outline.setFillColor(sf::Color(0, 0, 0, 0));
         outline.setOutlineColor(color);
         outline.setOutlineThickness(thickness);
         target.draw(outline);
+    }
+
+    inline void drawSpriteBounds(sf::RenderTarget& target, const sf::Sprite& sprite,
+                                 const sf::Color& color, float thickness = 1.f) {
+        const sf::FloatRect bounds = sprite.getGlobalBounds();
+
+        drawRectOutline(target, bounds, color, thickness);
     }
 
     inline void drawSpriteOrigin(sf::RenderTarget& target, const sf::Sprite& sprite,
@@ -41,13 +46,7 @@ namespace Debug {
                                    const sf::Color& color, float thickness = 1.f) {
         const sf::FloatRect bounds = collider.worldAabb();
 
-        sf::RectangleShape outline;
-        outline.setPosition(bounds.position);
-        outline.setSize(bounds.size);
-        outline.setFillColor(sf::Color(0, 0, 0, 0));
-        outline.setOutlineColor(color);
-        outline.setOutlineThickness(thickness);
-        target.draw(outline);
+        drawRectOutline(target, bounds, color, thickness);
     }
 
     inline void drawVerticalGuide(sf::RenderTarget& target, const sf::View& view, float x,

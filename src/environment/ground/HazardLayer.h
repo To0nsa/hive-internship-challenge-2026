@@ -5,9 +5,11 @@
 #include "core/ResourceManager.h"
 #include "environment/ground/GroundTypes.h"
 #include "utils/Geom.h"
+#include "utils/Math.h"
 
 #include <SFML/Graphics.hpp>
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -18,10 +20,13 @@ class HazardLayer {
 
     // Call once after construction.
     bool init() {
-        if (m_cfg.type == HazardType::None)
-            return true; // Nothing to set up, but not an error.
+        if (!m_cfg.enabled)
+            return true; // Nothing to set up.
 
-        sf::Texture& texture = ResourceManager::getTexture(m_cfg.texturePath);
+        if (m_cfg.lava.texturePath.empty())
+            return true; // Only hole hazards enabled; no texture to load.
+
+        sf::Texture& texture = ResourceManager::getTexture(m_cfg.lava.texturePath);
 
         // Build an animation clip from a sheet (50x50 frames, first 2x2 area, 6 fps, looping).
         m_clip = Animation::makeClipFromSheet("hazard", texture, {50, 50}, // frame size
@@ -41,49 +46,90 @@ class HazardLayer {
         return true;
     }
 
-    void update(float dt) { m_animator->update(dt); }
+    void update(float dt) {
+        if (m_animator)
+            m_animator->update(dt);
+    }
 
-    bool hasHazard() const { return m_cfg.type != HazardType::None; }
+    bool hasHazard() const { return m_cfg.enabled; }
 
-    void drawForView(sf::RenderTarget&                 target, const sf::View& /*view*/,
-                     const std::vector<sf::FloatRect>& gaps) {
-        if (m_cfg.type == HazardType::None)
+    void drawForView(sf::RenderTarget&             target, const sf::View& /*view*/,
+                     const std::vector<GroundGap>& gaps) {
+        if (!m_cfg.enabled)
             return;
 
-        // Prepare sprite transform (origin + scale) based on current frame.
-        const sf::IntRect frame       = m_sprite->getTextureRect();
-        const float       frameWidth  = static_cast<float>(std::max(1, frame.size.x));
-        const float       frameHeight = static_cast<float>(std::max(1, frame.size.y));
-
-        // Center origin so scaling/positioning uses the sprite center.
-        m_sprite->setOrigin({frameWidth * 0.5f, frameHeight * 0.5f});
-
-        // Scale up to match size of gap visually.
-        const float scale = m_cfg.scale;
-        m_sprite->setScale({scale, scale});
-
-        // Loop over gaps and draw hazard in each.
         for (const auto& gap : gaps) {
-            const float centerX = gap.position.x + 0.5f * gap.size.x;
-            const float centerY = gap.position.y + 0.5f * gap.size.y - m_cfg.yOffset;
-
-            m_sprite->setPosition({centerX, centerY});
-            target.draw(*m_sprite);
+            const HazardType type = pickHazardForBlock(gap.blockIndex);
+            switch (type) {
+            case HazardType::Hole:
+                drawHoleGap(target, gap.rect);
+                break;
+            case HazardType::Lava:
+                drawLavaGap(target, gap.rect);
+                break;
+            default:
+                break;
+            }
         }
     }
 
-    bool intersectsHazard(const sf::FloatRect& aabb, const std::vector<sf::FloatRect>& gaps) const {
-        if (m_cfg.type == HazardType::None)
+    bool intersectsHazard(const sf::FloatRect& aabb, const std::vector<GroundGap>& gaps) const {
+        if (!m_cfg.enabled)
             return false;
 
         for (const auto& gap : gaps) {
-            if (geom::aabbIntersects(aabb, gap))
+            if (geom::aabbIntersects(aabb, gap.rect))
                 return true;
         }
         return false;
     }
 
   private:
+    HazardType pickHazardForBlock(int blockIndex) const {
+        if (!m_cfg.enabled)
+            return HazardType::None;
+
+        const float clampedHoleChance = std::clamp(m_cfg.holeChance, 0.f, 1.f);
+        if (clampedHoleChance <= 0.f)
+            return HazardType::Lava;
+        if (clampedHoleChance >= 1.f)
+            return HazardType::Hole;
+
+        const std::uint32_t hash       = math::mix32(static_cast<std::uint32_t>(blockIndex));
+        const float         unitRandom = static_cast<float>(hash) /
+                                 static_cast<float>(std::numeric_limits<std::uint32_t>::max());
+        if (unitRandom < clampedHoleChance)
+            return HazardType::Hole;
+
+        return HazardType::Lava;
+    }
+
+    void drawLavaGap(sf::RenderTarget& target, const sf::FloatRect& gap) const {
+        if (!m_sprite)
+            return;
+
+        const sf::IntRect frame       = m_sprite->getTextureRect();
+        const float       frameWidth  = static_cast<float>(std::max(1, frame.size.x));
+        const float       frameHeight = static_cast<float>(std::max(1, frame.size.y));
+
+        m_sprite->setOrigin({frameWidth * 0.5f, frameHeight * 0.5f});
+        m_sprite->setScale({m_cfg.lava.scale, m_cfg.lava.scale});
+
+        const float centerX = gap.position.x + 0.5f * gap.size.x;
+        const float centerY = gap.position.y + 0.5f * gap.size.y - m_cfg.lava.yOffset;
+
+        m_sprite->setPosition({centerX, centerY});
+        target.draw(*m_sprite);
+    }
+
+    void drawHoleGap(sf::RenderTarget& target, const sf::FloatRect& gap) const {
+        sf::RectangleShape holeShape;
+        holeShape.setPosition(gap.position);
+        holeShape.setSize(gap.size);
+        holeShape.setFillColor(sf::Color::Black);
+        target.draw(holeShape);
+    }
+
     HazardConfig m_cfg;
 
     std::unique_ptr<sf::Sprite>     m_sprite;

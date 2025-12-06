@@ -294,7 +294,6 @@ constexpr bool layersCanCollide(CollisionLayer aLayer, CollisionMask aMask, Coll
 #include "collision/CollisionSystem.h"
 
 #include "collision/CollisionLayers.h"
-#include "entities/actor/Actor.h"
 #include "entities/actor/enemy/Enemy.h"
 #include "entities/actor/player/Player.h"
 #include "entities/collectible/RedSquare.h"
@@ -449,34 +448,19 @@ namespace {
     }
 
     void resolveHazards(const CollisionContext& ctx) {
-        if (!ctx.environment || !ctx.cameraView)
-            return;
-
-        // Lava DPS for all actors, scaled per-actor.
-        constexpr float kLavaDps = 40.f; // HP per second in lava
-        for (auto* actor : ctx.actors) {
-            if (!actor || !actor->isAlive())
-                continue;
-
-            const sf::FloatRect actorBounds = actor->getCollider().worldAabb();
-            if (!ctx.environment->intersectsHazard(actorBounds, *ctx.cameraView))
-                continue;
-
-            const float lavaScale = actor->getLavaDamageMultiplier();
-            if (lavaScale <= 0.f)
-                continue;
-
-            const float damage = kLavaDps * lavaScale * ctx.dt;
-            DamageInfo  info   = buildDamageInfo(damage, nullptr, actorBounds, nullptr);
-            actor->applyDamage(info);
-        }
-
-        // Camera left kill remains instant death for the player only.
         Player* player = ctx.player;
         if (!player || !player->isAlive())
             return;
 
         const sf::FloatRect playerBounds = player->getCollider().worldAabb();
+        if (ctx.environment && ctx.cameraView) {
+            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView)) {
+                // Treat environment hazard as an instant-kill hit without a concrete source entity.
+                DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
+                player->applyDamage(info);
+            }
+        }
+
         if (geom::right(playerBounds) < ctx.cameraLeft) {
             DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
             player->applyDamage(info);
@@ -560,6 +544,15 @@ class MultiRectCollider final : public Collider {
 
     void setRectColliders(std::vector<sf::FloatRect> rects) { m_rects = std::move(rects); }
     const std::vector<sf::FloatRect>& getRectColliders() const { return m_rects; }
+
+    // Returns true if the given rectangle intersects any of the child rects.
+    bool intersectsRect(const sf::FloatRect& rect) const {
+        for (const auto& r : m_rects) {
+            if (rect.findIntersection(r).has_value())
+                return true;
+        }
+        return false;
+    }
 
     sf::FloatRect worldAabb() const override {
         if (m_rects.empty())
@@ -970,17 +963,22 @@ namespace Config {
 #include <SFML/Graphics/Sprite.hpp>
 
 namespace Debug {
-    inline void drawSpriteBounds(sf::RenderTarget& target, const sf::Sprite& sprite,
-                                 const sf::Color& color, float thickness = 1.f) {
-        const sf::FloatRect bounds = sprite.getGlobalBounds();
-
+    inline void drawRectOutline(sf::RenderTarget& target, const sf::FloatRect& rect,
+                                const sf::Color& color, float thickness = 1.f) {
         sf::RectangleShape outline;
-        outline.setPosition(bounds.position);
-        outline.setSize(bounds.size);
+        outline.setPosition(rect.position);
+        outline.setSize(rect.size);
         outline.setFillColor(sf::Color(0, 0, 0, 0));
         outline.setOutlineColor(color);
         outline.setOutlineThickness(thickness);
         target.draw(outline);
+    }
+
+    inline void drawSpriteBounds(sf::RenderTarget& target, const sf::Sprite& sprite,
+                                 const sf::Color& color, float thickness = 1.f) {
+        const sf::FloatRect bounds = sprite.getGlobalBounds();
+
+        drawRectOutline(target, bounds, color, thickness);
     }
 
     inline void drawSpriteOrigin(sf::RenderTarget& target, const sf::Sprite& sprite,
@@ -1004,13 +1002,7 @@ namespace Debug {
                                    const sf::Color& color, float thickness = 1.f) {
         const sf::FloatRect bounds = collider.worldAabb();
 
-        sf::RectangleShape outline;
-        outline.setPosition(bounds.position);
-        outline.setSize(bounds.size);
-        outline.setFillColor(sf::Color(0, 0, 0, 0));
-        outline.setOutlineColor(color);
-        outline.setOutlineThickness(thickness);
-        target.draw(outline);
+        drawRectOutline(target, bounds, color, thickness);
     }
 
     inline void drawVerticalGuide(sf::RenderTarget& target, const sf::View& view, float x,
@@ -1286,7 +1278,15 @@ void World::update(float dt) {
                 const auto& desc    = getObstacleDesc(kind);
                 const float y       = groundTop - desc.colliderSize.y;
                 const float x       = m_nextObstacleX;
-                spawnObstacle(*this, kind, {x, y});
+
+                // Only place obstacles where the ground band is solid (not over a hazard gap).
+                const float         supportHeight = 2.f;
+                const sf::FloatRect supportArea{{x, groundTop - supportHeight},
+                                                {desc.colliderSize.x, supportHeight}};
+                if (groundCollider->intersectsRect(supportArea)) {
+                    spawnObstacle(*this, kind, {x, y});
+                }
+
                 m_nextObstacleX += Random::rangef(680.f, 1280.f);
             }
         }
@@ -1353,6 +1353,13 @@ void World::render(sf::RenderTarget& target) const {
     if constexpr (Config::kDebugDraw) {
         Debug::drawCameraGuides(target, m_camera.getView(), getCameraCatchupX(),
                                 getFollowThresholdX());
+
+        if (const MultiRectCollider* ground = m_environment.getGroundCollider()) {
+            const auto& rects = ground->getRectColliders();
+            for (const auto& r : rects) {
+                Debug::drawRectOutline(target, r, sf::Color::Green, 1.f);
+            }
+        }
     }
 
     target.setView(oldView);
@@ -1461,22 +1468,6 @@ void World::updateStaticSolidsCollider(const MultiRectCollider* groundCollider) 
             continue;
 
         solids.push_back(entity->getCollider().worldAabb());
-    }
-
-    // Add a thin "floor" at the bottom of each lava gap so physics bodies can walk on lava
-    // instead of falling indefinitely. Hazard damage is still applied separately via
-    // CollisionSystem based on the full gap area.
-    std::vector<sf::FloatRect> hazardGaps;
-    m_environment.getHazardGaps(m_camera.getView(), hazardGaps);
-    if (!hazardGaps.empty()) {
-        constexpr float kLavaFloorHeight = 8.f; // thin band near the bottom of the gap
-        solids.reserve(solids.size() + hazardGaps.size());
-
-        for (const auto& gap : hazardGaps) {
-            const float floorTop = gap.position.y + gap.size.y - kLavaFloorHeight;
-            solids.push_back(
-                sf::FloatRect{{gap.position.x, floorTop}, {gap.size.x, kLavaFloorHeight}});
-        }
     }
 
     m_staticSolids.setRectColliders(std::move(solids));
@@ -1829,9 +1820,6 @@ class Actor : public Entity {
     // Main damage entry point using hit data.
     void applyDamage(const DamageInfo& info);
 
-    // Per-actor lava interaction scale; 1.0 = full damage, 0.0 = immune.
-    virtual float getLavaDamageMultiplier() const { return 1.f; }
-
   protected:
     virtual void updateActorBase(float dt);
 
@@ -2064,7 +2052,6 @@ class Enemy : public Actor {
 #include "core/World.h"
 #include "entities/actor/player/Player.h"
 #include "gameplay/Faction.h"
-#include "physics/PhysicsBody.h"
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
 
@@ -2104,20 +2091,6 @@ bool FireWorm::init() {
     // Collider
     setColliderSize({kFrameSize.x * kColliderSizeMult.x, kFrameSize.y * kColliderSizeMult.y});
     setArtFacingDirX(+1.f);
-
-    // Register with physics so the worm walks along ground and lava floors.
-    if (m_world) {
-        PhysicsBodyConfig physCfg;
-        physCfg.enabled       = true;
-        physCfg.isKinematic   = false;
-        physCfg.useGravity    = true;
-        physCfg.topOnlyGround = true;
-        physCfg.gravityScale  = 1.f;
-        physCfg.maxVelX       = kMoveSpeed * 1.5f;
-        physCfg.maxVelY       = kMaxVelY;
-        m_world->getPhysics().registerBody(*this, physCfg);
-    }
-
     enterMove();
     return true;
 }
@@ -2157,29 +2130,7 @@ void FireWorm::enterDeath() {
     m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
 }
 
-void FireWorm::updateMove(float dt) {
-    // Simple horizontal chase: move toward the player along the ground/lava.
-    Player* player = m_world ? m_world->getPlayer() : nullptr;
-    if (!player)
-        return;
-
-    const float dxToPlayer = player->getPosition().x - m_position.x;
-    const float absDx      = std::abs(dxToPlayer);
-
-    float dirX = 0.f;
-    if (absDx > kDesiredRange + kHoldSlack)
-        dirX = (dxToPlayer > 0.f) ? +1.f : -1.f; // approach
-    else if (absDx < kDesiredRange - kHoldSlack)
-        dirX = (dxToPlayer > 0.f) ? -1.f : +1.f; // back away
-
-    // Update facing based on desired direction.
-    if (dirX != 0.f)
-        setFacing(dirX > 0.f ? Facing::Right : Facing::Left);
-
-    // Drive horizontal velocity; vertical is handled by PhysicsSystem.
-    m_velocity.x = dirX * kMoveSpeed;
-    (void)dt;
-}
+void FireWorm::updateMove(float /* dt */) {}
 
 void FireWorm::update(float dt) {
     // Death gate
@@ -2217,8 +2168,6 @@ class FireWorm final : public Enemy {
     bool init() override;
     void update(float dt) override;
 
-    float getLavaDamageMultiplier() const override { return 0.f; }
-
   private:
     enum class State { Move, Idle, Attack, Death, Hit };
     State m_state = State::Idle;
@@ -2242,7 +2191,6 @@ class FireWorm final : public Enemy {
     static constexpr float kDesiredRange = 300.f;
     static constexpr float kHoldSlack    = 30.f;  // acceptable band around desired
     static constexpr float kMoveSpeed    = 800.f; // px/s
-    static constexpr float kMaxVelY      = 3000.f;
 
     // Stats
     static constexpr float kFireWormHpMax         = 50.f;
@@ -3183,6 +3131,7 @@ namespace EnvConfig {
 #include "core/ResourceManager.h"
 #include "environment/EnvConfig.h"
 #include "environment/StripUtil.h"
+#include "environment/ground/GroundHazardCatalog.h"
 
 #include <algorithm>
 #include <initializer_list>
@@ -3213,11 +3162,14 @@ bool Environment::initVolcanoDay() {
     m_groundLayer = strip::ParallaxLayerDesc{
         Assets::Tex::Environment::Parallax::VolcanoDay::Layer07, kLayerFactors[6]};
 
+    const GroundHazardDef& lavaDef = getGroundHazardDef(HazardType::Lava);
+    const GroundHazardDef& holeDef = getGroundHazardDef(HazardType::Hole);
+
     HazardConfig hazardCfg;
-    hazardCfg.type        = HazardType::Lava;
-    hazardCfg.texturePath = Assets::Tex::Environment::Ground::Lava;
-    hazardCfg.scale       = 6.f;
-    hazardCfg.yOffset     = 85.f;
+    hazardCfg.enabled    = true;
+    hazardCfg.holeChance = 0.5f;
+    hazardCfg.lava       = lavaDef.style;
+    hazardCfg.hole       = holeDef.style;
 
     GroundStreamConfig groundCfg = GroundPresets::gapsWithHazard(m_groundLayer, hazardCfg);
     m_ground                     = std::make_unique<GroundBand>(groundCfg);
@@ -3248,7 +3200,7 @@ void Environment::renderForeground(sf::RenderTarget& target, const sf::View& vie
 
     // Hazard visuals occupying the gaps
     if (m_ground && m_hazard && m_hazard->hasHazard()) {
-        std::vector<sf::FloatRect> gaps;
+        std::vector<GroundGap> gaps;
         m_ground->gapsForView(view, gaps);
         m_hazard->drawForView(target, view, gaps);
     }
@@ -3258,28 +3210,24 @@ void Environment::renderForeground(sf::RenderTarget& target, const sf::View& vie
 }
 
 const MultiRectCollider* Environment::getGroundCollider() const {
-    return m_ground ? &m_ground->getCollider() : nullptr;
+    if (!m_ground)
+        return nullptr;
+    return &m_ground->getCollider();
 }
 
 float Environment::getGroundTopY(const sf::View& view) const {
-    return m_ground ? m_ground->getTopYForView(view) : 0.f;
+    if (!m_ground)
+        return 0.f;
+    return m_ground->getTopYForView(view);
 }
 
 bool Environment::intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const {
     if (!m_ground || !m_hazard || !m_hazard->hasHazard())
         return false;
 
-    std::vector<sf::FloatRect> gaps;
+    std::vector<GroundGap> gaps;
     m_ground->gapsForView(view, gaps);
     return m_hazard->intersectsHazard(aabb, gaps);
-}
-
-void Environment::getHazardGaps(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const {
-    outGaps.clear();
-    if (!m_ground || !m_hazard || !m_hazard->hasHazard())
-        return;
-
-    m_ground->gapsForView(view, outGaps);
 }
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/Environment.cpp =====
@@ -3310,9 +3258,6 @@ class Environment {
     const MultiRectCollider* getGroundCollider() const;
     float                    getGroundTopY(const sf::View& view) const;
     bool intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const;
-
-    // Fills `outGaps` with the current hazard gaps (lava areas) for the given view, if any.
-    void getHazardGaps(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const;
 
   private:
     std::unique_ptr<ParallaxBackground>    m_bg;
@@ -3466,7 +3411,7 @@ class GroundBand {
     float getTopYForView(const sf::View& view) const { return computeViewBandInfo(view).y; }
 
     // Computes gap rectangles for the given view in world space.
-    void gapsForView(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const {
+    void gapsForView(const sf::View& view, std::vector<GroundGap>& outGaps) const {
         outGaps.clear();
 
         const ViewBandInfo info = computeViewBandInfo(view);
@@ -3485,7 +3430,10 @@ class GroundBand {
             if (gapIsLeftOfView || gapIsRightOfView)
                 continue;
 
-            outGaps.push_back(gap);
+            GroundGap groundGap;
+            groundGap.rect       = gap;
+            groundGap.blockIndex = block;
+            outGaps.push_back(groundGap);
         }
     }
 
@@ -3571,6 +3519,61 @@ class GroundBand {
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundBand.h =====
 
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundHazardCatalog.cpp =====
+#include "environment/ground/GroundHazardCatalog.h"
+
+#include "core/Assets.h"
+
+const GroundHazardDef& getGroundHazardDef(HazardType type) {
+    static const GroundHazardDef kNone{
+        HazardType::None,
+        HazardStyle{},
+        false,
+    };
+
+    static const GroundHazardDef kLava{
+        HazardType::Lava,
+        HazardStyle{Assets::Tex::Environment::Ground::Lava, 6.f, 85.f},
+        true,
+    };
+
+    static const GroundHazardDef kHole{
+        HazardType::Hole,
+        HazardStyle{{}, 1.f, 0.f},
+        true,
+    };
+
+    switch (type) {
+    case HazardType::Lava:
+        return kLava;
+    case HazardType::Hole:
+        return kHole;
+    case HazardType::None:
+    default:
+        return kNone;
+    }
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundHazardCatalog.cpp =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundHazardCatalog.h =====
+#pragma once
+
+#include "environment/ground/GroundTypes.h"
+
+// Data defining how a particular ground hazard should look and behave.
+struct GroundHazardDef {
+    HazardType  type = HazardType::None;
+    HazardStyle style{};
+    bool        lethal = true;
+};
+
+// Returns a shared definition for the given hazard type.
+// Callers should not modify the returned object.
+const GroundHazardDef& getGroundHazardDef(HazardType type);
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundHazardCatalog.h =====
+
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/ground/GroundTypes.h =====
 #pragma once
 
@@ -3587,15 +3590,28 @@ class GroundBand {
 enum class HazardType {
     None, // gaps are just empty pits, no separate hazard band
     Lava,
+    Hole,
     Water,
     Spikes,
 };
 
-struct HazardConfig {
-    HazardType       type = HazardType::None;
+// A single gap instance in world space, with its originating block index.
+struct GroundGap {
+    sf::FloatRect rect{};
+    int           blockIndex = 0;
+};
+
+struct HazardStyle {
     std::string_view texturePath{};
     float            scale   = 1.f;
     float            yOffset = 0.f;
+};
+
+struct HazardConfig {
+    HazardStyle lava;              // animated lava band
+    HazardStyle hole;              // simple filled gap (no texture)
+    float       holeChance = 0.5f; // [0,1]: fraction of gaps rendered as holes
+    bool        enabled    = false;
 };
 
 // Function type used to customize how gaps are placed inside blocks.
@@ -3685,9 +3701,11 @@ namespace GroundPresets {
 #include "core/ResourceManager.h"
 #include "environment/ground/GroundTypes.h"
 #include "utils/Geom.h"
+#include "utils/Math.h"
 
 #include <SFML/Graphics.hpp>
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <vector>
 
@@ -3698,10 +3716,13 @@ class HazardLayer {
 
     // Call once after construction.
     bool init() {
-        if (m_cfg.type == HazardType::None)
-            return true; // Nothing to set up, but not an error.
+        if (!m_cfg.enabled)
+            return true; // Nothing to set up.
 
-        sf::Texture& texture = ResourceManager::getTexture(m_cfg.texturePath);
+        if (m_cfg.lava.texturePath.empty())
+            return true; // Only hole hazards enabled; no texture to load.
+
+        sf::Texture& texture = ResourceManager::getTexture(m_cfg.lava.texturePath);
 
         // Build an animation clip from a sheet (50x50 frames, first 2x2 area, 6 fps, looping).
         m_clip = Animation::makeClipFromSheet("hazard", texture, {50, 50}, // frame size
@@ -3721,49 +3742,90 @@ class HazardLayer {
         return true;
     }
 
-    void update(float dt) { m_animator->update(dt); }
+    void update(float dt) {
+        if (m_animator)
+            m_animator->update(dt);
+    }
 
-    bool hasHazard() const { return m_cfg.type != HazardType::None; }
+    bool hasHazard() const { return m_cfg.enabled; }
 
-    void drawForView(sf::RenderTarget&                 target, const sf::View& /*view*/,
-                     const std::vector<sf::FloatRect>& gaps) {
-        if (m_cfg.type == HazardType::None)
+    void drawForView(sf::RenderTarget&             target, const sf::View& /*view*/,
+                     const std::vector<GroundGap>& gaps) {
+        if (!m_cfg.enabled)
             return;
 
-        // Prepare sprite transform (origin + scale) based on current frame.
-        const sf::IntRect frame       = m_sprite->getTextureRect();
-        const float       frameWidth  = static_cast<float>(std::max(1, frame.size.x));
-        const float       frameHeight = static_cast<float>(std::max(1, frame.size.y));
-
-        // Center origin so scaling/positioning uses the sprite center.
-        m_sprite->setOrigin({frameWidth * 0.5f, frameHeight * 0.5f});
-
-        // Scale up to match size of gap visually.
-        const float scale = m_cfg.scale;
-        m_sprite->setScale({scale, scale});
-
-        // Loop over gaps and draw hazard in each.
         for (const auto& gap : gaps) {
-            const float centerX = gap.position.x + 0.5f * gap.size.x;
-            const float centerY = gap.position.y + 0.5f * gap.size.y - m_cfg.yOffset;
-
-            m_sprite->setPosition({centerX, centerY});
-            target.draw(*m_sprite);
+            const HazardType type = pickHazardForBlock(gap.blockIndex);
+            switch (type) {
+            case HazardType::Hole:
+                drawHoleGap(target, gap.rect);
+                break;
+            case HazardType::Lava:
+                drawLavaGap(target, gap.rect);
+                break;
+            default:
+                break;
+            }
         }
     }
 
-    bool intersectsHazard(const sf::FloatRect& aabb, const std::vector<sf::FloatRect>& gaps) const {
-        if (m_cfg.type == HazardType::None)
+    bool intersectsHazard(const sf::FloatRect& aabb, const std::vector<GroundGap>& gaps) const {
+        if (!m_cfg.enabled)
             return false;
 
         for (const auto& gap : gaps) {
-            if (geom::aabbIntersects(aabb, gap))
+            if (geom::aabbIntersects(aabb, gap.rect))
                 return true;
         }
         return false;
     }
 
   private:
+    HazardType pickHazardForBlock(int blockIndex) const {
+        if (!m_cfg.enabled)
+            return HazardType::None;
+
+        const float clampedHoleChance = std::clamp(m_cfg.holeChance, 0.f, 1.f);
+        if (clampedHoleChance <= 0.f)
+            return HazardType::Lava;
+        if (clampedHoleChance >= 1.f)
+            return HazardType::Hole;
+
+        const std::uint32_t hash       = math::mix32(static_cast<std::uint32_t>(blockIndex));
+        const float         unitRandom = static_cast<float>(hash) /
+                                 static_cast<float>(std::numeric_limits<std::uint32_t>::max());
+        if (unitRandom < clampedHoleChance)
+            return HazardType::Hole;
+
+        return HazardType::Lava;
+    }
+
+    void drawLavaGap(sf::RenderTarget& target, const sf::FloatRect& gap) const {
+        if (!m_sprite)
+            return;
+
+        const sf::IntRect frame       = m_sprite->getTextureRect();
+        const float       frameWidth  = static_cast<float>(std::max(1, frame.size.x));
+        const float       frameHeight = static_cast<float>(std::max(1, frame.size.y));
+
+        m_sprite->setOrigin({frameWidth * 0.5f, frameHeight * 0.5f});
+        m_sprite->setScale({m_cfg.lava.scale, m_cfg.lava.scale});
+
+        const float centerX = gap.position.x + 0.5f * gap.size.x;
+        const float centerY = gap.position.y + 0.5f * gap.size.y - m_cfg.lava.yOffset;
+
+        m_sprite->setPosition({centerX, centerY});
+        target.draw(*m_sprite);
+    }
+
+    void drawHoleGap(sf::RenderTarget& target, const sf::FloatRect& gap) const {
+        sf::RectangleShape holeShape;
+        holeShape.setPosition(gap.position);
+        holeShape.setSize(gap.size);
+        holeShape.setFillColor(sf::Color::Black);
+        target.draw(holeShape);
+    }
+
     HazardConfig m_cfg;
 
     std::unique_ptr<sf::Sprite>     m_sprite;

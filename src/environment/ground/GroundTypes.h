@@ -13,15 +13,28 @@
 enum class HazardType {
     None, // gaps are just empty pits, no separate hazard band
     Lava,
+    Hole,
     Water,
     Spikes,
 };
 
-struct HazardConfig {
-    HazardType       type = HazardType::None;
+// A single gap instance in world space, with its originating block index.
+struct GroundGap {
+    sf::FloatRect rect{};
+    int           blockIndex = 0;
+};
+
+struct HazardStyle {
     std::string_view texturePath{};
     float            scale   = 1.f;
     float            yOffset = 0.f;
+};
+
+struct HazardConfig {
+    HazardStyle lava;              // animated lava band
+    HazardStyle hole;              // simple filled gap (no texture)
+    float       holeChance = 0.5f; // [0,1]: fraction of gaps rendered as holes
+    bool        enabled    = false;
 };
 
 // Function type used to customize how gaps are placed inside blocks.
