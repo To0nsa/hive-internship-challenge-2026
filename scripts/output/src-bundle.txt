@@ -294,6 +294,7 @@ constexpr bool layersCanCollide(CollisionLayer aLayer, CollisionMask aMask, Coll
 #include "collision/CollisionSystem.h"
 
 #include "collision/CollisionLayers.h"
+#include "entities/actor/Actor.h"
 #include "entities/actor/enemy/Enemy.h"
 #include "entities/actor/player/Player.h"
 #include "entities/collectible/RedSquare.h"
@@ -448,19 +449,34 @@ namespace {
     }
 
     void resolveHazards(const CollisionContext& ctx) {
+        if (!ctx.environment || !ctx.cameraView)
+            return;
+
+        // Lava DPS for all actors, scaled per-actor.
+        constexpr float kLavaDps = 40.f; // HP per second in lava
+        for (auto* actor : ctx.actors) {
+            if (!actor || !actor->isAlive())
+                continue;
+
+            const sf::FloatRect actorBounds = actor->getCollider().worldAabb();
+            if (!ctx.environment->intersectsHazard(actorBounds, *ctx.cameraView))
+                continue;
+
+            const float lavaScale = actor->getLavaDamageMultiplier();
+            if (lavaScale <= 0.f)
+                continue;
+
+            const float damage = kLavaDps * lavaScale * ctx.dt;
+            DamageInfo  info   = buildDamageInfo(damage, nullptr, actorBounds, nullptr);
+            actor->applyDamage(info);
+        }
+
+        // Camera left kill remains instant death for the player only.
         Player* player = ctx.player;
         if (!player || !player->isAlive())
             return;
 
         const sf::FloatRect playerBounds = player->getCollider().worldAabb();
-        if (ctx.environment && ctx.cameraView) {
-            if (ctx.environment->intersectsHazard(playerBounds, *ctx.cameraView)) {
-                // Treat environment hazard as an instant-kill hit without a concrete source entity.
-                DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
-                player->applyDamage(info);
-            }
-        }
-
         if (geom::right(playerBounds) < ctx.cameraLeft) {
             DamageInfo info = buildDamageInfo(10000.f, nullptr, playerBounds, nullptr);
             player->applyDamage(info);
@@ -1447,6 +1463,22 @@ void World::updateStaticSolidsCollider(const MultiRectCollider* groundCollider) 
         solids.push_back(entity->getCollider().worldAabb());
     }
 
+    // Add a thin "floor" at the bottom of each lava gap so physics bodies can walk on lava
+    // instead of falling indefinitely. Hazard damage is still applied separately via
+    // CollisionSystem based on the full gap area.
+    std::vector<sf::FloatRect> hazardGaps;
+    m_environment.getHazardGaps(m_camera.getView(), hazardGaps);
+    if (!hazardGaps.empty()) {
+        constexpr float kLavaFloorHeight = 8.f; // thin band near the bottom of the gap
+        solids.reserve(solids.size() + hazardGaps.size());
+
+        for (const auto& gap : hazardGaps) {
+            const float floorTop = gap.position.y + gap.size.y - kLavaFloorHeight;
+            solids.push_back(
+                sf::FloatRect{{gap.position.x, floorTop}, {gap.size.x, kLavaFloorHeight}});
+        }
+    }
+
     m_staticSolids.setRectColliders(std::move(solids));
 }
 
@@ -1797,6 +1829,9 @@ class Actor : public Entity {
     // Main damage entry point using hit data.
     void applyDamage(const DamageInfo& info);
 
+    // Per-actor lava interaction scale; 1.0 = full damage, 0.0 = immune.
+    virtual float getLavaDamageMultiplier() const { return 1.f; }
+
   protected:
     virtual void updateActorBase(float dt);
 
@@ -2029,6 +2064,7 @@ class Enemy : public Actor {
 #include "core/World.h"
 #include "entities/actor/player/Player.h"
 #include "gameplay/Faction.h"
+#include "physics/PhysicsBody.h"
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
 
@@ -2068,6 +2104,20 @@ bool FireWorm::init() {
     // Collider
     setColliderSize({kFrameSize.x * kColliderSizeMult.x, kFrameSize.y * kColliderSizeMult.y});
     setArtFacingDirX(+1.f);
+
+    // Register with physics so the worm walks along ground and lava floors.
+    if (m_world) {
+        PhysicsBodyConfig physCfg;
+        physCfg.enabled       = true;
+        physCfg.isKinematic   = false;
+        physCfg.useGravity    = true;
+        physCfg.topOnlyGround = true;
+        physCfg.gravityScale  = 1.f;
+        physCfg.maxVelX       = kMoveSpeed * 1.5f;
+        physCfg.maxVelY       = kMaxVelY;
+        m_world->getPhysics().registerBody(*this, physCfg);
+    }
+
     enterMove();
     return true;
 }
@@ -2107,7 +2157,29 @@ void FireWorm::enterDeath() {
     m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
 }
 
-void FireWorm::updateMove(float /* dt */) {}
+void FireWorm::updateMove(float dt) {
+    // Simple horizontal chase: move toward the player along the ground/lava.
+    Player* player = m_world ? m_world->getPlayer() : nullptr;
+    if (!player)
+        return;
+
+    const float dxToPlayer = player->getPosition().x - m_position.x;
+    const float absDx      = std::abs(dxToPlayer);
+
+    float dirX = 0.f;
+    if (absDx > kDesiredRange + kHoldSlack)
+        dirX = (dxToPlayer > 0.f) ? +1.f : -1.f; // approach
+    else if (absDx < kDesiredRange - kHoldSlack)
+        dirX = (dxToPlayer > 0.f) ? -1.f : +1.f; // back away
+
+    // Update facing based on desired direction.
+    if (dirX != 0.f)
+        setFacing(dirX > 0.f ? Facing::Right : Facing::Left);
+
+    // Drive horizontal velocity; vertical is handled by PhysicsSystem.
+    m_velocity.x = dirX * kMoveSpeed;
+    (void)dt;
+}
 
 void FireWorm::update(float dt) {
     // Death gate
@@ -2145,6 +2217,8 @@ class FireWorm final : public Enemy {
     bool init() override;
     void update(float dt) override;
 
+    float getLavaDamageMultiplier() const override { return 0.f; }
+
   private:
     enum class State { Move, Idle, Attack, Death, Hit };
     State m_state = State::Idle;
@@ -2168,6 +2242,7 @@ class FireWorm final : public Enemy {
     static constexpr float kDesiredRange = 300.f;
     static constexpr float kHoldSlack    = 30.f;  // acceptable band around desired
     static constexpr float kMoveSpeed    = 800.f; // px/s
+    static constexpr float kMaxVelY      = 3000.f;
 
     // Stats
     static constexpr float kFireWormHpMax         = 50.f;
@@ -3199,6 +3274,14 @@ bool Environment::intersectsHazard(const sf::FloatRect& aabb, const sf::View& vi
     return m_hazard->intersectsHazard(aabb, gaps);
 }
 
+void Environment::getHazardGaps(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const {
+    outGaps.clear();
+    if (!m_ground || !m_hazard || !m_hazard->hasHazard())
+        return;
+
+    m_ground->gapsForView(view, outGaps);
+}
+
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/Environment.cpp =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/environment/Environment.h =====
@@ -3227,6 +3310,9 @@ class Environment {
     const MultiRectCollider* getGroundCollider() const;
     float                    getGroundTopY(const sf::View& view) const;
     bool intersectsHazard(const sf::FloatRect& aabb, const sf::View& view) const;
+
+    // Fills `outGaps` with the current hazard gaps (lava areas) for the given view, if any.
+    void getHazardGaps(const sf::View& view, std::vector<sf::FloatRect>& outGaps) const;
 
   private:
     std::unique_ptr<ParallaxBackground>    m_bg;
@@ -4151,6 +4237,26 @@ static SpellDef makeLightning() {
     def.visuals.hit  = {std::string(Assets::Tex::Spell::Lightning::Hit), {32, 32}, 6, 16.f, false};
     return def;
 }
+
+/* static SpellDef makeFireball() {
+    SpellDef def;
+    def.type = SpellType::Projectile;
+
+    // Gameplay
+    def.stats.damage       = 15.f;
+    def.stats.manaCost     = 15.f;
+
+    def.stats.projectile.speed        = 800.f;
+    def.stats.projectile.lifetime     = 1.2f;
+    def.stats.projectile.colliderSize = {16.f, 8.f};
+
+    // Visuals
+    def.visuals.start = {
+        std::string(Assets::Tex::Spell::Fireball::Start), {32, 32}, 5, 16.f, false};
+    def.visuals.loop = {std::string(Assets::Tex::Spell::Fireball::Loop), {32, 32}, 5, 12.f, true};
+    def.visuals.hit  = {std::string(Assets::Tex::Spell::Fireball::Hit), {32, 32}, 6, 16.f, false};
+    return def;
+} */
 
 const SpellDef& getSpellDef(SpellId id) {
     static const SpellDef ICE       = makeIceBolt();

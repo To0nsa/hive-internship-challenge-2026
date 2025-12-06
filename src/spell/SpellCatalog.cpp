@@ -46,6 +46,26 @@ static SpellDef makeLightning() {
     return def;
 }
 
+/* static SpellDef makeFireball() {
+    SpellDef def;
+    def.type = SpellType::Projectile;
+
+    // Gameplay
+    def.stats.damage       = 15.f;
+    def.stats.manaCost     = 15.f;
+
+    def.stats.projectile.speed        = 800.f;
+    def.stats.projectile.lifetime     = 1.2f;
+    def.stats.projectile.colliderSize = {16.f, 8.f};
+
+    // Visuals
+    def.visuals.start = {
+        std::string(Assets::Tex::Spell::Fireball::Start), {32, 32}, 5, 16.f, false};
+    def.visuals.loop = {std::string(Assets::Tex::Spell::Fireball::Loop), {32, 32}, 5, 12.f, true};
+    def.visuals.hit  = {std::string(Assets::Tex::Spell::Fireball::Hit), {32, 32}, 6, 16.f, false};
+    return def;
+} */
+
 const SpellDef& getSpellDef(SpellId id) {
     static const SpellDef ICE       = makeIceBolt();
     static const SpellDef LIGHTNING = makeLightning();
