@@ -114,17 +114,15 @@ void World::update(float dt) {
     {
         const float viewRight = m_camera.right();
         if (groundCollider) {
-            const float groundTop = m_environment.getGroundTopY(m_camera.getView());
-
             while (viewRight + 50.f >= m_nextObstacleX) {
                 const int   kindIdx = Random::rangei(0, static_cast<int>(ObstacleKind::Count) - 1);
                 const auto  kind    = static_cast<ObstacleKind>(kindIdx);
                 const auto& desc    = getObstacleDesc(kind);
                 const float x       = m_nextObstacleX;
 
-                // Skip spawns where the ground band has a hazard/gap under this X.
-                if (!hasHazardBelowX(x)) {
-                    const float y = groundTop - desc.colliderSize.y;
+                GroundSample sample = sampleGround(x, desc.colliderSize.x);
+                if (sample.isSafe()) {
+                    const float y = sample.topY - desc.colliderSize.y;
                     spawnObstacle(*this, kind, {x, y});
                 }
 
@@ -201,6 +199,12 @@ void World::render(sf::RenderTarget& target) const {
                 Debug::drawRectOutline(target, r, sf::Color::Green, 1.f);
             }
         }
+
+        Debug::drawGroundSampleBands(
+            target, m_camera.getView(),
+            [&env = m_environment, view = m_camera.getView()](float x, float w) {
+                return sampleGroundFromEnvironment(env, view, x, w);
+        });
     }
 
     target.setView(oldView);
@@ -217,6 +221,15 @@ float World::getFollowThresholdX() const { return m_camera.followThresholdX(); }
 sf::Vector2f World::getMouseWorld() const {
     const sf::Vector2i pixel = sf::Mouse::getPosition(m_window);
     return m_camera.mapPixelToWorld(m_window, pixel);
+}
+
+GroundSample World::sampleGround(float x, float width) const {
+    return sampleGroundFromEnvironment(m_environment, m_camera.getView(), x, width);
+}
+
+bool World::canSpawnOnGroundAt(float x, float width) const {
+    const GroundSample sample = sampleGround(x, width);
+    return sample.isSafe();
 }
 
 void World::addScore(int points) { m_session.addScore(points); }
@@ -271,27 +284,6 @@ CollisionContext World::buildCollisionContext(float dt, const MultiRectCollider*
     }
 
     return ctx;
-}
-
-bool World::hasHazardBelowX(float x) const {
-    const sf::View&        view       = m_camera.getView();
-    const sf::Vector2f     viewSize   = view.getSize();
-    const sf::Vector2f     viewCenter = view.getCenter();
-    const float            top        = viewCenter.y - 0.5f * viewSize.y;
-    const float            bottom     = viewCenter.y + 0.5f * viewSize.y;
-    const sf::FloatRect    column{{x - 1.f, top}, {2.f, bottom - top}};
-    return m_environment.intersectsHazard(column, view);
-}
-
-bool World::hasStaticSolidBelowX(float x) const {
-    const auto& rects = m_staticSolids.getRectColliders();
-    for (const auto& r : rects) {
-        const float left  = geom::left(r);
-        const float right = geom::right(r);
-        if (x >= left && x <= right)
-            return true;
-    }
-    return false;
 }
 
 void World::cullOffscreen() {

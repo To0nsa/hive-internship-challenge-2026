@@ -2,6 +2,7 @@
 
 #include "collision/CollisionSystem.h"
 #include "core/Camera.h"
+#include "core/WorldGroundSample.h"
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
 #include "physics/PhysicsSystem.h"
@@ -43,6 +44,13 @@ class World {
     void addScore(int points);
     void requestExitToMenu();
 
+    // Samples ground and hazard state under a horizontal band centered at x.
+    // width == 0 => a small default width is used.
+    GroundSample sampleGround(float x, float width) const;
+
+    // Convenience helper for spawn logic that only cares about "can I safely stand here?"
+    bool canSpawnOnGroundAt(float x, float width = 0.f) const;
+
     PhysicsSystem&       getPhysics() { return m_physics; }
     const PhysicsSystem& getPhysics() const { return m_physics; }
 
@@ -78,9 +86,6 @@ class World {
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
     CollisionContext buildCollisionContext(float dt, const MultiRectCollider* groundCollider);
-
-    bool hasHazardBelowX(float x) const;
-    bool hasStaticSolidBelowX(float x) const;
 
     void cullOffscreen();
 

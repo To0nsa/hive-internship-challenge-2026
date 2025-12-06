@@ -64,4 +64,33 @@ namespace Debug {
         drawVerticalGuide(target, view, catchupX, sf::Color::Cyan);
         drawVerticalGuide(target, view, followX, sf::Color::Yellow);
     }
+
+    // Draws vertical bands across the camera view using a caller-provided sampler.
+    // The sampler must be invocable as sampler(xCenter, width) and return an object
+    // with bool hasSolid and bool hasHazard fields (e.g. GroundSample from WorldGroundSample.h).
+    template <typename Sampler>
+    inline void drawGroundSampleBands(sf::RenderTarget& target, const sf::View& view,
+                                      Sampler&& sampler, float step = 96.f) {
+        const sf::Vector2f viewSize   = view.getSize();
+        const sf::Vector2f viewCenter = view.getCenter();
+        const float        viewLeft   = viewCenter.x - 0.5f * viewSize.x;
+        const float        viewTop    = viewCenter.y - 0.5f * viewSize.y;
+        const float        viewRight  = viewLeft + viewSize.x;
+
+        for (float x = viewLeft; x < viewRight; x += step) {
+            const auto sample = sampler(x, step);
+
+            sf::FloatRect band{{x - step * 0.5f, viewTop}, {step, viewSize.y}};
+
+            sf::Color color;
+            if (!sample.hasSolid)
+                color = sf::Color::Red; // red: no solid
+            else if (sample.hasHazard)
+                color = sf::Color::Yellow; // yellow: hazard
+            else
+                color = sf::Color::Green; // green: safe
+
+            drawRectOutline(target, band, color, 1.f);
+        }
+    }
 } // namespace Debug

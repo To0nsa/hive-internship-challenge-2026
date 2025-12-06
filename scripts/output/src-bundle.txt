@@ -917,7 +917,7 @@ class Camera {
     float m_cameraX           = 0.f;
     float m_cameraTargetX     = 0.f; // smoothed target center X
     float m_cameraSpeed       = 0.f;
-    float m_cameraTargetSpeed = 460.f;
+    float m_cameraTargetSpeed = 520.f;
 
     static constexpr float kCameraAccel          = 1200.f;
     static constexpr float kCatchupMarginLeft    = 60.f;
@@ -1010,6 +1010,35 @@ namespace Debug {
                                  float followX) {
         drawVerticalGuide(target, view, catchupX, sf::Color::Cyan);
         drawVerticalGuide(target, view, followX, sf::Color::Yellow);
+    }
+
+    // Draws vertical bands across the camera view using a caller-provided sampler.
+    // The sampler must be invocable as sampler(xCenter, width) and return an object
+    // with bool hasSolid and bool hasHazard fields (e.g. GroundSample from WorldGroundSample.h).
+    template <typename Sampler>
+    inline void drawGroundSampleBands(sf::RenderTarget& target, const sf::View& view,
+                                      Sampler&& sampler, float step = 96.f) {
+        const sf::Vector2f viewSize   = view.getSize();
+        const sf::Vector2f viewCenter = view.getCenter();
+        const float        viewLeft   = viewCenter.x - 0.5f * viewSize.x;
+        const float        viewTop    = viewCenter.y - 0.5f * viewSize.y;
+        const float        viewRight  = viewLeft + viewSize.x;
+
+        for (float x = viewLeft; x < viewRight; x += step) {
+            const auto sample = sampler(x, step);
+
+            sf::FloatRect band{{x - step * 0.5f, viewTop}, {step, viewSize.y}};
+
+            sf::Color color;
+            if (!sample.hasSolid)
+                color = sf::Color(255, 0, 0, 120); // red: no solid
+            else if (sample.hasHazard)
+                color = sf::Color(255, 128, 0, 120); // orange: hazard
+            else
+                color = sf::Color(0, 255, 0, 120); // green: safe
+
+            drawRectOutline(target, band, color, 1.f);
+        }
     }
 } // namespace Debug
 
@@ -1166,6 +1195,7 @@ class ResourceManager {
 #include "entities/platform/PlatformFactory.h"
 #include "spell/projectile/Projectile.h"
 #include "states/StatePlaying.h"
+#include "utils/Geom.h"
 #include "utils/Random.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
@@ -1259,33 +1289,17 @@ void World::update(float dt) {
     // TO-DO build level generation system
     // Stream simple random obstacles ahead of camera
     {
-        const float        viewRight = m_camera.right();
-        const sf::View&    view      = m_camera.getView();
-        const Environment& env       = m_environment;
-
+        const float viewRight = m_camera.right();
         if (groundCollider) {
-            const float groundTop = env.getGroundTopY(view);
-
-            auto hasHazardBelowX = [&env, &view](float x) {
-                const sf::Vector2f viewSize   = view.getSize();
-                const sf::Vector2f viewCenter = view.getCenter();
-                const float        top        = viewCenter.y - 0.5f * viewSize.y;
-                const float        bottom     = viewCenter.y + 0.5f * viewSize.y;
-
-                // Thin vertical slice through the view at X; treated as "column" for hazard check.
-                sf::FloatRect column{{x - 1.f, top}, {2.f, bottom - top}};
-                return env.intersectsHazard(column, view);
-            };
-
             while (viewRight + 50.f >= m_nextObstacleX) {
                 const int   kindIdx = Random::rangei(0, static_cast<int>(ObstacleKind::Count) - 1);
                 const auto  kind    = static_cast<ObstacleKind>(kindIdx);
                 const auto& desc    = getObstacleDesc(kind);
                 const float x       = m_nextObstacleX;
 
-                // Skip spawns where the ground band has a hazard/gap under this X.
-                if (!hasHazardBelowX(x)) {
-                    const float y = groundTop - desc.colliderSize.y;
+                GroundSample sample = sampleGround(x, desc.colliderSize.x);
+                if (sample.isSafe()) {
+                    const float y = sample.topY - desc.colliderSize.y;
                     spawnObstacle(*this, kind, {x, y});
                 }
 
@@ -1362,6 +1376,10 @@ void World::render(sf::RenderTarget& target) const {
                 Debug::drawRectOutline(target, r, sf::Color::Green, 1.f);
             }
         }
+
+        Debug::drawGroundSampleBands(
+            target, m_camera.getView(),
+            [this](float xCenter, float width) { return sampleGround(xCenter, width); });
     }
 
     target.setView(oldView);
@@ -1378,6 +1396,15 @@ float World::getFollowThresholdX() const { return m_camera.followThresholdX(); }
 sf::Vector2f World::getMouseWorld() const {
     const sf::Vector2i pixel = sf::Mouse::getPosition(m_window);
     return m_camera.mapPixelToWorld(m_window, pixel);
+}
+
+GroundSample World::sampleGround(float x, float width) const {
+    return sampleGroundFromEnvironment(m_environment, m_camera.getView(), x, width);
+}
+
+bool World::canSpawnOnGroundAt(float x, float width) const {
+    const GroundSample sample = sampleGround(x, width);
+    return sample.isSafe();
 }
 
 void World::addScore(int points) { m_session.addScore(points); }
@@ -1482,6 +1509,7 @@ void World::updateStaticSolidsCollider(const MultiRectCollider* groundCollider) 
 
 #include "collision/CollisionSystem.h"
 #include "core/Camera.h"
+#include "core/WorldGroundSample.h"
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
 #include "physics/PhysicsSystem.h"
@@ -1522,6 +1550,13 @@ class World {
 
     void addScore(int points);
     void requestExitToMenu();
+
+    // Samples ground and hazard state under a horizontal band centered at x.
+    // width == 0 => a small default width is used.
+    GroundSample sampleGround(float x, float width) const;
+
+    // Convenience helper for spawn logic that only cares about "can I safely stand here?"
+    bool canSpawnOnGroundAt(float x, float width = 0.f) const;
 
     PhysicsSystem&       getPhysics() { return m_physics; }
     const PhysicsSystem& getPhysics() const { return m_physics; }
@@ -1565,6 +1600,61 @@ class World {
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/World.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/WorldGroundSample.h =====
+#pragma once
+
+#include "environment/Environment.h"
+
+#include <SFML/Graphics/Rect.hpp>
+#include <SFML/Graphics/View.hpp>
+
+// Query result when sampling ground / hazards under a horizontal band.
+struct GroundSample {
+    // True when there is any supporting solid (e.g., ground band) under the sampled band.
+    bool hasSolid = false;
+
+    // True when the environment hazard (lava / gap) intersects the sampled band.
+    bool hasHazard = false;
+
+    // Top Y of the main ground we want to stand on when hasSolid == true.
+    float topY = 0.f;
+
+    bool isSafe() const { return hasSolid && !hasHazard; }
+};
+
+// Stateless helper that samples ground + hazards for a given environment/view.
+inline GroundSample sampleGroundFromEnvironment(const Environment& environment,
+                                                const sf::View& cameraView, float x, float width) {
+    GroundSample sample{};
+
+    sf::View probeView = cameraView;
+    probeView.setCenter({x, cameraView.getCenter().y});
+
+    const sf::Vector2f viewSize   = probeView.getSize();
+    const sf::Vector2f viewCenter = probeView.getCenter();
+    const float        top        = viewCenter.y - 0.5f * viewSize.y;
+    const float        bottom     = viewCenter.y + 0.5f * viewSize.y;
+
+    float bandWidth = width;
+    if (bandWidth <= 0.f)
+        bandWidth = 32.f;
+    const float halfW = bandWidth * 0.5f;
+
+    const sf::FloatRect column{{x - halfW, top}, {bandWidth, bottom - top}};
+
+    sample.hasHazard = environment.intersectsHazard(column, probeView);
+    if (sample.hasHazard)
+        return sample;
+
+    const float groundTop = environment.getGroundTopY(probeView);
+    sample.hasSolid       = true;
+    sample.topY           = groundTop;
+
+    return sample;
+}
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/WorldGroundSample.h =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/main.cpp =====
 #include "core/Application.h"
