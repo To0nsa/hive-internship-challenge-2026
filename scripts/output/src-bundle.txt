@@ -545,15 +545,6 @@ class MultiRectCollider final : public Collider {
     void setRectColliders(std::vector<sf::FloatRect> rects) { m_rects = std::move(rects); }
     const std::vector<sf::FloatRect>& getRectColliders() const { return m_rects; }
 
-    // Returns true if the given rectangle intersects any of the child rects.
-    bool intersectsRect(const sf::FloatRect& rect) const {
-        for (const auto& r : m_rects) {
-            if (rect.findIntersection(r).has_value())
-                return true;
-        }
-        return false;
-    }
-
     sf::FloatRect worldAabb() const override {
         if (m_rects.empty())
             return sf::FloatRect{{0.f, 0.f}, {0.f, 0.f}};
@@ -1175,7 +1166,6 @@ class ResourceManager {
 #include "entities/platform/PlatformFactory.h"
 #include "spell/projectile/Projectile.h"
 #include "states/StatePlaying.h"
-#include "utils/Geom.h"
 #include "utils/Random.h"
 
 #include <SFML/Graphics/RenderTarget.hpp>
@@ -1269,21 +1259,33 @@ void World::update(float dt) {
     // TO-DO build level generation system
     // Stream simple random obstacles ahead of camera
     {
-        const float viewRight = m_camera.right();
+        const float        viewRight = m_camera.right();
+        const sf::View&    view      = m_camera.getView();
+        const Environment& env       = m_environment;
+
         if (groundCollider) {
-            const float groundTop = m_environment.getGroundTopY(m_camera.getView());
+            const float groundTop = env.getGroundTopY(view);
+
+            auto hasHazardBelowX = [&env, &view](float x) {
+                const sf::Vector2f viewSize   = view.getSize();
+                const sf::Vector2f viewCenter = view.getCenter();
+                const float        top        = viewCenter.y - 0.5f * viewSize.y;
+                const float        bottom     = viewCenter.y + 0.5f * viewSize.y;
+
+                // Thin vertical slice through the view at X; treated as "column" for hazard check.
+                sf::FloatRect column{{x - 1.f, top}, {2.f, bottom - top}};
+                return env.intersectsHazard(column, view);
+            };
+
             while (viewRight + 50.f >= m_nextObstacleX) {
                 const int   kindIdx = Random::rangei(0, static_cast<int>(ObstacleKind::Count) - 1);
                 const auto  kind    = static_cast<ObstacleKind>(kindIdx);
                 const auto& desc    = getObstacleDesc(kind);
-                const float y       = groundTop - desc.colliderSize.y;
                 const float x       = m_nextObstacleX;
 
-                // Only place obstacles where the ground band is solid (not over a hazard gap).
-                const float         supportHeight = 2.f;
-                const sf::FloatRect supportArea{{x, groundTop - supportHeight},
-                                                {desc.colliderSize.x, supportHeight}};
-                if (groundCollider->intersectsRect(supportArea)) {
+                // Skip spawns where the ground band has a hazard/gap under this X.
+                if (!hasHazardBelowX(x)) {
+                    const float y = groundTop - desc.colliderSize.y;
                     spawnObstacle(*this, kind, {x, y});
                 }
 

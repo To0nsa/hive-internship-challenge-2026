@@ -79,6 +79,9 @@ class World {
 
     CollisionContext buildCollisionContext(float dt, const MultiRectCollider* groundCollider);
 
+    bool hasHazardBelowX(float x) const;
+    bool hasStaticSolidBelowX(float x) const;
+
     void cullOffscreen();
 
     void updateStaticSolidsCollider(const MultiRectCollider* groundCollider);
