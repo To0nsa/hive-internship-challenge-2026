@@ -44,7 +44,7 @@ class FireWorm final : public Enemy {
     static constexpr float kFireWormManaRegenRate = 5.f;
 
     static inline const sf::Vector2i kFrameSize{90, 90};
-    static inline const sf::Vector2f kSpriteScale{1.2f, 1.2f};
+    static inline const sf::Vector2f kSpriteScale{2.5f, 2.5f};
     static inline const sf::Vector2f kColliderSizeMult{0.30f, 0.30f};
     SpriteAnimator::ClipId           m_moveClip   = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId           m_idleClip   = SpriteAnimator::kInvalidClip;

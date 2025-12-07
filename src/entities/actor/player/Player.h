@@ -64,6 +64,7 @@ class Player final : public Actor {
     static constexpr float kDeceleration = 800.f;
     static constexpr float kMinSpeed     = 5.f;
     static constexpr float kMaxVelY      = 3000.f;
+    static constexpr float kMaxVelX      = 3000.f;
 
     // Stats
     static constexpr float kPlayerHpMax            = 100.f;

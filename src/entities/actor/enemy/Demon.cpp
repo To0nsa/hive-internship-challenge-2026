@@ -6,8 +6,10 @@
 #include "core/World.h"
 #include "entities/actor/player/Player.h"
 #include "gameplay/Faction.h"
+#include "physics/PhysicsSystem.h"
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
+#include "utils/Math.h"
 
 bool Demon::init() {
     // Load textures
@@ -35,9 +37,22 @@ bool Demon::init() {
         Animation::makeClipFromRow("death", deathTex, kFrameSize, 7, 10.f, false));
     m_hitClip =
         m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrameSize, 4, 10.f, false));
+
     // Collider
     setColliderSize({kFrameSize.x * kColliderSizeMult.x, kFrameSize.y * kColliderSizeMult.y});
     setArtFacingDirX(-1.f);
+
+    // Register with physics system
+    PhysicsBodyConfig physCfg;
+    physCfg.enabled       = true;
+    physCfg.isKinematic   = false; // dynamic body => PhysicsSystem moves it
+    physCfg.useGravity    = false; // demon flies, no gravity pull
+    physCfg.topOnlyGround = true;  // clamp to top of ground/platform/obstacles
+    physCfg.gravityScale  = 0.f;
+    physCfg.maxVelX       = kMoveSpeed;
+    physCfg.maxVelY       = kMoveSpeed;
+    m_world->getPhysics().registerBody(*this, physCfg);
+
     enterFly();
     return true;
 }
@@ -67,7 +82,7 @@ void Demon::enterDeath() {
     m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
 }
 
-void Demon::updateFly(float dt) {
+void Demon::updateFly(float /* dt */) {
     Player* player = m_world->getPlayer();
 
     const sf::Vector2f toPlayer = player->getPosition() - m_position;
@@ -86,7 +101,7 @@ void Demon::updateFly(float dt) {
     }
 
     m_velocity = dir * kMoveSpeed;
-    m_position += m_velocity * dt;
+    setVelocity(m_velocity);
 }
 
 void Demon::update(float dt) {
@@ -118,5 +133,4 @@ void Demon::update(float dt) {
     }
     // Animation tick
     m_pAnimator->update(dt);
-    m_pSprite->setPosition(m_position);
 }

@@ -92,19 +92,37 @@ void World::update(float dt) {
     m_demonSpawnTimer -= dt;
     if (m_demonSpawnTimer <= 0.f) {
         m_demonSpawnTimer += 10.f;
-        const float rightX = getCameraRight() + 60.f;
-        const float y      = 400.f;
+        const float rightX       = getCameraRight() + 60.f;
+        const float demonY       = 400.f;
+        const float wormYDefault = 300.f;
+
         if (auto* demon = createEntity<Demon>()) {
             if (demon->init()) {
-                demon->setPosition({rightX, y});
+                demon->setPosition({rightX, demonY});
                 demon->update(0.f);
             }
         }
-        const float yBis = 300.f;
-        if (auto* demon = createEntity<FireWorm>()) {
-            if (demon->init()) {
-                demon->setPosition({rightX, yBis});
-                demon->update(0.f);
+
+        // Spawn FireWorm aligned to safe ground if available at this X; otherwise fall back
+        // to a default height.
+        GroundSample wormSample = sampleGround(rightX, 64.f);
+        if (auto* worm = createEntity<FireWorm>()) {
+            if (worm->init()) {
+                const bool useGround = wormSample.isSafe();
+                float      spawnY    = useGround ? wormSample.topY : wormYDefault;
+
+                worm->setPosition({rightX, spawnY});
+
+                if (useGround) {
+                    const sf::FloatRect aabb   = worm->getCollider().worldAabb();
+                    const float         bottom = aabb.position.y + aabb.size.y;
+                    const float         dy     = wormSample.topY - bottom;
+                    auto                pos    = worm->getPosition();
+                    pos.y += dy;
+                    worm->setPosition(pos);
+                }
+
+                worm->update(0.f);
             }
         }
     }
@@ -204,7 +222,7 @@ void World::render(sf::RenderTarget& target) const {
             target, m_camera.getView(),
             [&env = m_environment, view = m_camera.getView()](float x, float w) {
                 return sampleGroundFromEnvironment(env, view, x, w);
-        });
+            });
     }
 
     target.setView(oldView);

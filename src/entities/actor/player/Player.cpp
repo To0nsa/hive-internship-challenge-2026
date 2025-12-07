@@ -71,7 +71,7 @@ bool Player::init() {
     physCfg.useGravity    = true;
     physCfg.topOnlyGround = true;
     physCfg.gravityScale  = 1.f;
-    physCfg.maxVelX       = 3000.f;
+    physCfg.maxVelX       = kMaxVelX;
     physCfg.maxVelY       = kMaxVelY;
     m_world->getPhysics().registerBody(*this, physCfg);
 

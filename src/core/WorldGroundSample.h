@@ -21,7 +21,8 @@ struct GroundSample {
 
 // Stateless helper that samples ground + hazards for a given environment/view.
 inline GroundSample sampleGroundFromEnvironment(const Environment& environment,
-                                                const sf::View& referenceView, float xCenter, float bandWidth) {
+                                                const sf::View& referenceView, float xCenter,
+                                                float bandWidth) {
     GroundSample sample{};
 
     sf::View probeView = referenceView;

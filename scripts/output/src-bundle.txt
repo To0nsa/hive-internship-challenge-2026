@@ -939,7 +939,7 @@ namespace Config {
     inline constexpr int  windowWidth   = 1500;
     inline constexpr int  windowHeight  = 900;
     inline constexpr char windowTitle[] = "SFML Game";
-    inline constexpr bool kDebugDraw    = true;
+    inline constexpr bool kDebugDraw    = false;
 } // namespace Config
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/Config.h =====
@@ -1031,11 +1031,11 @@ namespace Debug {
 
             sf::Color color;
             if (!sample.hasSolid)
-                color = sf::Color(255, 0, 0, 120); // red: no solid
+                color = sf::Color::Red; // red: no solid
             else if (sample.hasHazard)
-                color = sf::Color(255, 128, 0, 120); // orange: hazard
+                color = sf::Color::Yellow; // yellow: hazard
             else
-                color = sf::Color(0, 255, 0, 120); // green: safe
+                color = sf::Color::Green; // green: safe
 
             drawRectOutline(target, band, color, 1.f);
         }
@@ -1269,19 +1269,37 @@ void World::update(float dt) {
     m_demonSpawnTimer -= dt;
     if (m_demonSpawnTimer <= 0.f) {
         m_demonSpawnTimer += 10.f;
-        const float rightX = getCameraRight() + 60.f;
-        const float y      = 400.f;
+        const float rightX       = getCameraRight() + 60.f;
+        const float demonY       = 400.f;
+        const float wormYDefault = 300.f;
+
         if (auto* demon = createEntity<Demon>()) {
             if (demon->init()) {
-                demon->setPosition({rightX, y});
+                demon->setPosition({rightX, demonY});
                 demon->update(0.f);
             }
         }
-        const float yBis = 300.f;
-        if (auto* demon = createEntity<FireWorm>()) {
-            if (demon->init()) {
-                demon->setPosition({rightX, yBis});
-                demon->update(0.f);
+
+        // Spawn FireWorm aligned to safe ground if available at this X; otherwise fall back
+        // to a default height.
+        GroundSample wormSample = sampleGround(rightX, 64.f);
+        if (auto* worm = createEntity<FireWorm>()) {
+            if (worm->init()) {
+                const bool useGround = wormSample.isSafe();
+                float      spawnY    = useGround ? wormSample.topY : wormYDefault;
+
+                worm->setPosition({rightX, spawnY});
+
+                if (useGround) {
+                    const sf::FloatRect aabb   = worm->getCollider().worldAabb();
+                    const float         bottom = aabb.position.y + aabb.size.y;
+                    const float         dy     = wormSample.topY - bottom;
+                    auto                pos    = worm->getPosition();
+                    pos.y += dy;
+                    worm->setPosition(pos);
+                }
+
+                worm->update(0.f);
             }
         }
     }
@@ -1379,7 +1397,9 @@ void World::render(sf::RenderTarget& target) const {
 
         Debug::drawGroundSampleBands(
             target, m_camera.getView(),
-            [this](float xCenter, float width) { return sampleGround(xCenter, width); });
+            [&env = m_environment, view = m_camera.getView()](float x, float w) {
+                return sampleGroundFromEnvironment(env, view, x, w);
+            });
     }
 
     target.setView(oldView);
@@ -1625,23 +1645,23 @@ struct GroundSample {
 
 // Stateless helper that samples ground + hazards for a given environment/view.
 inline GroundSample sampleGroundFromEnvironment(const Environment& environment,
-                                                const sf::View& cameraView, float x, float width) {
+                                                const sf::View& referenceView, float xCenter,
+                                                float bandWidth) {
     GroundSample sample{};
 
-    sf::View probeView = cameraView;
-    probeView.setCenter({x, cameraView.getCenter().y});
+    sf::View probeView = referenceView;
+    probeView.setCenter({xCenter, referenceView.getCenter().y});
 
     const sf::Vector2f viewSize   = probeView.getSize();
     const sf::Vector2f viewCenter = probeView.getCenter();
     const float        top        = viewCenter.y - 0.5f * viewSize.y;
     const float        bottom     = viewCenter.y + 0.5f * viewSize.y;
 
-    float bandWidth = width;
     if (bandWidth <= 0.f)
         bandWidth = 32.f;
     const float halfW = bandWidth * 0.5f;
 
-    const sf::FloatRect column{{x - halfW, top}, {bandWidth, bottom - top}};
+    const sf::FloatRect column{{xCenter - halfW, top}, {bandWidth, bottom - top}};
 
     sample.hasHazard = environment.intersectsHazard(column, probeView);
     if (sample.hasHazard)
@@ -1947,8 +1967,10 @@ class Actor : public Entity {
 #include "core/World.h"
 #include "entities/actor/player/Player.h"
 #include "gameplay/Faction.h"
+#include "physics/PhysicsSystem.h"
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
+#include "utils/Math.h"
 
 bool Demon::init() {
     // Load textures
@@ -1976,9 +1998,22 @@ bool Demon::init() {
         Animation::makeClipFromRow("death", deathTex, kFrameSize, 7, 10.f, false));
     m_hitClip =
         m_pAnimator->addClip(Animation::makeClipFromRow("hit", hitTex, kFrameSize, 4, 10.f, false));
+
     // Collider
     setColliderSize({kFrameSize.x * kColliderSizeMult.x, kFrameSize.y * kColliderSizeMult.y});
     setArtFacingDirX(-1.f);
+
+    // Register with physics system
+    PhysicsBodyConfig physCfg;
+    physCfg.enabled       = true;
+    physCfg.isKinematic   = false; // dynamic body => PhysicsSystem moves it
+    physCfg.useGravity    = false; // demon flies, no gravity pull
+    physCfg.topOnlyGround = true;  // clamp to top of ground/platform/obstacles
+    physCfg.gravityScale  = 0.f;
+    physCfg.maxVelX       = kMoveSpeed;
+    physCfg.maxVelY       = kMoveSpeed;
+    m_world->getPhysics().registerBody(*this, physCfg);
+
     enterFly();
     return true;
 }
@@ -2008,7 +2043,7 @@ void Demon::enterDeath() {
     m_pAnimator->playClip(m_deathClip, [this]() { setAlive(false); });
 }
 
-void Demon::updateFly(float dt) {
+void Demon::updateFly(float /* dt */) {
     Player* player = m_world->getPlayer();
 
     const sf::Vector2f toPlayer = player->getPosition() - m_position;
@@ -2027,7 +2062,7 @@ void Demon::updateFly(float dt) {
     }
 
     m_velocity = dir * kMoveSpeed;
-    m_position += m_velocity * dt;
+    setVelocity(m_velocity);
 }
 
 void Demon::update(float dt) {
@@ -2059,7 +2094,6 @@ void Demon::update(float dt) {
     }
     // Animation tick
     m_pAnimator->update(dt);
-    m_pSprite->setPosition(m_position);
 }
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/entities/actor/enemy/Demon.cpp =====
@@ -2291,7 +2325,7 @@ class FireWorm final : public Enemy {
     static constexpr float kFireWormManaRegenRate = 5.f;
 
     static inline const sf::Vector2i kFrameSize{90, 90};
-    static inline const sf::Vector2f kSpriteScale{1.2f, 1.2f};
+    static inline const sf::Vector2f kSpriteScale{2.5f, 2.5f};
     static inline const sf::Vector2f kColliderSizeMult{0.30f, 0.30f};
     SpriteAnimator::ClipId           m_moveClip   = SpriteAnimator::kInvalidClip;
     SpriteAnimator::ClipId           m_idleClip   = SpriteAnimator::kInvalidClip;
@@ -2376,7 +2410,7 @@ bool Player::init() {
     physCfg.useGravity    = true;
     physCfg.topOnlyGround = true;
     physCfg.gravityScale  = 1.f;
-    physCfg.maxVelX       = 3000.f;
+    physCfg.maxVelX       = kMaxVelX;
     physCfg.maxVelY       = kMaxVelY;
     m_world->getPhysics().registerBody(*this, physCfg);
 
@@ -2736,6 +2770,7 @@ class Player final : public Actor {
     static constexpr float kDeceleration = 800.f;
     static constexpr float kMinSpeed     = 5.f;
     static constexpr float kMaxVelY      = 3000.f;
+    static constexpr float kMaxVelX      = 3000.f;
 
     // Stats
     static constexpr float kPlayerHpMax            = 100.f;
@@ -5579,6 +5614,7 @@ namespace Palette {
     inline constexpr sf::Color kHpFill{220, 68, 64, 255};      // red
     inline constexpr sf::Color kManaFill{45, 152, 218, 255};   // blue
     inline constexpr sf::Color kStaminaFill{76, 209, 55, 255}; // green
+
 } // namespace Palette
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/utils/Palette.h =====
