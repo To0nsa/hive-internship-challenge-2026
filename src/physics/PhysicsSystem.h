@@ -5,8 +5,9 @@
 #include <SFML/System/Vector2.hpp>
 #include <vector>
 
+struct StaticWorldGeometry;
+
 class Entity;
-class MultiRectCollider;
 
 // Lightweight physics system responsible for integrating velocities and
 // resolving collisions against static world solids (ground, obstacles, platforms).
@@ -32,8 +33,8 @@ class PhysicsSystem {
     // Steps physics for all registered bodies.
     //
     // dt:          frame delta time in seconds.
-    // staticWorld: combined collider for all static solids (ground, obstacles, platforms).
-    void step(float dt, const MultiRectCollider* staticWorld);
+    // staticWorld: combined geometry for all static solids (ground, obstacles, platforms).
+    void step(float dt, const StaticWorldGeometry* staticWorld);
 
     // Global gravity magnitude in pixels per second^2.
     // Bodies use this multiplied by their gravityScale when useGravity is true.
@@ -46,7 +47,7 @@ class PhysicsSystem {
     float m_gravity = 2400.f;
 
     // Integrates a single body for one frame: forces, position, and contacts.
-    void integrateBody(PhysicsBody& body, float dt, const MultiRectCollider* staticWorld);
+    void integrateBody(PhysicsBody& body, float dt, const StaticWorldGeometry* staticWorld);
 
     // Apply per-body forces (currently gravity) and clamp velocity.
     void applyForces(PhysicsBody& body, sf::Vector2f& velocity, float dt);
@@ -58,5 +59,5 @@ class PhysicsSystem {
     // Resolve vertical top-only contacts against static world and update grounded/velocity.
     void resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
                               sf::Vector2f& velocity, float dy,
-                              const MultiRectCollider& staticWorld);
+                              const StaticWorldGeometry& staticWorld);
 };

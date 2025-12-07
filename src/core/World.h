@@ -6,6 +6,7 @@
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
 #include "physics/PhysicsSystem.h"
+#include "physics/StaticWorldGeometry.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -78,8 +79,8 @@ class World {
 
     Camera m_camera;
 
-    // Combined static solids used by the physics system (ground + obstacles + platforms).
-    MultiRectCollider m_staticSolids;
+    // Combined static geometry used by the physics system (ground + obstacles + platforms).
+    StaticWorldGeometry m_staticWorld;
 
     PhysicsSystem m_physics;
 
@@ -89,5 +90,5 @@ class World {
 
     void cullOffscreen();
 
-    void updateStaticSolidsCollider(const MultiRectCollider* groundCollider);
+    void updateStaticWorldGeometry(const MultiRectCollider* groundCollider);
 };

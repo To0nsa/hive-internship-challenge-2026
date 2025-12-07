@@ -1,8 +1,8 @@
 #include "physics/PhysicsSystem.h"
 
-#include "collision/MultiRectCollider.h"
 #include "collision/RectCollider.h"
 #include "entities/Entity.h"
+#include "physics/StaticWorldGeometry.h"
 #include "utils/Geom.h"
 #include "utils/Math.h"
 
@@ -49,7 +49,7 @@ const PhysicsBody* PhysicsSystem::findBody(const Entity& owner) const {
     return nullptr;
 }
 
-void PhysicsSystem::step(float dt, const MultiRectCollider* staticWorld) {
+void PhysicsSystem::step(float dt, const StaticWorldGeometry* staticWorld) {
     if (dt <= 0.f || !staticWorld)
         return;
 
@@ -64,7 +64,7 @@ void PhysicsSystem::step(float dt, const MultiRectCollider* staticWorld) {
 }
 
 void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
-                                  const MultiRectCollider* staticWorld) {
+                                  const StaticWorldGeometry* staticWorld) {
     Entity& owner = *body.owner;
 
     if (body.config.isKinematic) {
@@ -132,7 +132,7 @@ void PhysicsSystem::integratePosition(Entity& owner, sf::Vector2f& position,
 
 void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
                                          sf::Vector2f& velocity, float dy,
-                                         const MultiRectCollider& staticWorld) {
+                                         const StaticWorldGeometry& staticWorld) {
     const sf::FloatRect actorCollider = owner.getCollider().worldAabb();
 
     // Previous frame actor position on Y.
@@ -170,8 +170,10 @@ void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::V
             bestLiftDy = deltaY;
     };
 
-    for (const auto& r : staticWorld.getRectColliders()) {
-        consider(r);
+    for (const StaticSolid& solid : staticWorld.solids) {
+        if (!hasSide(solid.sides, StaticSolidSide::SolidSide_Top))
+            continue;
+        consider(solid.rect);
     }
 
     if (bestLiftDy > -std::numeric_limits<float>::infinity()) {
