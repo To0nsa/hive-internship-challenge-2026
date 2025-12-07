@@ -94,6 +94,11 @@ void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
         resolveTopOnlyGround(body, owner, position, velocity, dy, *staticWorld);
     }
 
+    // Horizontal side collisions against static world walls.
+    if (body.config.sideMask != 0 && velocity.x != 0.f) {
+        resolveHorizontalCollisions(body, owner, position, velocity, *staticWorld);
+    }
+
     // Push updated velocity back to the entity.
     owner.setVelocity(velocity);
 }
@@ -183,5 +188,66 @@ void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::V
         body.grounded = true;
     } else if (touchingTop) {
         body.grounded = true;
+    }
+}
+
+void PhysicsSystem::resolveHorizontalCollisions(PhysicsBody& body, Entity& owner,
+                                                sf::Vector2f& position, sf::Vector2f& velocity,
+                                                const StaticWorldGeometry& staticWorld) {
+    if (velocity.x == 0.f)
+        return;
+
+    const bool movingRight = velocity.x > 0.f;
+    const bool movingLeft  = velocity.x < 0.f;
+    if (!movingRight && !movingLeft)
+        return;
+
+    sf::FloatRect actorCollider = owner.getCollider().worldAabb();
+
+    float bestPushX = 0.f;
+    bool  collided  = false;
+
+    for (const StaticSolid& solid : staticWorld.solids) {
+        // Only treat obstacles as walls for now.
+        if (solid.kind !=
+            StaticSolidKind::Obstacle /*  && solid.kind != StaticSolidKind::Platform */)
+            continue;
+
+        if (movingRight) {
+            if (!hasSide(body.config.sideMask, StaticSolidSide::SolidSide_Left))
+                continue;
+            if (!hasSide(solid.sides, StaticSolidSide::SolidSide_Left))
+                continue;
+        } else if (movingLeft) {
+            if (!hasSide(body.config.sideMask, StaticSolidSide::SolidSide_Right))
+                continue;
+            if (!hasSide(solid.sides, StaticSolidSide::SolidSide_Right))
+                continue;
+        }
+
+        sf::FloatRect overlap;
+        if (!geom::aabbIntersects(actorCollider, solid.rect, overlap))
+            continue;
+
+        float pushX = 0.f;
+        if (movingRight) {
+            pushX = -overlap.size.x;
+            if (!collided || pushX < bestPushX) {
+                bestPushX = pushX;
+                collided  = true;
+            }
+        } else if (movingLeft) {
+            pushX = overlap.size.x;
+            if (!collided || pushX > bestPushX) {
+                bestPushX = pushX;
+                collided  = true;
+            }
+        }
+    }
+
+    if (collided && bestPushX != 0.f) {
+        position.x += bestPushX;
+        owner.setPosition(position);
+        velocity.x = 0.f;
     }
 }

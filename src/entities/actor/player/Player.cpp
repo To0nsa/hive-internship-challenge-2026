@@ -8,6 +8,7 @@
 #include "core/World.h"
 #include "gameplay/Faction.h"
 #include "physics/PhysicsBody.h"
+#include "physics/StaticWorldGeometry.h"
 #include "spell/CastRequest.h"
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
@@ -73,6 +74,8 @@ bool Player::init() {
     physCfg.gravityScale  = 1.f;
     physCfg.maxVelX       = kMaxVelX;
     physCfg.maxVelY       = kMaxVelY;
+    physCfg.sideMask      = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Left) |
+                       static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Right);
     m_world->getPhysics().registerBody(*this, physCfg);
 
     // Setup stats

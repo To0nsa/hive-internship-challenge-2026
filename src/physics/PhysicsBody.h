@@ -1,9 +1,9 @@
 #pragma once
 
 #include <SFML/System/Vector2.hpp>
+#include <cstdint>
 
 class Entity;
-class MultiRectCollider;
 
 // Configuration for how a body participates in physics.
 struct PhysicsBodyConfig {
@@ -18,6 +18,10 @@ struct PhysicsBodyConfig {
 
     float maxVelX = 3000.f;
     float maxVelY = 3000.f;
+
+    // Bitmask of StaticSolidSide flags representing which sides of static solids this body
+    // collides against horizontally (left/right). A value of 0 disables side collisions.
+    std::uint8_t sideMask = 0;
 };
 
 // Per-entity physics state owned by PhysicsSystem.

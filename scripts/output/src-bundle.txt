@@ -306,35 +306,24 @@ constexpr bool layersCanCollide(CollisionLayer aLayer, CollisionMask aMask, Coll
 #include "utils/Math.h"
 
 namespace {
-    void resolvePlayerObstacleSides(const CollisionContext& ctx) {
+    void resolvePlayerObstacleContactDps(const CollisionContext& ctx) {
         Player* player = ctx.player;
         if (!player || !player->isAlive())
             return;
 
-        // Current player bounds; refreshed after each push to avoid tunneling.
-        sf::FloatRect playerBounds = player->getCollider().worldAabb();
+        const sf::FloatRect playerBounds = player->getCollider().worldAabb();
         for (auto* obstacle : ctx.obstacles) {
             if (!obstacle || !obstacle->isAlive())
                 continue;
 
             const sf::FloatRect obstacleBounds = obstacle->getCollider().worldAabb();
-            sf::FloatRect       overlap;
-            if (!geom::aabbIntersects(playerBounds, obstacleBounds, overlap))
+            if (!geom::aabbIntersects(playerBounds, obstacleBounds))
                 continue;
 
-            // Contact = damage + horizontal separation (no vertical response here).
+            // Contact damage when intersecting obstacle sides; separation is handled in physics.
             DamageInfo info = buildDamageInfo(obstacle->getDps() * ctx.dt, obstacle, playerBounds,
                                               &obstacleBounds);
             player->applyDamage(info);
-
-            const float playerCenterX   = playerBounds.position.x + playerBounds.size.x * 0.5f;
-            const float obstacleCenterX = obstacleBounds.position.x + obstacleBounds.size.x * 0.5f;
-            const float pushX =
-                (playerCenterX < obstacleCenterX) ? -overlap.size.x : overlap.size.x;
-            const auto pos = player->getPosition();
-            player->setPosition({pos.x + pushX, pos.y});
-
-            playerBounds = player->getCollider().worldAabb();
         }
     }
 
@@ -470,7 +459,7 @@ namespace {
 } // namespace
 
 void collision::resolve(const CollisionContext& ctx) {
-    resolvePlayerObstacleSides(ctx);
+    resolvePlayerObstacleContactDps(ctx);
     resolveProjectileHits(ctx);
     resolveObstacleTopDps(ctx);
     resolvePlayerCollectibles(ctx);
@@ -1253,12 +1242,12 @@ void World::update(float dt) {
     m_environment.update(dt, m_camera.getView());
     const MultiRectCollider* groundCollider = m_environment.getGroundCollider();
 
-    // Build combined static solids for physics (ground + obstacles + platforms).
-    updateStaticSolidsCollider(groundCollider);
+    // Build combined static geometry for physics (ground + obstacles + platforms).
+    updateStaticWorldGeometry(groundCollider);
 
     // Step physics. At this stage, bodies may or may not be registered yet;
     // wiring happens in the actors that opt into physics.
-    m_physics.step(dt, &m_staticSolids);
+    m_physics.step(dt, &m_staticWorld);
 
     // Resolve collisions
     CollisionContext collisionCtx = buildCollisionContext(dt, groundCollider);
@@ -1501,25 +1490,73 @@ void World::cullOffscreen() {
     }
 }
 
-void World::updateStaticSolidsCollider(const MultiRectCollider* groundCollider) {
-    std::vector<sf::FloatRect> solids;
+void World::updateStaticWorldGeometry(const MultiRectCollider* groundCollider) {
+    StaticWorldGeometry geometry;
+    auto&               solids = geometry.solids;
+
+    // 1) Ground band -> top-only surfaces.
     if (groundCollider) {
-        solids = groundCollider->getRectColliders();
+        const auto& colliderRects = groundCollider->getRectColliders();
+        solids.reserve(solids.size() + colliderRects.size());
+        for (const auto& groundRect : colliderRects) {
+            StaticSolid solid;
+            solid.rect  = groundRect;
+            solid.kind  = StaticSolidKind::GroundBand;
+            solid.sides = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Top);
+            solids.push_back(solid);
+        }
     }
-    solids.reserve(solids.size() + m_entities.size());
+
+    // 2) Platforms and obstacles -> split into top + walls.
+    constexpr float kSideThickness = 4.f;
+
+    auto appendEntitySolids = [&](const Entity& entity, StaticSolidKind kind) {
+        const sf::FloatRect bounds = entity.getCollider().worldAabb();
+        const float         left   = bounds.position.x;
+        const float         top    = bounds.position.y;
+        const float         width  = bounds.size.x;
+        const float         height = bounds.size.y;
+
+        // Top surface: used for grounding.
+        solids.push_back(StaticSolid{
+            sf::FloatRect{{left, top}, {width, kSideThickness}},
+            kind,
+            static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Top),
+        });
+
+        // Left wall.
+        solids.push_back(StaticSolid{
+            sf::FloatRect{{left, top}, {kSideThickness, height}},
+            kind,
+            static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Left),
+        });
+
+        // Right wall.
+        solids.push_back(StaticSolid{
+            sf::FloatRect{{left + width - kSideThickness, top}, {kSideThickness, height}},
+            kind,
+            static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Right),
+        });
+    };
 
     for (const auto& entity : m_entities) {
         if (!entity->isAlive())
             continue;
 
         const CollisionLayer layer = entity->getCollisionLayer();
-        if (layer != CollisionLayer::Obstacle && layer != CollisionLayer::Platform)
-            continue;
-
-        solids.push_back(entity->getCollider().worldAabb());
+        switch (layer) {
+        case CollisionLayer::Obstacle:
+            appendEntitySolids(*entity, StaticSolidKind::Obstacle);
+            break;
+        case CollisionLayer::Platform:
+            appendEntitySolids(*entity, StaticSolidKind::Platform);
+            break;
+        default:
+            break;
+        }
     }
 
-    m_staticSolids.setRectColliders(std::move(solids));
+    m_staticWorld = std::move(geometry);
 }
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/World.cpp =====
@@ -1533,6 +1570,7 @@ void World::updateStaticSolidsCollider(const MultiRectCollider* groundCollider) 
 #include "environment/Environment.h"
 #include "gameplay/GameSession.h"
 #include "physics/PhysicsSystem.h"
+#include "physics/StaticWorldGeometry.h"
 
 #include <SFML/Graphics/Rect.hpp>
 #include <SFML/System/Vector2.hpp>
@@ -1605,8 +1643,8 @@ class World {
 
     Camera m_camera;
 
-    // Combined static solids used by the physics system (ground + obstacles + platforms).
-    MultiRectCollider m_staticSolids;
+    // Combined static geometry used by the physics system (ground + obstacles + platforms).
+    StaticWorldGeometry m_staticWorld;
 
     PhysicsSystem m_physics;
 
@@ -1616,7 +1654,7 @@ class World {
 
     void cullOffscreen();
 
-    void updateStaticSolidsCollider(const MultiRectCollider* groundCollider);
+    void updateStaticWorldGeometry(const MultiRectCollider* groundCollider);
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/World.h =====
@@ -2347,6 +2385,7 @@ class FireWorm final : public Enemy {
 #include "core/World.h"
 #include "gameplay/Faction.h"
 #include "physics/PhysicsBody.h"
+#include "physics/StaticWorldGeometry.h"
 #include "spell/CastRequest.h"
 #include "spell/SpellCatalog.h"
 #include "spell/projectile/Projectile.h"
@@ -2412,6 +2451,8 @@ bool Player::init() {
     physCfg.gravityScale  = 1.f;
     physCfg.maxVelX       = kMaxVelX;
     physCfg.maxVelY       = kMaxVelY;
+    physCfg.sideMask      = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Left) |
+                       static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Right);
     m_world->getPhysics().registerBody(*this, physCfg);
 
     // Setup stats
@@ -4077,9 +4118,9 @@ class GameSession {
 #pragma once
 
 #include <SFML/System/Vector2.hpp>
+#include <cstdint>
 
 class Entity;
-class MultiRectCollider;
 
 // Configuration for how a body participates in physics.
 struct PhysicsBodyConfig {
@@ -4094,6 +4135,10 @@ struct PhysicsBodyConfig {
 
     float maxVelX = 3000.f;
     float maxVelY = 3000.f;
+
+    // Bitmask of StaticSolidSide flags representing which sides of static solids this body
+    // collides against horizontally (left/right). A value of 0 disables side collisions.
+    std::uint8_t sideMask = 0;
 };
 
 // Per-entity physics state owned by PhysicsSystem.
@@ -4109,9 +4154,9 @@ struct PhysicsBody {
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/physics/PhysicsSystem.cpp =====
 #include "physics/PhysicsSystem.h"
 
-#include "collision/MultiRectCollider.h"
 #include "collision/RectCollider.h"
 #include "entities/Entity.h"
+#include "physics/StaticWorldGeometry.h"
 #include "utils/Geom.h"
 #include "utils/Math.h"
 
@@ -4158,7 +4203,7 @@ const PhysicsBody* PhysicsSystem::findBody(const Entity& owner) const {
     return nullptr;
 }
 
-void PhysicsSystem::step(float dt, const MultiRectCollider* staticWorld) {
+void PhysicsSystem::step(float dt, const StaticWorldGeometry* staticWorld) {
     if (dt <= 0.f || !staticWorld)
         return;
 
@@ -4173,7 +4218,7 @@ void PhysicsSystem::step(float dt, const MultiRectCollider* staticWorld) {
 }
 
 void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
-                                  const MultiRectCollider* staticWorld) {
+                                  const StaticWorldGeometry* staticWorld) {
     Entity& owner = *body.owner;
 
     if (body.config.isKinematic) {
@@ -4201,6 +4246,11 @@ void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
     // Top-only ground resolution matches previous Actor::applyPhysics() behavior.
     if (body.config.topOnlyGround && velocity.y >= 0.f) {
         resolveTopOnlyGround(body, owner, position, velocity, dy, *staticWorld);
+    }
+
+    // Horizontal side collisions against static world walls.
+    if (body.config.sideMask != 0 && velocity.x != 0.f) {
+        resolveHorizontalCollisions(body, owner, position, velocity, *staticWorld);
     }
 
     // Push updated velocity back to the entity.
@@ -4241,7 +4291,7 @@ void PhysicsSystem::integratePosition(Entity& owner, sf::Vector2f& position,
 
 void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
                                          sf::Vector2f& velocity, float dy,
-                                         const MultiRectCollider& staticWorld) {
+                                         const StaticWorldGeometry& staticWorld) {
     const sf::FloatRect actorCollider = owner.getCollider().worldAabb();
 
     // Previous frame actor position on Y.
@@ -4279,8 +4329,10 @@ void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::V
             bestLiftDy = deltaY;
     };
 
-    for (const auto& r : staticWorld.getRectColliders()) {
-        consider(r);
+    for (const StaticSolid& solid : staticWorld.solids) {
+        if (!hasSide(solid.sides, StaticSolidSide::SolidSide_Top))
+            continue;
+        consider(solid.rect);
     }
 
     if (bestLiftDy > -std::numeric_limits<float>::infinity()) {
@@ -4290,6 +4342,67 @@ void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::V
         body.grounded = true;
     } else if (touchingTop) {
         body.grounded = true;
+    }
+}
+
+void PhysicsSystem::resolveHorizontalCollisions(PhysicsBody& body, Entity& owner,
+                                                sf::Vector2f& position, sf::Vector2f& velocity,
+                                                const StaticWorldGeometry& staticWorld) {
+    if (velocity.x == 0.f)
+        return;
+
+    const bool movingRight = velocity.x > 0.f;
+    const bool movingLeft  = velocity.x < 0.f;
+    if (!movingRight && !movingLeft)
+        return;
+
+    sf::FloatRect actorCollider = owner.getCollider().worldAabb();
+
+    float bestPushX = 0.f;
+    bool  collided  = false;
+
+    for (const StaticSolid& solid : staticWorld.solids) {
+        // Only treat obstacles as walls for now.
+        if (solid.kind !=
+            StaticSolidKind::Obstacle /*  && solid.kind != StaticSolidKind::Platform */)
+            continue;
+
+        if (movingRight) {
+            if (!hasSide(body.config.sideMask, StaticSolidSide::SolidSide_Left))
+                continue;
+            if (!hasSide(solid.sides, StaticSolidSide::SolidSide_Left))
+                continue;
+        } else if (movingLeft) {
+            if (!hasSide(body.config.sideMask, StaticSolidSide::SolidSide_Right))
+                continue;
+            if (!hasSide(solid.sides, StaticSolidSide::SolidSide_Right))
+                continue;
+        }
+
+        sf::FloatRect overlap;
+        if (!geom::aabbIntersects(actorCollider, solid.rect, overlap))
+            continue;
+
+        float pushX = 0.f;
+        if (movingRight) {
+            pushX = -overlap.size.x;
+            if (!collided || pushX < bestPushX) {
+                bestPushX = pushX;
+                collided  = true;
+            }
+        } else if (movingLeft) {
+            pushX = overlap.size.x;
+            if (!collided || pushX > bestPushX) {
+                bestPushX = pushX;
+                collided  = true;
+            }
+        }
+    }
+
+    if (collided && bestPushX != 0.f) {
+        position.x += bestPushX;
+        owner.setPosition(position);
+        velocity.x = 0.f;
     }
 }
 
@@ -4303,8 +4416,9 @@ void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::V
 #include <SFML/System/Vector2.hpp>
 #include <vector>
 
+struct StaticWorldGeometry;
+
 class Entity;
-class MultiRectCollider;
 
 // Lightweight physics system responsible for integrating velocities and
 // resolving collisions against static world solids (ground, obstacles, platforms).
@@ -4330,8 +4444,8 @@ class PhysicsSystem {
     // Steps physics for all registered bodies.
     //
     // dt:          frame delta time in seconds.
-    // staticWorld: combined collider for all static solids (ground, obstacles, platforms).
-    void step(float dt, const MultiRectCollider* staticWorld);
+    // staticWorld: combined geometry for all static solids (ground, obstacles, platforms).
+    void step(float dt, const StaticWorldGeometry* staticWorld);
 
     // Global gravity magnitude in pixels per second^2.
     // Bodies use this multiplied by their gravityScale when useGravity is true.
@@ -4344,7 +4458,7 @@ class PhysicsSystem {
     float m_gravity = 2400.f;
 
     // Integrates a single body for one frame: forces, position, and contacts.
-    void integrateBody(PhysicsBody& body, float dt, const MultiRectCollider* staticWorld);
+    void integrateBody(PhysicsBody& body, float dt, const StaticWorldGeometry* staticWorld);
 
     // Apply per-body forces (currently gravity) and clamp velocity.
     void applyForces(PhysicsBody& body, sf::Vector2f& velocity, float dt);
@@ -4356,10 +4470,61 @@ class PhysicsSystem {
     // Resolve vertical top-only contacts against static world and update grounded/velocity.
     void resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
                               sf::Vector2f& velocity, float dy,
-                              const MultiRectCollider& staticWorld);
+                              const StaticWorldGeometry& staticWorld);
+
+    // Resolve horizontal collisions against static world walls (left/right sides of solids).
+    void resolveHorizontalCollisions(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
+                                     sf::Vector2f&              velocity,
+                                     const StaticWorldGeometry& staticWorld);
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/physics/PhysicsSystem.h =====
+
+===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/physics/StaticWorldGeometry.h =====
+#pragma once
+
+#include <SFML/Graphics/Rect.hpp>
+#include <cstdint>
+#include <vector>
+
+// Kind of static solid in the world: environment ground band, platforms, obstacles.
+enum class StaticSolidKind : std::uint8_t {
+    GroundBand,
+    Platform,
+    Obstacle,
+};
+
+// Which side(s) of a solid are collidable.
+enum StaticSolidSide : std::uint8_t {
+    SolidSide_None   = 0,
+    SolidSide_Top    = 1u << 0,
+    SolidSide_Bottom = 1u << 1,
+    SolidSide_Left   = 1u << 2,
+    SolidSide_Right  = 1u << 3,
+};
+
+inline StaticSolidSide operator|(StaticSolidSide a, StaticSolidSide b) {
+    return static_cast<StaticSolidSide>(static_cast<std::uint8_t>(a) |
+                                        static_cast<std::uint8_t>(b));
+}
+
+inline bool hasSide(std::uint8_t flags, StaticSolidSide side) {
+    return (flags & static_cast<std::uint8_t>(side)) != 0;
+}
+
+// One static solid piece in the world.
+struct StaticSolid {
+    sf::FloatRect   rect;
+    StaticSolidKind kind  = StaticSolidKind::GroundBand;
+    std::uint8_t    sides = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_None);
+};
+
+// Aggregated static world geometry consumed by the physics system.
+struct StaticWorldGeometry {
+    std::vector<StaticSolid> solids;
+};
+
+===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/physics/StaticWorldGeometry.h =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/spell/CastRequest.h =====
 #pragma once

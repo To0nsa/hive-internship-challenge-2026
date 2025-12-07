@@ -60,4 +60,9 @@ class PhysicsSystem {
     void resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
                               sf::Vector2f& velocity, float dy,
                               const StaticWorldGeometry& staticWorld);
+
+    // Resolve horizontal collisions against static world walls (left/right sides of solids).
+    void resolveHorizontalCollisions(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
+                                     sf::Vector2f&              velocity,
+                                     const StaticWorldGeometry& staticWorld);
 };

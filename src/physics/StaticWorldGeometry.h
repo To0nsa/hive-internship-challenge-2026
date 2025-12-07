@@ -21,8 +21,8 @@ enum StaticSolidSide : std::uint8_t {
 };
 
 inline StaticSolidSide operator|(StaticSolidSide a, StaticSolidSide b) {
-    return static_cast<StaticSolidSide>(
-        static_cast<std::uint8_t>(a) | static_cast<std::uint8_t>(b));
+    return static_cast<StaticSolidSide>(static_cast<std::uint8_t>(a) |
+                                        static_cast<std::uint8_t>(b));
 }
 
 inline bool hasSide(std::uint8_t flags, StaticSolidSide side) {
@@ -32,7 +32,7 @@ inline bool hasSide(std::uint8_t flags, StaticSolidSide side) {
 // One static solid piece in the world.
 struct StaticSolid {
     sf::FloatRect   rect;
-    StaticSolidKind kind = StaticSolidKind::GroundBand;
+    StaticSolidKind kind  = StaticSolidKind::GroundBand;
     std::uint8_t    sides = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_None);
 };
 
@@ -40,4 +40,3 @@ struct StaticSolid {
 struct StaticWorldGeometry {
     std::vector<StaticSolid> solids;
 };
-

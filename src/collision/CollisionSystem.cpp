@@ -13,35 +13,24 @@
 #include "utils/Math.h"
 
 namespace {
-    void resolvePlayerObstacleSides(const CollisionContext& ctx) {
+    void resolvePlayerObstacleContactDps(const CollisionContext& ctx) {
         Player* player = ctx.player;
         if (!player || !player->isAlive())
             return;
 
-        // Current player bounds; refreshed after each push to avoid tunneling.
-        sf::FloatRect playerBounds = player->getCollider().worldAabb();
+        const sf::FloatRect playerBounds = player->getCollider().worldAabb();
         for (auto* obstacle : ctx.obstacles) {
             if (!obstacle || !obstacle->isAlive())
                 continue;
 
             const sf::FloatRect obstacleBounds = obstacle->getCollider().worldAabb();
-            sf::FloatRect       overlap;
-            if (!geom::aabbIntersects(playerBounds, obstacleBounds, overlap))
+            if (!geom::aabbIntersects(playerBounds, obstacleBounds))
                 continue;
 
-            // Contact = damage + horizontal separation (no vertical response here).
+            // Contact damage when intersecting obstacle sides; separation is handled in physics.
             DamageInfo info = buildDamageInfo(obstacle->getDps() * ctx.dt, obstacle, playerBounds,
                                               &obstacleBounds);
             player->applyDamage(info);
-
-            const float playerCenterX   = playerBounds.position.x + playerBounds.size.x * 0.5f;
-            const float obstacleCenterX = obstacleBounds.position.x + obstacleBounds.size.x * 0.5f;
-            const float pushX =
-                (playerCenterX < obstacleCenterX) ? -overlap.size.x : overlap.size.x;
-            const auto pos = player->getPosition();
-            player->setPosition({pos.x + pushX, pos.y});
-
-            playerBounds = player->getCollider().worldAabb();
         }
     }
 
@@ -177,7 +166,7 @@ namespace {
 } // namespace
 
 void collision::resolve(const CollisionContext& ctx) {
-    resolvePlayerObstacleSides(ctx);
+    resolvePlayerObstacleContactDps(ctx);
     resolveProjectileHits(ctx);
     resolveObstacleTopDps(ctx);
     resolvePlayerCollectibles(ctx);
