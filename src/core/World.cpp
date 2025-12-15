@@ -17,6 +17,7 @@
 #include "entities/platform/Platform.h"
 #include "entities/platform/PlatformFactory.h"
 #include "spell/projectile/Projectile.h"
+#include "physics/StaticWorldGeometryBuilder.h"
 #include "states/StatePlaying.h"
 #include "utils/Geom.h"
 #include "utils/Random.h"
@@ -277,89 +278,5 @@ void World::cullOffscreen() {
 }
 
 void World::updateStaticWorldGeometry(const MultiRectCollider* groundCollider) {
-    StaticWorldGeometry geometry;
-    auto&               solids = geometry.solids;
-
-    constexpr float kSideThickness = 4.f;
-
-    // 1) Ground band -> top-only surfaces.
-    if (groundCollider) {
-        const auto& colliderRects = groundCollider->getRectColliders();
-        solids.reserve(solids.size() + colliderRects.size());
-        for (const auto& groundRect : colliderRects) {
-            StaticSolid solid;
-            solid.rect  = groundRect;
-            solid.kind  = StaticSolidKind::GroundBand;
-            solid.sides = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Top);
-            solids.push_back(solid);
-
-            const float left   = groundRect.position.x;
-            const float top    = groundRect.position.y;
-            const float width  = groundRect.size.x;
-            const float height = groundRect.size.y;
-
-            // Left wall for ground band.
-            solids.push_back(StaticSolid{
-                sf::FloatRect{{left, top}, {kSideThickness, height}},
-                StaticSolidKind::GroundBand,
-                static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Left),
-            });
-
-            // Right wall for ground band.
-            solids.push_back(StaticSolid{
-                sf::FloatRect{{left + width - kSideThickness, top}, {kSideThickness, height}},
-                StaticSolidKind::GroundBand,
-                static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Right),
-            });
-        }
-    }
-
-    // 2) Platforms and obstacles -> split into top + walls.
-    auto appendEntitySolids = [&](const Entity& entity, StaticSolidKind kind) {
-        const sf::FloatRect bounds = entity.getCollider().worldAabb();
-        const float         left   = bounds.position.x;
-        const float         top    = bounds.position.y;
-        const float         width  = bounds.size.x;
-        const float         height = bounds.size.y;
-
-        // Top surface: used for grounding.
-        solids.push_back(StaticSolid{
-            sf::FloatRect{{left, top}, {width, kSideThickness}},
-            kind,
-            static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Top),
-        });
-
-        // Left wall.
-        solids.push_back(StaticSolid{
-            sf::FloatRect{{left, top}, {kSideThickness, height}},
-            kind,
-            static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Left),
-        });
-
-        // Right wall.
-        solids.push_back(StaticSolid{
-            sf::FloatRect{{left + width - kSideThickness, top}, {kSideThickness, height}},
-            kind,
-            static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Right),
-        });
-    };
-
-    for (const auto& entity : m_entities) {
-        if (!entity->isAlive())
-            continue;
-
-        const CollisionLayer layer = entity->getCollisionLayer();
-        switch (layer) {
-        case CollisionLayer::Obstacle:
-            appendEntitySolids(*entity, StaticSolidKind::Obstacle);
-            break;
-        case CollisionLayer::Platform:
-            appendEntitySolids(*entity, StaticSolidKind::Platform);
-            break;
-        default:
-            break;
-        }
-    }
-
-    m_staticWorld = std::move(geometry);
+    m_staticWorld = physics::buildStaticWorldGeometry(groundCollider, m_entities);
 }
