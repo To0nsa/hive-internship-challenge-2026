@@ -294,10 +294,12 @@ constexpr bool layersCanCollide(CollisionLayer aLayer, CollisionMask aMask, Coll
 #include "collision/CollisionSystem.h"
 
 #include "collision/CollisionLayers.h"
+#include "core/World.h"
 #include "entities/actor/enemy/Enemy.h"
 #include "entities/actor/player/Player.h"
 #include "entities/collectible/RedSquare.h"
 #include "entities/obstacle/Obstacle.h"
+#include "entities/platform/Platform.h"
 #include "environment/Environment.h"
 #include "gameplay/Damage.h"
 #include "gameplay/GameSession.h"
@@ -466,6 +468,57 @@ void collision::resolve(const CollisionContext& ctx) {
     resolveHazards(ctx);
 }
 
+CollisionContext collision::buildCollisionContext(const World& world, float dt,
+                                                  const MultiRectCollider* groundCollider) {
+    CollisionContext ctx;
+    ctx.dt          = dt;
+    ctx.player      = world.m_pPlayer;
+    ctx.ground      = groundCollider;
+    ctx.cameraView  = &world.m_camera.getView();
+    ctx.cameraLeft  = world.getCameraLeft();
+    ctx.session     = &world.m_session;
+    ctx.environment = &world.m_environment;
+
+    ctx.actors.reserve(world.m_entities.size());
+    ctx.enemies.reserve(world.m_entities.size());
+    ctx.projectiles.reserve(world.m_entities.size());
+    ctx.obstacles.reserve(world.m_entities.size());
+    ctx.platforms.reserve(world.m_entities.size());
+    ctx.collectibles.reserve(world.m_entities.size());
+
+    for (auto& entity : world.m_entities) {
+        if (!entity->isAlive())
+            continue;
+
+        switch (entity->getCollisionLayer()) {
+        case CollisionLayer::Player:
+            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
+            break;
+        case CollisionLayer::Enemy:
+            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
+            ctx.enemies.push_back(static_cast<Enemy*>(entity.get()));
+            break;
+        case CollisionLayer::PlayerProjectile:
+        case CollisionLayer::EnemyProjectile:
+            ctx.projectiles.push_back(static_cast<Projectile*>(entity.get()));
+            break;
+        case CollisionLayer::Obstacle:
+            ctx.obstacles.push_back(static_cast<Obstacle*>(entity.get()));
+            break;
+        case CollisionLayer::Platform:
+            ctx.platforms.push_back(static_cast<Platform*>(entity.get()));
+            break;
+        case CollisionLayer::Collectible:
+            ctx.collectibles.push_back(static_cast<RedSquare*>(entity.get()));
+            break;
+        default:
+            break;
+        }
+    }
+
+    return ctx;
+}
+
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/CollisionSystem.cpp =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/collision/CollisionSystem.h =====
@@ -485,6 +538,7 @@ class Platform;
 class Player;
 class Projectile;
 class RedSquare;
+class World;
 
 struct CollisionContext {
     float dt = 0.f;
@@ -510,6 +564,10 @@ namespace collision {
 
     // Resolves all gameplay collisions in a frame using the provided context.
     void resolve(const CollisionContext& ctx);
+
+    // Builds a CollisionContext for the given world snapshot.
+    CollisionContext buildCollisionContext(const World& world, float dt,
+                                           const MultiRectCollider* groundCollider);
 
 } // namespace collision
 
@@ -928,14 +986,17 @@ namespace Config {
     inline constexpr int  windowWidth   = 1500;
     inline constexpr int  windowHeight  = 900;
     inline constexpr char windowTitle[] = "SFML Game";
-    inline constexpr bool kDebugDraw    = false;
+    inline constexpr bool kDebugDraw    = true;
 } // namespace Config
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/Config.h =====
 
 ===== BEGIN /home/toonsa/myProjects/hive-internship-challenge-2026/src/core/Debug.h =====
 #pragma once
+
 #include "collision/Collider.h"
+#include "physics/StaticWorldGeometry.h"
+#include "utils/Palette.h"
 
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -1027,6 +1088,46 @@ namespace Debug {
                 color = sf::Color::Green; // green: safe
 
             drawRectOutline(target, band, color, 1.f);
+        }
+    }
+
+    inline void drawStaticWorldGeometry(sf::RenderTarget&          target,
+                                        const StaticWorldGeometry& geometry) {
+        for (const StaticSolid& solid : geometry.solids) {
+            sf::Color color;
+
+            if (hasSide(solid.sides, StaticSolidSide::SolidSide_Top)) {
+                // Top surfaces: distinguish by kind.
+                switch (solid.kind) {
+                case StaticSolidKind::GroundBand:
+                    color = Palette::kDebugStaticGroundTop;
+                    break;
+                case StaticSolidKind::Platform:
+                    color = Palette::kDebugStaticPlatformTop;
+                    break;
+                case StaticSolidKind::Obstacle:
+                    color = Palette::kDebugStaticObstacleTop;
+                    break;
+                }
+            } else if (hasSide(solid.sides, StaticSolidSide::SolidSide_Left) ||
+                       hasSide(solid.sides, StaticSolidSide::SolidSide_Right)) {
+                // Walls: use a distinct color to highlight vertical blockers.
+                switch (solid.kind) {
+                case StaticSolidKind::GroundBand:
+                    color = Palette::kDebugStaticGroundWall;
+                    break;
+                case StaticSolidKind::Platform:
+                    color = Palette::kDebugStaticPlatformWall;
+                    break;
+                case StaticSolidKind::Obstacle:
+                    color = Palette::kDebugStaticObstacleWall;
+                    break;
+                }
+            } else {
+                continue;
+            }
+
+            drawRectOutline(target, solid.rect, color, 1.f);
         }
     }
 } // namespace Debug
@@ -1250,7 +1351,7 @@ void World::update(float dt) {
     m_physics.step(dt, &m_staticWorld);
 
     // Resolve collisions
-    CollisionContext collisionCtx = buildCollisionContext(dt, groundCollider);
+    auto collisionCtx = collision::buildCollisionContext(*this, dt, groundCollider);
     collision::resolve(collisionCtx);
 
     // TO-DO build enemy spawn system
@@ -1379,10 +1480,12 @@ void World::render(sf::RenderTarget& target) const {
 
         if (const MultiRectCollider* ground = m_environment.getGroundCollider()) {
             const auto& rects = ground->getRectColliders();
-            for (const auto& r : rects) {
-                Debug::drawRectOutline(target, r, sf::Color::Green, 1.f);
+            for (const auto& rect : rects) {
+                Debug::drawRectOutline(target, rect, Palette::kDebugStaticGroundTop, 1.f);
             }
         }
+
+        Debug::drawStaticWorldGeometry(target, m_staticWorld);
 
         Debug::drawGroundSampleBands(
             target, m_camera.getView(),
@@ -1420,56 +1523,6 @@ void World::addScore(int points) { m_session.addScore(points); }
 
 void World::requestExitToMenu() { m_owner.requestExitToMenu(); }
 
-CollisionContext World::buildCollisionContext(float dt, const MultiRectCollider* groundCollider) {
-    CollisionContext ctx;
-    ctx.dt          = dt;
-    ctx.player      = m_pPlayer;
-    ctx.ground      = groundCollider;
-    ctx.cameraView  = &m_camera.getView();
-    ctx.cameraLeft  = getCameraLeft();
-    ctx.session     = &m_session;
-    ctx.environment = &m_environment;
-
-    ctx.actors.reserve(m_entities.size());
-    ctx.enemies.reserve(m_entities.size());
-    ctx.projectiles.reserve(m_entities.size());
-    ctx.obstacles.reserve(m_entities.size());
-    ctx.platforms.reserve(m_entities.size());
-    ctx.collectibles.reserve(m_entities.size());
-
-    for (auto& entity : m_entities) {
-        if (!entity->isAlive())
-            continue;
-
-        switch (entity->getCollisionLayer()) {
-        case CollisionLayer::Player:
-            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
-            break;
-        case CollisionLayer::Enemy:
-            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
-            ctx.enemies.push_back(static_cast<Enemy*>(entity.get()));
-            break;
-        case CollisionLayer::PlayerProjectile:
-        case CollisionLayer::EnemyProjectile:
-            ctx.projectiles.push_back(static_cast<Projectile*>(entity.get()));
-            break;
-        case CollisionLayer::Obstacle:
-            ctx.obstacles.push_back(static_cast<Obstacle*>(entity.get()));
-            break;
-        case CollisionLayer::Platform:
-            ctx.platforms.push_back(static_cast<Platform*>(entity.get()));
-            break;
-        case CollisionLayer::Collectible:
-            ctx.collectibles.push_back(static_cast<RedSquare*>(entity.get()));
-            break;
-        default:
-            break;
-        }
-    }
-
-    return ctx;
-}
-
 void World::cullOffscreen() {
     const float viewLeft   = getCameraLeft();
     const float cullBefore = viewLeft - m_camera.getView().getSize().x;
@@ -1494,6 +1547,8 @@ void World::updateStaticWorldGeometry(const MultiRectCollider* groundCollider) {
     StaticWorldGeometry geometry;
     auto&               solids = geometry.solids;
 
+    constexpr float kSideThickness = 4.f;
+
     // 1) Ground band -> top-only surfaces.
     if (groundCollider) {
         const auto& colliderRects = groundCollider->getRectColliders();
@@ -1504,12 +1559,29 @@ void World::updateStaticWorldGeometry(const MultiRectCollider* groundCollider) {
             solid.kind  = StaticSolidKind::GroundBand;
             solid.sides = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Top);
             solids.push_back(solid);
+
+            const float left   = groundRect.position.x;
+            const float top    = groundRect.position.y;
+            const float width  = groundRect.size.x;
+            const float height = groundRect.size.y;
+
+            // Left wall for ground band.
+            solids.push_back(StaticSolid{
+                sf::FloatRect{{left, top}, {kSideThickness, height}},
+                StaticSolidKind::GroundBand,
+                static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Left),
+            });
+
+            // Right wall for ground band.
+            solids.push_back(StaticSolid{
+                sf::FloatRect{{left + width - kSideThickness, top}, {kSideThickness, height}},
+                StaticSolidKind::GroundBand,
+                static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Right),
+            });
         }
     }
 
     // 2) Platforms and obstacles -> split into top + walls.
-    constexpr float kSideThickness = 4.f;
-
     auto appendEntitySolids = [&](const Entity& entity, StaticSolidKind kind) {
         const sf::FloatRect bounds = entity.getCollider().worldAabb();
         const float         left   = bounds.position.x;
@@ -1650,7 +1722,9 @@ class World {
 
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
-    CollisionContext buildCollisionContext(float dt, const MultiRectCollider* groundCollider);
+    friend CollisionContext
+    collision::buildCollisionContext(const World& world, float dt,
+                                     const MultiRectCollider* groundCollider);
 
     void cullOffscreen();
 
@@ -4245,12 +4319,12 @@ void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
 
     // Top-only ground resolution matches previous Actor::applyPhysics() behavior.
     if (body.config.topOnlyGround && velocity.y >= 0.f) {
-        resolveTopOnlyGround(body, owner, position, velocity, dy, *staticWorld);
+        resolveVerticalGroundContacts(body, owner, position, velocity, dy, *staticWorld);
     }
 
     // Horizontal side collisions against static world walls.
     if (body.config.sideMask != 0 && velocity.x != 0.f) {
-        resolveHorizontalCollisions(body, owner, position, velocity, *staticWorld);
+        resolveHorizontalContacts(body, owner, position, velocity, *staticWorld);
     }
 
     // Push updated velocity back to the entity.
@@ -4289,9 +4363,10 @@ void PhysicsSystem::integratePosition(Entity& owner, sf::Vector2f& position,
     }
 }
 
-void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
-                                         sf::Vector2f& velocity, float dy,
-                                         const StaticWorldGeometry& staticWorld) {
+void PhysicsSystem::resolveVerticalGroundContacts(PhysicsBody& body, Entity& owner,
+                                                  sf::Vector2f& position, sf::Vector2f& velocity,
+                                                  float                      dy,
+                                                  const StaticWorldGeometry& staticWorld) {
     const sf::FloatRect actorCollider = owner.getCollider().worldAabb();
 
     // Previous frame actor position on Y.
@@ -4345,9 +4420,9 @@ void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::V
     }
 }
 
-void PhysicsSystem::resolveHorizontalCollisions(PhysicsBody& body, Entity& owner,
-                                                sf::Vector2f& position, sf::Vector2f& velocity,
-                                                const StaticWorldGeometry& staticWorld) {
+void PhysicsSystem::resolveHorizontalContacts(PhysicsBody& body, Entity& owner,
+                                              sf::Vector2f& position, sf::Vector2f& velocity,
+                                              const StaticWorldGeometry& staticWorld) {
     if (velocity.x == 0.f)
         return;
 
@@ -4362,9 +4437,10 @@ void PhysicsSystem::resolveHorizontalCollisions(PhysicsBody& body, Entity& owner
     bool  collided  = false;
 
     for (const StaticSolid& solid : staticWorld.solids) {
-        // Only treat obstacles as walls for now.
-        if (solid.kind !=
-            StaticSolidKind::Obstacle /*  && solid.kind != StaticSolidKind::Platform */)
+        // Treat ground band, obstacles as walls.
+        if (solid.kind != StaticSolidKind::Obstacle
+            /* && solid.kind != StaticSolidKind::Platform */
+            && solid.kind != StaticSolidKind::GroundBand)
             continue;
 
         if (movingRight) {
@@ -4468,14 +4544,13 @@ class PhysicsSystem {
                            float dt);
 
     // Resolve vertical top-only contacts against static world and update grounded/velocity.
-    void resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
-                              sf::Vector2f& velocity, float dy,
-                              const StaticWorldGeometry& staticWorld);
+    void resolveVerticalGroundContacts(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
+                                       sf::Vector2f& velocity, float dy,
+                                       const StaticWorldGeometry& staticWorld);
 
     // Resolve horizontal collisions against static world walls (left/right sides of solids).
-    void resolveHorizontalCollisions(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
-                                     sf::Vector2f&              velocity,
-                                     const StaticWorldGeometry& staticWorld);
+    void resolveHorizontalContacts(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
+                                   sf::Vector2f& velocity, const StaticWorldGeometry& staticWorld);
 };
 
 ===== END /home/toonsa/myProjects/hive-internship-challenge-2026/src/physics/PhysicsSystem.h =====
@@ -5779,6 +5854,16 @@ namespace Palette {
     inline constexpr sf::Color kHpFill{220, 68, 64, 255};      // red
     inline constexpr sf::Color kManaFill{45, 152, 218, 255};   // blue
     inline constexpr sf::Color kStaminaFill{76, 209, 55, 255}; // green
+
+    // Debug: static world geometry (tops)
+    inline constexpr sf::Color kDebugStaticGroundTop{0, 255, 0, 255};     // bright green
+    inline constexpr sf::Color kDebugStaticPlatformTop{0, 255, 255, 255}; // cyan
+    inline constexpr sf::Color kDebugStaticObstacleTop{255, 0, 255, 255}; // magenta
+
+    // Debug: static world geometry (walls)
+    inline constexpr sf::Color kDebugStaticGroundWall{0, 200, 0, 255};     // darker green
+    inline constexpr sf::Color kDebugStaticPlatformWall{0, 180, 180, 255}; // teal
+    inline constexpr sf::Color kDebugStaticObstacleWall{200, 0, 200, 255}; // purple
 
 } // namespace Palette
 

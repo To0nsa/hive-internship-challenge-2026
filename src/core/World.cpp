@@ -84,7 +84,7 @@ void World::update(float dt) {
     m_physics.step(dt, &m_staticWorld);
 
     // Resolve collisions
-    CollisionContext collisionCtx = buildCollisionContext(dt, groundCollider);
+    auto collisionCtx = collision::buildCollisionContext(*this, dt, groundCollider);
     collision::resolve(collisionCtx);
 
     // TO-DO build enemy spawn system
@@ -213,10 +213,12 @@ void World::render(sf::RenderTarget& target) const {
 
         if (const MultiRectCollider* ground = m_environment.getGroundCollider()) {
             const auto& rects = ground->getRectColliders();
-            for (const auto& r : rects) {
-                Debug::drawRectOutline(target, r, sf::Color::Green, 1.f);
+            for (const auto& rect : rects) {
+                Debug::drawRectOutline(target, rect, Palette::kDebugStaticGroundTop, 1.f);
             }
         }
+
+        Debug::drawStaticWorldGeometry(target, m_staticWorld);
 
         Debug::drawGroundSampleBands(
             target, m_camera.getView(),
@@ -254,56 +256,6 @@ void World::addScore(int points) { m_session.addScore(points); }
 
 void World::requestExitToMenu() { m_owner.requestExitToMenu(); }
 
-CollisionContext World::buildCollisionContext(float dt, const MultiRectCollider* groundCollider) {
-    CollisionContext ctx;
-    ctx.dt          = dt;
-    ctx.player      = m_pPlayer;
-    ctx.ground      = groundCollider;
-    ctx.cameraView  = &m_camera.getView();
-    ctx.cameraLeft  = getCameraLeft();
-    ctx.session     = &m_session;
-    ctx.environment = &m_environment;
-
-    ctx.actors.reserve(m_entities.size());
-    ctx.enemies.reserve(m_entities.size());
-    ctx.projectiles.reserve(m_entities.size());
-    ctx.obstacles.reserve(m_entities.size());
-    ctx.platforms.reserve(m_entities.size());
-    ctx.collectibles.reserve(m_entities.size());
-
-    for (auto& entity : m_entities) {
-        if (!entity->isAlive())
-            continue;
-
-        switch (entity->getCollisionLayer()) {
-        case CollisionLayer::Player:
-            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
-            break;
-        case CollisionLayer::Enemy:
-            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
-            ctx.enemies.push_back(static_cast<Enemy*>(entity.get()));
-            break;
-        case CollisionLayer::PlayerProjectile:
-        case CollisionLayer::EnemyProjectile:
-            ctx.projectiles.push_back(static_cast<Projectile*>(entity.get()));
-            break;
-        case CollisionLayer::Obstacle:
-            ctx.obstacles.push_back(static_cast<Obstacle*>(entity.get()));
-            break;
-        case CollisionLayer::Platform:
-            ctx.platforms.push_back(static_cast<Platform*>(entity.get()));
-            break;
-        case CollisionLayer::Collectible:
-            ctx.collectibles.push_back(static_cast<RedSquare*>(entity.get()));
-            break;
-        default:
-            break;
-        }
-    }
-
-    return ctx;
-}
-
 void World::cullOffscreen() {
     const float viewLeft   = getCameraLeft();
     const float cullBefore = viewLeft - m_camera.getView().getSize().x;
@@ -328,6 +280,8 @@ void World::updateStaticWorldGeometry(const MultiRectCollider* groundCollider) {
     StaticWorldGeometry geometry;
     auto&               solids = geometry.solids;
 
+    constexpr float kSideThickness = 4.f;
+
     // 1) Ground band -> top-only surfaces.
     if (groundCollider) {
         const auto& colliderRects = groundCollider->getRectColliders();
@@ -338,12 +292,29 @@ void World::updateStaticWorldGeometry(const MultiRectCollider* groundCollider) {
             solid.kind  = StaticSolidKind::GroundBand;
             solid.sides = static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Top);
             solids.push_back(solid);
+
+            const float left   = groundRect.position.x;
+            const float top    = groundRect.position.y;
+            const float width  = groundRect.size.x;
+            const float height = groundRect.size.y;
+
+            // Left wall for ground band.
+            solids.push_back(StaticSolid{
+                sf::FloatRect{{left, top}, {kSideThickness, height}},
+                StaticSolidKind::GroundBand,
+                static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Left),
+            });
+
+            // Right wall for ground band.
+            solids.push_back(StaticSolid{
+                sf::FloatRect{{left + width - kSideThickness, top}, {kSideThickness, height}},
+                StaticSolidKind::GroundBand,
+                static_cast<std::uint8_t>(StaticSolidSide::SolidSide_Right),
+            });
         }
     }
 
     // 2) Platforms and obstacles -> split into top + walls.
-    constexpr float kSideThickness = 4.f;
-
     auto appendEntitySolids = [&](const Entity& entity, StaticSolidKind kind) {
         const sf::FloatRect bounds = entity.getCollider().worldAabb();
         const float         left   = bounds.position.x;

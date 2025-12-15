@@ -86,7 +86,9 @@ class World {
 
     float m_demonSpawnTimer = 10.f; // spawn a demon every 10 seconds
 
-    CollisionContext buildCollisionContext(float dt, const MultiRectCollider* groundCollider);
+    friend CollisionContext
+    collision::buildCollisionContext(const World& world, float dt,
+                                     const MultiRectCollider* groundCollider);
 
     void cullOffscreen();
 

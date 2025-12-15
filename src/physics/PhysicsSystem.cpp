@@ -91,12 +91,12 @@ void PhysicsSystem::integrateBody(PhysicsBody& body, float dt,
 
     // Top-only ground resolution matches previous Actor::applyPhysics() behavior.
     if (body.config.topOnlyGround && velocity.y >= 0.f) {
-        resolveTopOnlyGround(body, owner, position, velocity, dy, *staticWorld);
+        resolveVerticalGroundContacts(body, owner, position, velocity, dy, *staticWorld);
     }
 
     // Horizontal side collisions against static world walls.
     if (body.config.sideMask != 0 && velocity.x != 0.f) {
-        resolveHorizontalCollisions(body, owner, position, velocity, *staticWorld);
+        resolveHorizontalContacts(body, owner, position, velocity, *staticWorld);
     }
 
     // Push updated velocity back to the entity.
@@ -135,9 +135,10 @@ void PhysicsSystem::integratePosition(Entity& owner, sf::Vector2f& position,
     }
 }
 
-void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::Vector2f& position,
-                                         sf::Vector2f& velocity, float dy,
-                                         const StaticWorldGeometry& staticWorld) {
+void PhysicsSystem::resolveVerticalGroundContacts(PhysicsBody& body, Entity& owner,
+                                                  sf::Vector2f& position, sf::Vector2f& velocity,
+                                                  float                      dy,
+                                                  const StaticWorldGeometry& staticWorld) {
     const sf::FloatRect actorCollider = owner.getCollider().worldAabb();
 
     // Previous frame actor position on Y.
@@ -191,9 +192,9 @@ void PhysicsSystem::resolveTopOnlyGround(PhysicsBody& body, Entity& owner, sf::V
     }
 }
 
-void PhysicsSystem::resolveHorizontalCollisions(PhysicsBody& body, Entity& owner,
-                                                sf::Vector2f& position, sf::Vector2f& velocity,
-                                                const StaticWorldGeometry& staticWorld) {
+void PhysicsSystem::resolveHorizontalContacts(PhysicsBody& body, Entity& owner,
+                                              sf::Vector2f& position, sf::Vector2f& velocity,
+                                              const StaticWorldGeometry& staticWorld) {
     if (velocity.x == 0.f)
         return;
 
@@ -208,9 +209,10 @@ void PhysicsSystem::resolveHorizontalCollisions(PhysicsBody& body, Entity& owner
     bool  collided  = false;
 
     for (const StaticSolid& solid : staticWorld.solids) {
-        // Only treat obstacles as walls for now.
-        if (solid.kind !=
-            StaticSolidKind::Obstacle /*  && solid.kind != StaticSolidKind::Platform */)
+        // Treat ground band, obstacles as walls.
+        if (solid.kind != StaticSolidKind::Obstacle
+            /* && solid.kind != StaticSolidKind::Platform */
+            && solid.kind != StaticSolidKind::GroundBand)
             continue;
 
         if (movingRight) {

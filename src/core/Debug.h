@@ -1,5 +1,8 @@
 #pragma once
+
 #include "collision/Collider.h"
+#include "physics/StaticWorldGeometry.h"
+#include "utils/Palette.h"
 
 #include <SFML/Graphics/Color.hpp>
 #include <SFML/Graphics/RectangleShape.hpp>
@@ -91,6 +94,46 @@ namespace Debug {
                 color = sf::Color::Green; // green: safe
 
             drawRectOutline(target, band, color, 1.f);
+        }
+    }
+
+    inline void drawStaticWorldGeometry(sf::RenderTarget&          target,
+                                        const StaticWorldGeometry& geometry) {
+        for (const StaticSolid& solid : geometry.solids) {
+            sf::Color color;
+
+            if (hasSide(solid.sides, StaticSolidSide::SolidSide_Top)) {
+                // Top surfaces: distinguish by kind.
+                switch (solid.kind) {
+                case StaticSolidKind::GroundBand:
+                    color = Palette::kDebugStaticGroundTop;
+                    break;
+                case StaticSolidKind::Platform:
+                    color = Palette::kDebugStaticPlatformTop;
+                    break;
+                case StaticSolidKind::Obstacle:
+                    color = Palette::kDebugStaticObstacleTop;
+                    break;
+                }
+            } else if (hasSide(solid.sides, StaticSolidSide::SolidSide_Left) ||
+                       hasSide(solid.sides, StaticSolidSide::SolidSide_Right)) {
+                // Walls: use a distinct color to highlight vertical blockers.
+                switch (solid.kind) {
+                case StaticSolidKind::GroundBand:
+                    color = Palette::kDebugStaticGroundWall;
+                    break;
+                case StaticSolidKind::Platform:
+                    color = Palette::kDebugStaticPlatformWall;
+                    break;
+                case StaticSolidKind::Obstacle:
+                    color = Palette::kDebugStaticObstacleWall;
+                    break;
+                }
+            } else {
+                continue;
+            }
+
+            drawRectOutline(target, solid.rect, color, 1.f);
         }
     }
 } // namespace Debug

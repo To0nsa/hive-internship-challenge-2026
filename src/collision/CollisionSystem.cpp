@@ -1,10 +1,12 @@
 #include "collision/CollisionSystem.h"
 
 #include "collision/CollisionLayers.h"
+#include "core/World.h"
 #include "entities/actor/enemy/Enemy.h"
 #include "entities/actor/player/Player.h"
 #include "entities/collectible/RedSquare.h"
 #include "entities/obstacle/Obstacle.h"
+#include "entities/platform/Platform.h"
 #include "environment/Environment.h"
 #include "gameplay/Damage.h"
 #include "gameplay/GameSession.h"
@@ -171,4 +173,55 @@ void collision::resolve(const CollisionContext& ctx) {
     resolveObstacleTopDps(ctx);
     resolvePlayerCollectibles(ctx);
     resolveHazards(ctx);
+}
+
+CollisionContext collision::buildCollisionContext(const World& world, float dt,
+                                                  const MultiRectCollider* groundCollider) {
+    CollisionContext ctx;
+    ctx.dt          = dt;
+    ctx.player      = world.m_pPlayer;
+    ctx.ground      = groundCollider;
+    ctx.cameraView  = &world.m_camera.getView();
+    ctx.cameraLeft  = world.getCameraLeft();
+    ctx.session     = &world.m_session;
+    ctx.environment = &world.m_environment;
+
+    ctx.actors.reserve(world.m_entities.size());
+    ctx.enemies.reserve(world.m_entities.size());
+    ctx.projectiles.reserve(world.m_entities.size());
+    ctx.obstacles.reserve(world.m_entities.size());
+    ctx.platforms.reserve(world.m_entities.size());
+    ctx.collectibles.reserve(world.m_entities.size());
+
+    for (auto& entity : world.m_entities) {
+        if (!entity->isAlive())
+            continue;
+
+        switch (entity->getCollisionLayer()) {
+        case CollisionLayer::Player:
+            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
+            break;
+        case CollisionLayer::Enemy:
+            ctx.actors.push_back(static_cast<Actor*>(entity.get()));
+            ctx.enemies.push_back(static_cast<Enemy*>(entity.get()));
+            break;
+        case CollisionLayer::PlayerProjectile:
+        case CollisionLayer::EnemyProjectile:
+            ctx.projectiles.push_back(static_cast<Projectile*>(entity.get()));
+            break;
+        case CollisionLayer::Obstacle:
+            ctx.obstacles.push_back(static_cast<Obstacle*>(entity.get()));
+            break;
+        case CollisionLayer::Platform:
+            ctx.platforms.push_back(static_cast<Platform*>(entity.get()));
+            break;
+        case CollisionLayer::Collectible:
+            ctx.collectibles.push_back(static_cast<RedSquare*>(entity.get()));
+            break;
+        default:
+            break;
+        }
+    }
+
+    return ctx;
 }

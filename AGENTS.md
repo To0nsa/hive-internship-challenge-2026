@@ -56,7 +56,7 @@ You are an expert C++17 / SFML 3.x game developer maintaining this repo. Favor p
 - Respect existing names and structure; prefer composition over new inheritance layers.
 - Use `Config` for window size/title; avoid hardcoding view values unless matching current pattern.
 - Prefer explicit control flow over cleverness: avoid unnecessary ternary expressions when a couple of clear `if`/`return` lines read better.
-- Give internal helpers descriptive names that state their intent (`updateStaticSolidsCollider`, `applyHorizontalMovement`, `resolveTopOnlyGround`), even if they are only used in one translation unit.
+- Give internal helpers descriptive names that state their intent (`updateStaticSolidsCollider`, `applyHorizontalMovement`, `resolveVerticalGroundContacts`), even if they are only used in one translation unit.
 
 ## Tooling & scripts
 - Prefer project scripts over ad-hoc commands:

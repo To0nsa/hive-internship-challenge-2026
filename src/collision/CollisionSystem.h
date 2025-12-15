@@ -14,6 +14,7 @@ class Platform;
 class Player;
 class Projectile;
 class RedSquare;
+class World;
 
 struct CollisionContext {
     float dt = 0.f;
@@ -39,5 +40,9 @@ namespace collision {
 
     // Resolves all gameplay collisions in a frame using the provided context.
     void resolve(const CollisionContext& ctx);
+
+    // Builds a CollisionContext for the given world snapshot.
+    CollisionContext buildCollisionContext(const World& world, float dt,
+                                           const MultiRectCollider* groundCollider);
 
 } // namespace collision
